@@ -160,9 +160,9 @@ export default function CustomersPage() {
           head={
             <TR>
               <TH>Customer</TH>
-              <TH>Kontak</TH>
-              <TH>Alamat</TH>
-              <TH>Terdaftar</TH>
+              <TH className="hidden sm:table-cell">Kontak</TH>
+              <TH className="hidden lg:table-cell">Alamat</TH>
+              <TH className="hidden lg:table-cell">Terdaftar</TH>
               <TH className="text-right">Aksi</TH>
             </TR>
           }
@@ -172,8 +172,14 @@ export default function CustomersPage() {
               <TD>
                 <p className="font-medium">{customer.name}</p>
                 <p className="text-xs text-muted-foreground">{customer.code}</p>
+                {/* Nomor WA menyusul nama saat kolom kontak disembunyikan —
+                    itu satu-satunya cara menghubungi customer dari daftar. */}
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {customer.phone_wa}
+                  {customer.city ? ` · ${customer.city}` : ""}
+                </p>
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 <a
                   href={`https://wa.me/${customer.phone_wa}`}
                   target="_blank"
@@ -187,13 +193,15 @@ export default function CustomersPage() {
                   <p className="text-xs text-muted-foreground">{customer.email}</p>
                 )}
               </TD>
-              <TD className="max-w-xs">
+              <TD className="hidden max-w-xs lg:table-cell">
                 <p className="truncate text-sm">{customer.address || "—"}</p>
                 <p className="text-xs text-muted-foreground">
                   {[customer.city, customer.province].filter(Boolean).join(", ") || "—"}
                 </p>
               </TD>
-              <TD className="text-sm text-muted-foreground">{formatDate(customer.created_at)}</TD>
+              <TD className="hidden text-sm text-muted-foreground lg:table-cell">
+                {formatDate(customer.created_at)}
+              </TD>
               <TD>
                 <div className="flex justify-end gap-1">
                   <Button variant="ghost" size="icon-sm" onClick={() => openEdit(customer)}>

@@ -96,9 +96,9 @@ export default function PackingPage() {
           head={
             <TR>
               <TH>Order</TH>
-              <TH>Penerima</TH>
-              <TH>Tujuan</TH>
-              <TH className="text-right">Item</TH>
+              <TH className="hidden sm:table-cell">Penerima</TH>
+              <TH className="hidden lg:table-cell">Tujuan</TH>
+              <TH className="hidden text-right lg:table-cell">Item</TH>
               <TH className="text-right">Sisa Bayar</TH>
               <TH className="text-right">Aksi</TH>
             </TR>
@@ -106,23 +106,30 @@ export default function PackingPage() {
         >
           {data?.items.map((order) => (
             <TR key={order.id}>
-              <TD>
+              <TD className="whitespace-normal">
                 <Link href={`/orders/${order.id}`} className="font-medium hover:underline">
                   {order.order_number}
                 </Link>
                 <div className="mt-1">
                   <OrderStatusBadge status={order.status} />
                 </div>
+                {/* Penerima dan kota menyusul nomor order saat kolomnya
+                    disembunyikan; itu yang dipakai mencocokkan paket. */}
+                <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+                  {order.recipient_name} · {order.shipping_city}
+                </p>
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 <p className="font-medium">{order.recipient_name}</p>
                 <p className="text-xs text-muted-foreground">{order.recipient_phone}</p>
               </TD>
-              <TD className="max-w-xs">
+              <TD className="hidden max-w-xs lg:table-cell">
                 <p className="truncate text-sm">{order.shipping_address}</p>
                 <p className="text-xs text-muted-foreground">{order.shipping_city}</p>
               </TD>
-              <TD className="tabular text-right">{formatNumber(order.total_qty ?? 0)} pcs</TD>
+              <TD className="tabular hidden text-right lg:table-cell">
+                {formatNumber(order.total_qty ?? 0)} pcs
+              </TD>
               <TD
                 className={`tabular text-right ${
                   toNumber(order.balance_due) > 0
@@ -136,7 +143,8 @@ export default function PackingPage() {
                 <Button size="sm" asChild>
                   <Link href={`/orders/${order.id}`}>
                     <PackageCheck />
-                    Proses
+                    <span className="hidden sm:inline">Proses</span>
+                    <span className="sr-only sm:hidden">Proses order {order.order_number}</span>
                   </Link>
                 </Button>
               </TD>

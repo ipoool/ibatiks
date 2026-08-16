@@ -110,7 +110,7 @@ export default function StockPage() {
                 <TR>
                   <TH>Produk</TH>
                   <TH className="text-right">Qty</TH>
-                  <TH className="text-right">HPP rata-rata</TH>
+                  <TH className="hidden text-right sm:table-cell">HPP rata-rata</TH>
                   <TH className="text-right">Nilai stok</TH>
                   <TH className="text-right">Aksi</TH>
                 </TR>
@@ -118,7 +118,7 @@ export default function StockPage() {
             >
               {data?.items.map((item) => (
                 <TR key={item.id}>
-                  <TD>
+                  <TD className="whitespace-normal">
                     <p className="font-medium">{item.product_name}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.product_sku}
@@ -128,7 +128,9 @@ export default function StockPage() {
                   <TD className="tabular text-right font-semibold">
                     {formatNumber(item.qty_on_hand)}
                   </TD>
-                  <TD className="tabular text-right">{formatIDR(item.avg_cost_idr)}</TD>
+                  <TD className="tabular hidden text-right sm:table-cell">
+                    {formatIDR(item.avg_cost_idr)}
+                  </TD>
                   <TD className="tabular text-right font-medium">{formatIDR(item.stock_value)}</TD>
                   <TD>
                     <div className="flex justify-end gap-1">
@@ -139,7 +141,8 @@ export default function StockPage() {
                         onClick={() => setSelling(item)}
                       >
                         <ShoppingBag />
-                        Jual
+                        <span className="hidden sm:inline">Jual</span>
+                        <span className="sr-only sm:hidden">Jual {item.product_name}</span>
                       </Button>
                       <Button variant="ghost" size="icon-sm" onClick={() => setAdjusting(item)}>
                         <SlidersHorizontal />

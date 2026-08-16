@@ -91,9 +91,9 @@ export default function PurchasesPage() {
             <TR>
               <TH className="w-10" />
               <TH>Produk</TH>
-              <TH>Tanggal</TH>
+              <TH className="hidden lg:table-cell">Tanggal</TH>
               <TH className="text-right">Qty</TH>
-              <TH className="text-right">Modal/pcs</TH>
+              <TH className="hidden text-right sm:table-cell">Modal/pcs</TH>
               <TH className="text-right">Total</TH>
               <TH className="text-right">Aksi</TH>
             </TR>
@@ -150,17 +150,26 @@ function PurchaseRow({
             <span className="sr-only">Lihat alokasi</span>
           </Button>
         </TD>
-        <TD>
+        <TD className="whitespace-normal">
           <p className="font-medium">{purchase.product_name}</p>
           <p className="text-xs text-muted-foreground">
             {purchase.product_sku}
             {purchase.store_name ? ` · ${purchase.store_name}` : ""}
           </p>
+          {/* Tanggal belanja menyusul nama produk saat kolomnya disembunyikan:
+              satu produk bisa dibeli berkali-kali dalam satu trip. */}
+          <p className="text-xs text-muted-foreground lg:hidden">
+            {formatDate(purchase.purchase_date)}
+          </p>
         </TD>
-        <TD className="whitespace-nowrap text-sm">{formatDate(purchase.purchase_date)}</TD>
+        <TD className="hidden whitespace-nowrap text-sm lg:table-cell">
+          {formatDate(purchase.purchase_date)}
+        </TD>
         <TD className="text-right">
           <span className="tabular font-medium">{formatNumber(purchase.qty)}</span>
-          <div className="mt-0.5 flex justify-end gap-1">
+          {/* Rincian alokasi memakan lebar yang tidak ada di ponsel; angkanya
+              tetap bisa dilihat dengan membuka baris ini. */}
+          <div className="mt-0.5 hidden justify-end gap-1 sm:flex">
             {(purchase.qty_to_orders ?? 0) > 0 && (
               <Badge variant="info">{purchase.qty_to_orders} pesanan</Badge>
             )}
@@ -169,7 +178,7 @@ function PurchaseRow({
             )}
           </div>
         </TD>
-        <TD className="tabular text-right">
+        <TD className="tabular hidden text-right sm:table-cell">
           {formatIDR(purchase.unit_cost_idr)}
           <p className="text-xs text-muted-foreground">
             {formatNumber(purchase.unit_cost_foreign)} {purchase.currency}

@@ -203,17 +203,19 @@ export default function ProductsPage() {
           head={
             <TR>
               <TH>Produk</TH>
-              <TH>Kategori</TH>
+              <TH className="hidden xl:table-cell">Kategori</TH>
               <TH className="text-right">Harga Modal</TH>
-              <TH className="text-right">Markup</TH>
-              <TH className="text-right">Berat</TH>
+              <TH className="hidden text-right sm:table-cell">Markup</TH>
+              <TH className="hidden text-right xl:table-cell">Berat</TH>
               <TH className="text-right">Aksi</TH>
             </TR>
           }
         >
           {data?.items.map((product) => (
             <TR key={product.id}>
-              <TD>
+              {/* Nama produk panjang: dibiarkan turun baris supaya tidak
+                  mendorong kolom harga dan tombol keluar dari kartunya. */}
+              <TD className="whitespace-normal">
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{product.name}</p>
                   {!product.is_active && <Badge variant="neutral">Nonaktif</Badge>}
@@ -223,18 +225,20 @@ export default function ProductsPage() {
                   {product.brand ? ` · ${product.brand}` : ""}
                 </p>
               </TD>
-              <TD className="text-sm text-muted-foreground">{product.category_name ?? "—"}</TD>
+              <TD className="hidden text-sm text-muted-foreground xl:table-cell">
+                {product.category_name ?? "—"}
+              </TD>
               <TD className="tabular text-right">
                 {product.base_currency === "IDR"
                   ? formatIDR(product.base_price)
                   : `${product.base_currency} ${formatNumber(product.base_price)}`}
               </TD>
-              <TD className="tabular text-right">
+              <TD className="tabular hidden text-right sm:table-cell">
                 {product.markup_type === "percent"
                   ? `${formatNumber(product.markup_value)}%`
                   : formatIDR(product.markup_value)}
               </TD>
-              <TD className="tabular text-right text-muted-foreground">
+              <TD className="tabular hidden text-right text-muted-foreground xl:table-cell">
                 {formatNumber(product.weight_gram)} g
               </TD>
               <TD>

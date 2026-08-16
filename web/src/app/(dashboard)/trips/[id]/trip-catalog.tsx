@@ -209,11 +209,11 @@ export function TripCatalog({ trip }: { trip: Trip }) {
         head={
           <TR>
             <TH>Produk</TH>
-            <TH className="text-right">Modal ({trip.currency})</TH>
-            <TH className="text-right">Modal (Rp)</TH>
-            <TH className="text-right">Markup</TH>
+            <TH className="hidden text-right sm:table-cell">Modal ({trip.currency})</TH>
+            <TH className="hidden text-right lg:table-cell">Modal (Rp)</TH>
+            <TH className="hidden text-right lg:table-cell">Markup</TH>
             <TH className="text-right">Harga Jual</TH>
-            <TH className="text-right">Dipesan</TH>
+            <TH className="hidden text-right sm:table-cell">Dipesan</TH>
             <TH className="text-right">Aksi</TH>
           </TR>
         }
@@ -230,17 +230,19 @@ export function TripCatalog({ trip }: { trip: Trip }) {
                 {item.brand ? ` · ${item.brand}` : ""}
               </p>
             </TD>
-            <TD className="tabular text-right">{formatNumber(item.cost_price)}</TD>
-            <TD className="tabular text-right text-muted-foreground">
+            <TD className="tabular hidden text-right sm:table-cell">
+              {formatNumber(item.cost_price)}
+            </TD>
+            <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
               {formatIDR(item.cost_price_idr)}
             </TD>
-            <TD className="tabular text-right">
+            <TD className="tabular hidden text-right lg:table-cell">
               {item.markup_type === "percent"
                 ? `${formatNumber(item.markup_value)}%`
                 : formatIDR(item.markup_value)}
             </TD>
             <TD className="tabular text-right font-semibold">{formatIDR(item.sell_price)}</TD>
-            <TD className="tabular text-right">
+            <TD className="tabular hidden text-right sm:table-cell">
               {formatNumber(item.qty_ordered)}
               {item.max_qty ? (
                 <span className="text-muted-foreground"> / {formatNumber(item.max_qty)}</span>

@@ -7,7 +7,11 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
+        // min-w-0: sebagai anak grid atau flex, kartu bawaannya tidak boleh
+        // menyusut di bawah lebar isinya. Kartu berisi tabel jadi ikut melebar
+        // sampai keluar layar ponsel, dan `overflow-x-auto` di dalam tabel tidak
+        // pernah terpakai karena tidak ada yang memaksanya sempit.
+        "flex min-w-0 flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
         className
       )}
       {...props}

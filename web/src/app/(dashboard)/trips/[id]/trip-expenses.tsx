@@ -136,9 +136,9 @@ export function TripExpenses({ trip }: { trip: Trip }) {
         }
         head={
           <TR>
-            <TH>Tanggal</TH>
+            <TH className="hidden sm:table-cell">Tanggal</TH>
             <TH>Kategori</TH>
-            <TH>Keterangan</TH>
+            <TH className="hidden lg:table-cell">Keterangan</TH>
             <TH className="text-right">Nominal</TH>
             <TH className="text-right">Aksi</TH>
           </TR>
@@ -146,9 +146,19 @@ export function TripExpenses({ trip }: { trip: Trip }) {
       >
         {expenses?.map((expense) => (
           <TR key={expense.id}>
-            <TD className="whitespace-nowrap text-sm">{formatDate(expense.spent_at)}</TD>
-            <TD className="text-sm">{CATEGORY_LABEL[expense.category]}</TD>
-            <TD>
+            <TD className="hidden whitespace-nowrap text-sm sm:table-cell">
+              {formatDate(expense.spent_at)}
+            </TD>
+            <TD className="text-sm">
+              {CATEGORY_LABEL[expense.category]}
+              {/* Tanggal dan keterangan menyusul kategori saat kolomnya
+                  disembunyikan; satu kategori bisa dicatat berkali-kali. */}
+              <p className="text-xs text-muted-foreground sm:hidden">
+                {formatDate(expense.spent_at)}
+              </p>
+              <p className="text-xs text-muted-foreground lg:hidden">{expense.description}</p>
+            </TD>
+            <TD className="hidden lg:table-cell">
               <p className="text-sm">{expense.description}</p>
               {expense.receipt_url && (
                 <a

@@ -119,10 +119,10 @@ export function TripShopping({ trip }: { trip: Trip }) {
         head={
           <TR>
             <TH>Produk</TH>
-            <TH>Toko</TH>
-            <TH className="text-right">Dipesan</TH>
-            <TH className="text-right">Menunggu DP</TH>
-            <TH className="text-right">Dibeli</TH>
+            <TH className="hidden lg:table-cell">Toko</TH>
+            <TH className="hidden text-right sm:table-cell">Dipesan</TH>
+            <TH className="hidden text-right lg:table-cell">Menunggu DP</TH>
+            <TH className="hidden text-right sm:table-cell">Dibeli</TH>
             <TH className="text-right">Sisa</TH>
             <TH className="text-right">Aksi</TH>
           </TR>
@@ -132,7 +132,7 @@ export function TripShopping({ trip }: { trip: Trip }) {
           const done = entry.qty_remaining === 0;
           return (
             <TR key={entry.product_id} className={done ? "opacity-60" : undefined}>
-              <TD>
+              <TD className="whitespace-normal">
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{entry.product_name}</p>
                   {done && (
@@ -146,19 +146,29 @@ export function TripShopping({ trip }: { trip: Trip }) {
                   {entry.product_sku} · dipesan {formatNumber(entry.order_count)} customer · modal{" "}
                   {formatNumber(entry.cost_price)} {trip.currency}
                 </p>
+                {/* Di ponsel yang tersisa hanya kolom "Sisa", jadi angka pesanan
+                    dan yang sudah dibeli dituliskan di sini — tanpa keduanya
+                    tripper tidak tahu sisa itu dari berapa. */}
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {formatNumber(entry.qty_purchased)} dari {formatNumber(entry.qty_ordered)} dibeli
+                </p>
               </TD>
-              <TD className="text-sm text-muted-foreground">{entry.store_name ?? "—"}</TD>
-              <TD className="tabular text-right font-medium">{formatNumber(entry.qty_ordered)}</TD>
+              <TD className="hidden text-sm text-muted-foreground lg:table-cell">
+                {entry.store_name ?? "—"}
+              </TD>
+              <TD className="tabular hidden text-right font-medium sm:table-cell">
+                {formatNumber(entry.qty_ordered)}
+              </TD>
               {/* Permintaan yang DP-nya belum masuk sengaja dipisah: angkanya
                   berguna sebagai ancang-ancang, tapi belum boleh dibelanjakan. */}
               <TD
-                className={`tabular text-right ${
+                className={`tabular hidden text-right lg:table-cell ${
                   entry.qty_awaiting_dp > 0 ? "text-amber-600" : "text-muted-foreground"
                 }`}
               >
                 {formatNumber(entry.qty_awaiting_dp)}
               </TD>
-              <TD className="tabular text-right text-emerald-600">
+              <TD className="tabular hidden text-right text-emerald-600 sm:table-cell">
                 {formatNumber(entry.qty_purchased)}
               </TD>
               <TD
@@ -169,9 +179,12 @@ export function TripShopping({ trip }: { trip: Trip }) {
                 {formatNumber(entry.qty_remaining)}
               </TD>
               <TD className="text-right">
+                {/* Di ponsel tombolnya tinggal ikon: label "Catat Beli" memakan
+                    lebar yang lebih berguna untuk nama produk. */}
                 <Button size="sm" variant={done ? "outline" : "default"} onClick={() => openBuy(entry)}>
                   <ShoppingCart />
-                  Catat Beli
+                  <span className="hidden sm:inline">Catat Beli</span>
+                  <span className="sr-only sm:hidden">Catat pembelian {entry.product_name}</span>
                 </Button>
               </TD>
             </TR>

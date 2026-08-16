@@ -343,9 +343,9 @@ function UserManagement() {
         head={
           <TR>
             <TH>Nama</TH>
-            <TH>Email</TH>
+            <TH className="hidden sm:table-cell">Email</TH>
             <TH>Role</TH>
-            <TH>Login terakhir</TH>
+            <TH className="hidden lg:table-cell">Login terakhir</TH>
             <TH className="text-right">Aksi</TH>
           </TR>
         }
@@ -358,14 +358,17 @@ function UserManagement() {
                 {!user.is_active && <Badge variant="neutral">Nonaktif</Badge>}
               </div>
               {user.phone && <p className="text-xs text-muted-foreground">{user.phone}</p>}
+              {/* Email menyusul nama saat kolomnya disembunyikan: itu yang
+                  dipakai login, jadi tidak boleh hilang dari daftar. */}
+              <p className="text-xs text-muted-foreground sm:hidden">{user.email}</p>
             </TD>
-            <TD className="text-sm">{user.email}</TD>
+            <TD className="hidden text-sm sm:table-cell">{user.email}</TD>
             <TD>
               <Badge variant={user.role === "owner" ? "info" : "neutral"}>
                 {ROLE_LABEL[user.role]}
               </Badge>
             </TD>
-            <TD className="text-sm text-muted-foreground">
+            <TD className="hidden text-sm text-muted-foreground lg:table-cell">
               {user.last_login_at ? formatDateTime(user.last_login_at) : "belum pernah"}
             </TD>
             <TD>
@@ -581,21 +584,26 @@ function AuditTrail() {
           head={
             <TR>
               <TH>Waktu</TH>
-              <TH>Pengguna</TH>
+              <TH className="hidden sm:table-cell">Pengguna</TH>
               <TH>Aksi</TH>
-              <TH>Detail</TH>
+              <TH className="hidden lg:table-cell">Detail</TH>
             </TR>
           }
         >
           {data?.items.map((log) => (
             <TR key={log.id}>
-              <TD className="whitespace-nowrap text-sm">{formatDateTime(log.created_at)}</TD>
-              <TD className="text-sm">{log.user_name ?? "sistem"}</TD>
+              <TD className="text-sm">
+                <span className="whitespace-nowrap">{formatDateTime(log.created_at)}</span>
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {log.user_name ?? "sistem"}
+                </p>
+              </TD>
+              <TD className="hidden text-sm sm:table-cell">{log.user_name ?? "sistem"}</TD>
               <TD>
                 <Badge variant="neutral">{ACTION_LABEL[log.action] ?? log.action}</Badge>
                 <p className="mt-1 text-xs text-muted-foreground">{log.entity}</p>
               </TD>
-              <TD className="max-w-md">
+              <TD className="hidden max-w-md lg:table-cell">
                 {log.changes ? (
                   <code className="block truncate text-xs text-muted-foreground">
                     {JSON.stringify(log.changes)}
@@ -661,10 +669,10 @@ function ShippingRates() {
           head={
             <TR>
               <TH className="min-w-40">Kota</TH>
-              <TH className="w-24">Kurir</TH>
-              <TH className="w-24">Layanan</TH>
+              <TH className="hidden w-24 lg:table-cell">Kurir</TH>
+              <TH className="hidden w-24 sm:table-cell">Layanan</TH>
               <TH className="w-32 text-right">Per kg</TH>
-              <TH className="w-24">Estimasi</TH>
+              <TH className="hidden w-24 sm:table-cell">Estimasi</TH>
               {canEdit && <TH className="w-16 text-right">Aksi</TH>}
             </TR>
           }
@@ -677,10 +685,12 @@ function ShippingRates() {
                   <p className="text-xs text-muted-foreground">{rate.province}</p>
                 )}
               </TD>
-              <TD className="text-sm">{rate.courier}</TD>
-              <TD className="text-sm">{rate.service}</TD>
+              <TD className="hidden text-sm lg:table-cell">{rate.courier}</TD>
+              <TD className="hidden text-sm sm:table-cell">{rate.service}</TD>
               <TD className="tabular text-right font-medium">{formatIDR(rate.price_per_kg)}</TD>
-              <TD className="text-sm text-muted-foreground">{rate.etd || "—"}</TD>
+              <TD className="hidden text-sm text-muted-foreground sm:table-cell">
+                {rate.etd || "—"}
+              </TD>
               {canEdit && (
                 <TD className="text-right">
                   <Button

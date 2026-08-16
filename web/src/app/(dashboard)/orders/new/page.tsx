@@ -231,7 +231,7 @@ function NewOrderForm() {
       <ErrorState error={createOrder.error} />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle>Trip &amp; customer</CardTitle>
@@ -361,7 +361,7 @@ function NewOrderForm() {
                     <TH>Produk</TH>
                     <TH className="w-28 text-right">Qty</TH>
                     <TH className="w-40 text-right">Harga</TH>
-                    <TH className="text-right">Subtotal</TH>
+                    <TH className="hidden text-right sm:table-cell">Subtotal</TH>
                     <TH className="w-12" />
                   </TR>
                 }
@@ -404,8 +404,14 @@ function NewOrderForm() {
                           }
                           className="h-9 text-right"
                         />
+                        <p className="tabular mt-1 text-right text-xs font-medium sm:hidden">
+                          {formatIDR(item.qty * toNumber(item.unit_price))}
+                        </p>
                       </TD>
-                      <TD className="tabular text-right font-medium">
+                      {/* Subtotal tetap terbaca di ponsel lewat keterangan di
+                          bawah harga; kolomnya sendiri disembunyikan karena dua
+                          kolom isian sudah memenuhi lebar layar. */}
+                      <TD className="tabular hidden text-right font-medium sm:table-cell">
                         {formatIDR(item.qty * toNumber(item.unit_price))}
                       </TD>
                       <TD>

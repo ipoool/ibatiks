@@ -92,23 +92,29 @@ export default function ShipmentsPage() {
           head={
             <TR>
               <TH>Order</TH>
-              <TH>Penerima</TH>
+              <TH className="hidden sm:table-cell">Penerima</TH>
               <TH>Resi</TH>
-              <TH className="text-right">Ongkir</TH>
-              <TH>Dikirim</TH>
+              <TH className="hidden text-right lg:table-cell">Ongkir</TH>
+              <TH className="hidden lg:table-cell">Dikirim</TH>
               <TH>Status</TH>
             </TR>
           }
         >
           {data?.items.map((shipment) => (
             <TR key={shipment.id}>
-              <TD>
+              <TD className="whitespace-normal">
                 <Link href={`/orders/${shipment.order_id}`} className="font-medium hover:underline">
                   {shipment.order_number}
                 </Link>
                 <p className="text-xs text-muted-foreground">{shipment.customer_name}</p>
+                {/* Kota tujuan menyusul nomor order saat kolom penerima
+                    disembunyikan — itu yang membedakan satu paket dari lainnya
+                    ketika mencocokkan tumpukan kiriman. */}
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {shipment.shipping_city}
+                </p>
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 <p className="text-sm font-medium">{shipment.recipient_name}</p>
                 <p className="text-xs text-muted-foreground">{shipment.shipping_city}</p>
               </TD>
@@ -141,7 +147,7 @@ export default function ShipmentsPage() {
               {/* Paket yang belum diserahkan ke kurir belum punya ongkir asli;
                   yang ditampilkan perkiraannya, ditandai supaya tidak dikira
                   angka final saat merekap biaya. */}
-              <TD className="tabular text-right">
+              <TD className="tabular hidden text-right lg:table-cell">
                 {toNumber(shipment.shipping_cost) > 0 ? (
                   formatIDR(shipment.shipping_cost)
                 ) : toNumber(shipment.estimated_cost) > 0 ? (
@@ -153,7 +159,7 @@ export default function ShipmentsPage() {
                   <span className="text-muted-foreground">{formatIDR(0)}</span>
                 )}
               </TD>
-              <TD className="text-sm">
+              <TD className="hidden text-sm lg:table-cell">
                 {formatDate(shipment.shipped_at)}
                 {shipment.shipped_at && !shipment.customer_notified_at && (
                   <p className="flex items-center gap-1 text-xs text-amber-600">

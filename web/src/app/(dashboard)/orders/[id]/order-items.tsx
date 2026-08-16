@@ -122,10 +122,10 @@ export function OrderItems({ order }: { order: OrderDetail }) {
                   terpecah per huruf saat panel ringkasan mempersempit tabel.
                   Status pemenuhan ikut di kolom ini, bukan kolom sendiri, agar
                   tabel tetap muat di samping panel ringkasan biaya. */}
-              <TH className="min-w-40">Produk</TH>
-              <TH className="w-14 text-right">Qty</TH>
-              <TH className="w-24 text-right">Harga</TH>
-              <TH className="w-28 text-right">Subtotal</TH>
+              <TH className="sm:min-w-40">Produk</TH>
+              <TH className="w-12 text-right sm:w-14">Qty</TH>
+              <TH className="w-20 text-right sm:w-24">Harga</TH>
+              <TH className="hidden w-28 text-right sm:table-cell">Subtotal</TH>
               <TH className="w-16 text-right">Aksi</TH>
             </TR>
           }
@@ -135,7 +135,9 @@ export function OrderItems({ order }: { order: OrderDetail }) {
 
             return (
               <TR key={item.id}>
-                <TD>
+                {/* Nama produk boleh turun baris di layar sempit; dipaksa satu
+                    baris, ia mendorong kolom harga dan tombol keluar layar. */}
+                <TD className="whitespace-normal">
                   <p className="font-medium">{item.product_name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                     <FulfillmentBadge status={item.fulfillment_status} />
@@ -173,11 +175,21 @@ export function OrderItems({ order }: { order: OrderDetail }) {
                       className="h-9 text-right"
                     />
                   ) : (
-                    <span className="tabular">{formatIDR(item.unit_price)}</span>
+                    <>
+                      <span className="tabular">{formatIDR(item.unit_price)}</span>
+                      <p className="tabular text-xs font-medium sm:hidden">
+                        {formatIDR(item.subtotal)}
+                      </p>
+                    </>
                   )}
                 </TD>
 
-                <TD className="tabular text-right font-medium">{formatIDR(item.subtotal)}</TD>
+                {/* Subtotal disembunyikan di ponsel, bukan harga satuan: harga
+                    satuan bisa disunting langsung di kolomnya, sedangkan subtotal
+                    hanyalah hasil kali yang bisa dituliskan sebagai keterangan. */}
+                <TD className="tabular hidden text-right font-medium sm:table-cell">
+                  {formatIDR(item.subtotal)}
+                </TD>
 
                 <TD>
                   <div className="flex justify-end gap-1">

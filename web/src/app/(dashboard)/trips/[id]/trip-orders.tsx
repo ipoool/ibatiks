@@ -55,10 +55,10 @@ export function TripOrders({ trip }: { trip: Trip }) {
           head={
             <TR>
               <TH>Order</TH>
-              <TH>Customer</TH>
-              <TH className="text-right">Item</TH>
+              <TH className="hidden sm:table-cell">Customer</TH>
+              <TH className="hidden text-right lg:table-cell">Item</TH>
               <TH className="text-right">Total</TH>
-              <TH className="text-right">Sisa Bayar</TH>
+              <TH className="hidden text-right sm:table-cell">Sisa Bayar</TH>
               <TH>Status</TH>
             </TR>
           }
@@ -70,12 +70,13 @@ export function TripOrders({ trip }: { trip: Trip }) {
                   {order.order_number}
                 </Link>
                 <p className="text-xs text-muted-foreground">{formatDate(order.order_date)}</p>
+                <p className="text-xs text-muted-foreground sm:hidden">{order.customer_name}</p>
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 <p className="font-medium">{order.customer_name}</p>
                 <p className="text-xs text-muted-foreground">{order.customer_code}</p>
               </TD>
-              <TD className="tabular text-right">
+              <TD className="tabular hidden text-right lg:table-cell">
                 {formatNumber(order.total_qty ?? 0)} pcs
                 <p className="text-xs text-muted-foreground">
                   {formatNumber(order.item_count ?? 0)} produk
@@ -83,7 +84,7 @@ export function TripOrders({ trip }: { trip: Trip }) {
               </TD>
               <TD className="tabular text-right font-medium">{formatIDR(order.total)}</TD>
               <TD
-                className={`tabular text-right ${
+                className={`tabular hidden text-right sm:table-cell ${
                   toNumber(order.balance_due) > 0 ? "font-medium text-amber-600" : "text-muted-foreground"
                 }`}
               >

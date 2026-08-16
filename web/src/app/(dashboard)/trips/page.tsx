@@ -86,17 +86,17 @@ export default function TripsPage() {
           head={
             <TR>
               <TH>Trip</TH>
-              <TH>Tanggal</TH>
-              <TH>Kurs</TH>
-              <TH className="text-right">Katalog</TH>
-              <TH className="text-right">Order</TH>
+              <TH className="hidden sm:table-cell">Tanggal</TH>
+              <TH className="hidden xl:table-cell">Kurs</TH>
+              <TH className="hidden text-right lg:table-cell">Katalog</TH>
+              <TH className="hidden text-right sm:table-cell">Order</TH>
               <TH>Status</TH>
             </TR>
           }
         >
           {data?.items.map((trip) => (
             <TR key={trip.id}>
-              <TD>
+              <TD className="whitespace-normal">
                 <Link href={`/trips/${trip.id}`} className="font-medium hover:underline">
                   {trip.title}
                 </Link>
@@ -104,8 +104,13 @@ export default function TripsPage() {
                   {trip.code} · {trip.country}
                   {trip.city ? `, ${trip.city}` : ""}
                 </p>
+                {/* Tanggal berangkat ikut di kolom trip selama kolom tanggalnya
+                    disembunyikan — itu yang paling dicari saat memilih trip. */}
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {formatDate(trip.depart_date)} · {formatNumber(trip.total_orders ?? 0)} order
+                </p>
               </TD>
-              <TD className="whitespace-nowrap text-sm">
+              <TD className="hidden whitespace-nowrap text-sm sm:table-cell">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="size-3.5 text-muted-foreground" />
                   {formatDate(trip.depart_date)}
@@ -114,16 +119,16 @@ export default function TripsPage() {
                   s/d {formatDate(trip.return_date)}
                 </p>
               </TD>
-              <TD className="tabular whitespace-nowrap text-sm">
+              <TD className="tabular hidden whitespace-nowrap text-sm xl:table-cell">
                 1 {trip.currency} = {formatNumber(trip.exchange_rate)}
               </TD>
-              <TD className="tabular text-right">
+              <TD className="tabular hidden text-right lg:table-cell">
                 <span className="inline-flex items-center gap-1.5">
                   <Package className="size-3.5 text-muted-foreground" />
                   {formatNumber(trip.catalog_items ?? 0)}
                 </span>
               </TD>
-              <TD className="tabular text-right">
+              <TD className="tabular hidden text-right sm:table-cell">
                 <span className="inline-flex items-center gap-1.5">
                   <Users className="size-3.5 text-muted-foreground" />
                   {formatNumber(trip.total_orders ?? 0)}

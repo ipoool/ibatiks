@@ -112,7 +112,7 @@ export default function DashboardPage() {
               head={
                 <TR>
                   <TH>Order</TH>
-                  <TH>Customer</TH>
+                  <TH className="hidden sm:table-cell">Customer</TH>
                   <TH className="text-right">Total</TH>
                   <TH>Status</TH>
                 </TR>
@@ -125,8 +125,9 @@ export default function DashboardPage() {
                       {order.order_number}
                     </Link>
                     <p className="text-xs text-muted-foreground">{formatDate(order.order_date)}</p>
+                    <p className="text-xs text-muted-foreground sm:hidden">{order.customer_name}</p>
                   </TD>
-                  <TD>
+                  <TD className="hidden sm:table-cell">
                     <p className="font-medium">{order.customer_name}</p>
                     <p className="text-xs text-muted-foreground">{order.trip_code}</p>
                   </TD>
@@ -192,8 +193,8 @@ export default function DashboardPage() {
               <TR>
                 <TH>Produk</TH>
                 <TH className="text-right">Terjual</TH>
-                <TH className="text-right">Omzet</TH>
-                <TH className="text-right">HPP</TH>
+                <TH className="hidden text-right sm:table-cell">Omzet</TH>
+                <TH className="hidden text-right xl:table-cell">HPP</TH>
                 <TH className="text-right">Profit</TH>
               </TR>
             }
@@ -205,8 +206,12 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">{product.product_sku}</p>
                 </TD>
                 <TD className="tabular text-right">{formatNumber(product.qty_sold)}</TD>
-                <TD className="tabular text-right">{formatIDR(product.revenue)}</TD>
-                <TD className="tabular text-right text-muted-foreground">{formatIDR(product.cogs)}</TD>
+                <TD className="tabular hidden text-right sm:table-cell">
+                  {formatIDR(product.revenue)}
+                </TD>
+                <TD className="tabular hidden text-right text-muted-foreground xl:table-cell">
+                  {formatIDR(product.cogs)}
+                </TD>
                 <TD
                   className={`tabular text-right font-medium ${
                     toNumber(product.profit) >= 0 ? "text-emerald-600" : "text-red-600"

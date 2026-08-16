@@ -150,12 +150,12 @@ export default function OrdersPage() {
           head={
             <TR>
               <TH className="min-w-32">Order</TH>
-              <TH className="min-w-32">Customer</TH>
-              <TH className="min-w-28">Trip</TH>
-              <TH className="w-24">Channel</TH>
-              <TH className="w-16 text-right">Pcs</TH>
+              <TH className="hidden min-w-32 sm:table-cell">Customer</TH>
+              <TH className="hidden min-w-28 xl:table-cell">Trip</TH>
+              <TH className="hidden w-24 xl:table-cell">Channel</TH>
+              <TH className="hidden w-16 text-right lg:table-cell">Pcs</TH>
               <TH className="w-28 text-right">Total</TH>
-              <TH className="w-28 text-right">Sisa Bayar</TH>
+              <TH className="hidden w-28 text-right sm:table-cell">Sisa Bayar</TH>
               <TH className="w-28">Status</TH>
             </TR>
           }
@@ -170,24 +170,35 @@ export default function OrdersPage() {
                   {order.order_number}
                 </Link>
                 <p className="text-xs text-muted-foreground">{formatDate(order.order_date)}</p>
+                {/* Nama customer ikut di kolom order selama kolomnya sendiri
+                    disembunyikan; tanpa itu daftar order di ponsel cuma berisi
+                    nomor yang tidak bisa dibedakan satu sama lain. */}
+                <p className="text-xs text-muted-foreground sm:hidden">{order.customer_name}</p>
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 <p className="font-medium">{order.customer_name}</p>
                 <p className="text-xs text-muted-foreground">{order.shipping_city}</p>
               </TD>
-              <TD className="text-sm">
+              <TD className="hidden text-sm xl:table-cell">
                 <p>{order.trip_code}</p>
                 <p className="max-w-40 truncate text-xs text-muted-foreground">{order.trip_title}</p>
               </TD>
-              <TD>
+              <TD className="hidden xl:table-cell">
                 <OrderSourceBadge source={order.order_source} />
               </TD>
-              <TD className="tabular text-right text-sm">{formatNumber(order.total_qty ?? 0)}</TD>
+              <TD className="tabular hidden text-right text-sm lg:table-cell">
+                {formatNumber(order.total_qty ?? 0)}
+              </TD>
               <TD className="tabular whitespace-nowrap text-right font-medium">
                 {money(order.total, order)}
+                {toNumber(order.balance_due) > 0 && (
+                  <p className="text-xs font-normal text-amber-600 sm:hidden">
+                    sisa {money(order.balance_due, order)}
+                  </p>
+                )}
               </TD>
               <TD
-                className={`tabular whitespace-nowrap text-right ${
+                className={`tabular hidden whitespace-nowrap text-right sm:table-cell ${
                   toNumber(order.balance_due) > 0
                     ? "font-medium text-amber-600"
                     : "text-muted-foreground"

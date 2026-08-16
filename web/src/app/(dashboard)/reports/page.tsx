@@ -115,11 +115,11 @@ function ReceivablesReport() {
           head={
             <TR>
               <TH>Order</TH>
-              <TH>Customer</TH>
-              <TH className="text-right">Total</TH>
-              <TH className="text-right">Sudah bayar</TH>
+              <TH className="hidden sm:table-cell">Customer</TH>
+              <TH className="hidden text-right lg:table-cell">Total</TH>
+              <TH className="hidden text-right lg:table-cell">Sudah bayar</TH>
               <TH className="text-right">Sisa</TH>
-              <TH className="text-right">Umur</TH>
+              <TH className="hidden text-right sm:table-cell">Umur</TH>
               <TH className="w-16 text-right">Aksi</TH>
             </TR>
           }
@@ -133,19 +133,25 @@ function ReceivablesReport() {
                 <div className="mt-1">
                   <OrderStatusBadge status={item.status} />
                 </div>
+                {/* Nama customer dan umur tagihan menyusul nomor order saat
+                    kolomnya disembunyikan — dua hal itu yang menentukan siapa
+                    yang perlu ditagih lebih dulu. */}
+                <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+                  {item.customer_name} · {formatNumber(item.days_outstanding)} hari
+                </p>
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 <p className="text-sm font-medium">{item.customer_name}</p>
                 <p className="text-xs text-muted-foreground">{item.customer_phone}</p>
               </TD>
-              <TD className="tabular text-right">{formatIDR(item.total)}</TD>
-              <TD className="tabular text-right text-muted-foreground">
+              <TD className="tabular hidden text-right lg:table-cell">{formatIDR(item.total)}</TD>
+              <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatIDR(item.paid_amount)}
               </TD>
               <TD className="tabular text-right font-semibold text-amber-600">
                 {formatIDR(item.balance_due)}
               </TD>
-              <TD className="tabular text-right">
+              <TD className="tabular hidden text-right sm:table-cell">
                 <span className={item.days_outstanding > 14 ? "font-medium text-destructive" : ""}>
                   {formatNumber(item.days_outstanding)} hari
                 </span>
@@ -232,9 +238,9 @@ function OrderProfitReport() {
           head={
             <TR>
               <TH>Order</TH>
-              <TH>Customer</TH>
-              <TH className="text-right">Omzet</TH>
-              <TH className="text-right">HPP</TH>
+              <TH className="hidden sm:table-cell">Customer</TH>
+              <TH className="hidden text-right sm:table-cell">Omzet</TH>
+              <TH className="hidden text-right lg:table-cell">HPP</TH>
               <TH className="text-right">Profit</TH>
               <TH className="text-right">Margin</TH>
             </TR>
@@ -251,10 +257,15 @@ function OrderProfitReport() {
                   <p className="text-xs text-muted-foreground">
                     {item.trip_code} · {formatDate(item.order_date)}
                   </p>
+                  <p className="text-xs text-muted-foreground sm:hidden">{item.customer_name}</p>
                 </TD>
-                <TD className="text-sm">{item.customer_name}</TD>
-                <TD className="tabular text-right">{formatIDR(item.revenue)}</TD>
-                <TD className="tabular text-right text-muted-foreground">{formatIDR(item.cogs)}</TD>
+                <TD className="hidden text-sm sm:table-cell">{item.customer_name}</TD>
+                <TD className="tabular hidden text-right sm:table-cell">
+                  {formatIDR(item.revenue)}
+                </TD>
+                <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
+                  {formatIDR(item.cogs)}
+                </TD>
                 <TD
                   className={`tabular text-right font-semibold ${
                     profit >= 0 ? "text-emerald-600" : "text-red-600"
@@ -313,9 +324,9 @@ function ProductSalesReport() {
           <TR>
             <TH>Produk</TH>
             <TH className="text-right">Terjual</TH>
-            <TH className="text-right">Order</TH>
-            <TH className="text-right">Omzet</TH>
-            <TH className="text-right">HPP</TH>
+            <TH className="hidden text-right lg:table-cell">Order</TH>
+            <TH className="hidden text-right sm:table-cell">Omzet</TH>
+            <TH className="hidden text-right lg:table-cell">HPP</TH>
             <TH className="text-right">Profit</TH>
           </TR>
         }
@@ -332,11 +343,13 @@ function ProductSalesReport() {
                 </p>
               </TD>
               <TD className="tabular text-right font-medium">{formatNumber(item.qty_sold)}</TD>
-              <TD className="tabular text-right text-muted-foreground">
+              <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatNumber(item.order_count)}
               </TD>
-              <TD className="tabular text-right">{formatIDR(item.revenue)}</TD>
-              <TD className="tabular text-right text-muted-foreground">{formatIDR(item.cogs)}</TD>
+              <TD className="tabular hidden text-right sm:table-cell">{formatIDR(item.revenue)}</TD>
+              <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
+                {formatIDR(item.cogs)}
+              </TD>
               <TD
                 className={`tabular text-right font-semibold ${
                   profit >= 0 ? "text-emerald-600" : "text-red-600"
@@ -401,13 +414,13 @@ function CustomerSalesReport() {
           emptyDescription="Customer akan muncul di sini setelah ordernya tercatat."
           head={
             <TR>
-              <TH className="min-w-48">Customer</TH>
-              <TH className="w-20 text-right">Order</TH>
-              <TH className="w-20 text-right">Pcs</TH>
+              <TH className="min-w-40">Customer</TH>
+              <TH className="hidden w-20 text-right sm:table-cell">Order</TH>
+              <TH className="hidden w-20 text-right lg:table-cell">Pcs</TH>
               <TH className="w-32 text-right">Omzet</TH>
-              <TH className="w-32 text-right">Rata-rata</TH>
-              <TH className="w-32 text-right">Profit</TH>
-              <TH className="w-32 text-right">Piutang</TH>
+              <TH className="hidden w-32 text-right lg:table-cell">Rata-rata</TH>
+              <TH className="hidden w-32 text-right sm:table-cell">Profit</TH>
+              <TH className="hidden w-32 text-right sm:table-cell">Piutang</TH>
             </TR>
           }
         >
@@ -429,23 +442,25 @@ function CustomerSalesReport() {
                     {item.last_order_at ? ` · terakhir ${formatDate(item.last_order_at)}` : ""}
                   </p>
                 </TD>
-                <TD className="tabular text-right">{formatNumber(item.order_count)}</TD>
-                <TD className="tabular text-right text-muted-foreground">
+                <TD className="tabular hidden text-right sm:table-cell">
+                  {formatNumber(item.order_count)}
+                </TD>
+                <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                   {formatNumber(item.item_qty)}
                 </TD>
                 <TD className="tabular text-right font-medium">{formatIDR(item.revenue)}</TD>
-                <TD className="tabular text-right text-muted-foreground">
+                <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                   {formatIDR(item.avg_order_value)}
                 </TD>
                 <TD
-                  className={`tabular text-right font-semibold ${
+                  className={`tabular hidden text-right font-semibold sm:table-cell ${
                     profit >= 0 ? "text-emerald-600" : "text-red-600"
                   }`}
                 >
                   {formatIDR(item.profit)}
                 </TD>
                 <TD
-                  className={`tabular text-right ${
+                  className={`tabular hidden text-right sm:table-cell ${
                     outstanding > 0 ? "font-medium text-amber-600" : "text-muted-foreground"
                   }`}
                 >
@@ -510,11 +525,11 @@ function ChannelSalesReport() {
           <TR>
             <TH className="w-32">Channel</TH>
             <TH className="w-20 text-right">Order</TH>
-            <TH className="w-24 text-right">Customer</TH>
+            <TH className="hidden w-24 text-right lg:table-cell">Customer</TH>
             <TH className="w-32 text-right">Omzet</TH>
-            <TH className="w-32 text-right">Rata-rata</TH>
-            <TH className="w-32 text-right">Profit</TH>
-            <TH className="min-w-40">Porsi omzet</TH>
+            <TH className="hidden w-32 text-right lg:table-cell">Rata-rata</TH>
+            <TH className="hidden w-32 text-right sm:table-cell">Profit</TH>
+            <TH className="hidden min-w-40 sm:table-cell">Porsi omzet</TH>
           </TR>
         }
       >
@@ -527,21 +542,21 @@ function ChannelSalesReport() {
                 <OrderSourceBadge source={row.order_source} />
               </TD>
               <TD className="tabular text-right">{formatNumber(row.order_count)}</TD>
-              <TD className="tabular text-right text-muted-foreground">
+              <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatNumber(row.customer_count)}
               </TD>
               <TD className="tabular text-right font-medium">{formatIDR(row.revenue)}</TD>
-              <TD className="tabular text-right text-muted-foreground">
+              <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatIDR(row.avg_order_value)}
               </TD>
               <TD
-                className={`tabular text-right font-semibold ${
+                className={`tabular hidden text-right font-semibold sm:table-cell ${
                   profit >= 0 ? "text-emerald-600" : "text-red-600"
                 }`}
               >
                 {formatIDR(row.profit)}
               </TD>
-              <TD>
+              <TD className="hidden sm:table-cell">
                 {/* Bar sederhana supaya perbandingan antar channel langsung terbaca. */}
                 <div className="flex items-center gap-2">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
