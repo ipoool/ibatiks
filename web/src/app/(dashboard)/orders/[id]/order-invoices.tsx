@@ -88,19 +88,23 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
     <Card>
       <CardHeader>
         <CardTitle>Invoice</CardTitle>
-        <CardAction>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              create.reset();
-              setFormOpen(true);
-            }}
-          >
-            <Plus />
-            Terbitkan
-          </Button>
-        </CardAction>
+        {/* Order batal tidak bisa ditagih — backend menolaknya — jadi tombol
+            terbitnya ikut disembunyikan alih-alih menunggu ditekan lalu gagal. */}
+        {order.status !== "cancelled" && (
+          <CardAction>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                create.reset();
+                setFormOpen(true);
+              }}
+            >
+              <Plus />
+              Terbitkan
+            </Button>
+          </CardAction>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -108,7 +112,9 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
           <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-8 text-center">
             <FileText className="size-6 text-muted-foreground/60" />
             <p className="text-sm text-muted-foreground">
-              Belum ada invoice. Terbitkan setelah barang sampai untuk menagih pelunasan.
+              {order.status === "cancelled"
+                ? "Order dibatalkan, jadi tidak ada tagihan yang diterbitkan."
+                : "Belum ada invoice. Terbitkan setelah barang sampai untuk menagih pelunasan."}
             </p>
           </div>
         ) : (

@@ -242,7 +242,12 @@ export function OrderItems({ order }: { order: OrderDetail }) {
         {!order.editable && (
           <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <Package className="size-3.5" />
-            Order sudah diserahkan ke kurir, isinya tidak bisa diubah lagi.
+            {/* Alasannya disebut apa adanya: order batal tidak pernah
+                diserahkan ke kurir, dan menuliskannya begitu membuat admin
+                mengira ada paket yang terlanjur jalan. */}
+            {order.status === "cancelled"
+              ? "Order dibatalkan, isinya dibekukan sebagai catatan."
+              : "Order sudah diserahkan ke kurir, isinya tidak bisa diubah lagi."}
           </p>
         )}
       </CardContent>

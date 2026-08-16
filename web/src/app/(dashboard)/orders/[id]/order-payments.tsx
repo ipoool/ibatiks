@@ -4,7 +4,8 @@ import { MessageCircle, Paperclip, Plus, Trash2, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { OptionSelect, toOptions } from "@/components/filter-select";
+import { BalanceDue } from "@/components/balance-due";
+import { OptionSelect } from "@/components/filter-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,7 @@ import {
 } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
 import { formatDate, formatIDR, todayInput, toNumber } from "@/lib/utils";
-import type { OrderDetail, Payment, PaymentMethod, PaymentType } from "@/types/api";
+import type { OrderDetail, OrderStatus, Payment, PaymentMethod, PaymentType } from "@/types/api";
 
 const TYPE_LABEL: Record<PaymentType, string> = {
   dp: "DP",
@@ -30,6 +31,19 @@ const TYPE_LABEL: Record<PaymentType, string> = {
   refund: "Refund",
   adjustment: "Penyesuaian",
 };
+
+/**
+ * Jenis pembayaran yang masuk akal untuk sebuah order.
+ *
+ * Pada order yang dibatalkan, satu-satunya pencatatan yang sah adalah
+ * pengembalian uang — backend menolak DP maupun pelunasan. Menawarkan
+ * keduanya hanya membuat admin menabrak pesan galat.
+ */
+function selectableTypes(status: OrderStatus): Array<{ value: PaymentType; label: string }> {
+  const jenis: PaymentType[] =
+    status === "cancelled" ? ["refund"] : ["dp", "settlement", "refund", "adjustment"];
+  return jenis.map((value) => ({ value, label: TYPE_LABEL[value] }));
+}
 
 /**
  * Nama metode pembayaran untuk ditampilkan.
@@ -74,7 +88,8 @@ export function OrderPayments({ order }: { order: OrderDetail }) {
   // Jenis pembayaran default mengikuti tahap order: selama DP belum lunas,
   // yang paling mungkin dicatat adalah DP.
   const [form, setForm] = useState<PaymentPayload>({
-    type: dpOutstanding > 0 ? "dp" : "settlement",
+    type:
+      order.status === "cancelled" ? "refund" : dpOutstanding > 0 ? "dp" : "settlement",
     amount: "",
     method: "transfer",
     reference: "",
@@ -108,9 +123,11 @@ export function OrderPayments({ order }: { order: OrderDetail }) {
         onSuccess: (updated) => {
           toast.success("Pembayaran dicatat", {
             description:
-              toNumber(updated.balance_due) <= 0
-                ? "Order sudah lunas dan siap dikirim."
-                : `Sisa tagihan ${formatIDR(updated.balance_due)}.`,
+              toNumber(updated.balance_due) < 0
+                ? `Customer kelebihan bayar ${formatIDR(Math.abs(toNumber(updated.balance_due)))} — kembalikan lewat pencatatan refund.`
+                : toNumber(updated.balance_due) === 0
+                  ? "Order sudah lunas dan siap dikirim."
+                  : `Sisa tagihan ${formatIDR(updated.balance_due)}.`,
           });
           setFormOpen(false);
         },
@@ -167,10 +184,8 @@ export function OrderPayments({ order }: { order: OrderDetail }) {
           </div>
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Sisa tagihan</p>
-            <p
-              className={`tabular font-semibold ${balanceDue > 0 ? "text-amber-600" : "text-emerald-600"}`}
-            >
-              {formatIDR(order.balance_due)}
+            <p className="tabular font-semibold">
+              <BalanceDue amount={order.balance_due} status={order.status} align="left" />
             </p>
           </div>
         </div>
@@ -255,7 +270,7 @@ export function OrderPayments({ order }: { order: OrderDetail }) {
               id="payment_type"
               value={form.type}
               onChange={(value) => setForm({ ...form, type: value })}
-              options={toOptions(TYPE_LABEL)}
+              options={selectableTypes(order.status)}
             />
           </Field>
 

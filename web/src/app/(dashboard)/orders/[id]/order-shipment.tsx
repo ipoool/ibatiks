@@ -36,7 +36,7 @@ import {
   useShipmentMessage,
 } from "@/hooks/use-operations";
 import { ApiError } from "@/lib/api";
-import { formatDate, formatIDR, formatNumber, todayInput, toNumber } from "@/lib/utils";
+import { cn, formatDate, formatIDR, formatNumber, todayInput, toNumber } from "@/lib/utils";
 import type { OrderDetail } from "@/types/api";
 
 const JNE_SERVICE_OPTIONS = ["REG", "YES", "OKE", "JTR"].map((service) => ({
@@ -135,6 +135,12 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
     });
   }
 
+  // Order yang dibatalkan tidak dikemas dan tidak dikirim. Backend menolak
+  // keduanya, jadi menampilkan tombolnya hanya mengundang klik yang berujung
+  // pesan galat — dan surat jalan untuk paket yang tidak jadi berangkat justru
+  // berbahaya kalau terlanjur tercetak dan ikut ditempel di kardus.
+  const cancelled = order.status === "cancelled";
+
   return (
     <Card>
       <CardHeader>
@@ -147,7 +153,12 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {shipment ? (
+        {cancelled && !shipment ? (
+          <p className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+            Order ini dibatalkan, jadi tidak ada paket yang dikirim. Uang yang sudah diterima
+            dikembalikan lewat pencatatan refund di kartu Pembayaran.
+          </p>
+        ) : shipment ? (
           <div className="divide-y divide-border">
             <DetailRow label="Kurir" value={`${shipment.courier} ${shipment.service}`} />
             <DetailRow
@@ -196,14 +207,14 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
           </div>
         )}
 
-        {balanceDue > 0 && shipment?.status !== "shipped" && (
+        {balanceDue > 0 && !cancelled && shipment?.status !== "shipped" && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Sisa tagihan {formatIDR(order.balance_due)} belum masuk. Catat pelunasan dulu sebelum
             paket dikirim.
           </p>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        <div className={cn("flex flex-wrap gap-2", cancelled && "hidden")}>
           <Button
             variant="outline"
             onClick={() => {
