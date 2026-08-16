@@ -1,0 +1,23 @@
+# Image development backend: memakai air untuk auto-reload setiap kali kode
+# berubah, sehingga tidak perlu build ulang container saat mengembangkan.
+FROM golang:1.26-alpine
+
+WORKDIR /app
+
+# git dibutuhkan go untuk mengambil beberapa modul; curl untuk health check.
+RUN apk add --no-cache git curl && \
+    go install github.com/air-verse/air@latest
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Source code di-mount sebagai volume oleh docker-compose, jadi tidak disalin
+# ke dalam image.
+
+ENV APP_PORT=8080 \
+    UPLOAD_DIR=/data/uploads \
+    INVOICE_DIR=/data/invoices
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]

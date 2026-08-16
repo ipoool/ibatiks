@@ -1,0 +1,22 @@
+# Konfigurasi air untuk auto-reload saat development.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/api ./cmd/api"
+  bin = "./tmp/api"
+  include_ext = ["go", "sql"]
+  exclude_dir = ["tmp", "data", "vendor"]
+  exclude_regex = ["_test\\.go"]
+  # Jeda singkat mencegah build berjalan dua kali saat editor menulis beberapa
+  # berkas sekaligus.
+  delay = 300
+  stop_on_error = true
+  send_interrupt = true
+  kill_delay = 2000
+
+[log]
+  time = true
+
+[misc]
+  clean_on_exit = true

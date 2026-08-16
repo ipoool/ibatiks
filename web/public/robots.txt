@@ -1,0 +1,3 @@
+# Ibatiks adalah aplikasi back office internal, bukan situs publik.
+User-agent: *
+Disallow: /

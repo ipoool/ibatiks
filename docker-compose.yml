@@ -1,0 +1,111 @@
+# =============================================================================
+# Ibatiks — lingkungan pengembangan lokal.
+#
+#   cp .env.example .env
+#   docker compose up -d
+#   docker compose exec backend /app/seed --demo   (atau: make seed)
+#
+# Backend dan frontend berjalan dengan hot reload: ubah kode di editor, isinya
+# langsung ikut berubah tanpa perlu build ulang container.
+# =============================================================================
+
+name: jastipin
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jastipin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jastipin}
+      POSTGRES_DB: ${POSTGRES_DB:-jastipin}
+      # Locale Indonesia agar pengurutan teks sesuai kebiasaan setempat.
+      LANG: id_ID.utf8
+    ports:
+      # Di-publish ke host supaya bisa dibuka dari GUI database saat development.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Service lain menunggu sampai perintah ini sukses, bukan sekadar sampai
+      # containernya menyala — postgres butuh beberapa detik untuk siap.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jastipin} -d ${POSTGRES_DB:-jastipin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      APP_PORT: 8080
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-jastipin}:${POSTGRES_PASSWORD:-jastipin}@db:5432/${POSTGRES_DB:-jastipin}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-minimal-32-karakter-untuk-lokal}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-168h}
+      UPLOAD_DIR: /data/uploads
+      INVOICE_DIR: /data/invoices
+      DEFAULT_DP_PERCENT: ${DEFAULT_DP_PERCENT:-50}
+      SEED_OWNER_NAME: ${SEED_OWNER_NAME:-Owner}
+      SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL:-owner@jastipin.id}
+      SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD:-rahasia123}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      # Volume terpisah untuk cache modul dan artefak build supaya tidak
+      # tertimpa bind mount dan tidak perlu diunduh ulang tiap restart.
+      - gocache:/go/pkg/mod
+      - backend_tmp:/app/tmp
+      - uploads:/data
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: development
+      # Nama service dipakai sebagai host: frontend memanggil backend lewat
+      # jaringan internal Docker, bukan lewat localhost mesin pengembang.
+      BACKEND_INTERNAL_URL: http://backend:8080
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ./web:/app
+      # node_modules dan .next dibiarkan milik container agar tidak bentrok
+      # dengan hasil install di mesin host.
+      - web_modules:/app/node_modules
+      - web_next:/app/.next
+
+  adminer:
+    image: adminer:5
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+      ADMINER_DESIGN: dracula
+    ports:
+      - "8081:8080"
+
+volumes:
+  pgdata:
+  uploads:
+  gocache:
+  backend_tmp:
+  web_modules:
+  web_next:

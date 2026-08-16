@@ -1,0 +1,20 @@
+# Artefak build dan data lokal tidak perlu ikut masuk konteks build.
+tmp/
+data/
+bin/
+*.exe
+
+# Berkas pengembangan
+.env
+.env.*
+!.env.example
+*.log
+
+# Konteks build tidak butuh berkas Docker maupun dokumentasi.
+Dockerfile*
+.dockerignore
+README.md
+
+.git/
+.gitignore
+.DS_Store

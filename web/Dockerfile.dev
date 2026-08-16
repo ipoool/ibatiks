@@ -1,0 +1,20 @@
+# Image development frontend: menjalankan next dev dengan hot reload.
+# Source code di-mount sebagai volume oleh docker-compose.
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0 \
+    # Docker Desktop di macOS/Windows tidak meneruskan event perubahan berkas
+    # ke dalam container, jadi watcher harus memeriksa berkas secara berkala.
+    WATCHPACK_POLLING=true \
+    CHOKIDAR_USEPOLLING=true
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

@@ -1,0 +1,38 @@
+# Environment — jangan pernah di-commit, isinya rahasia
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Backend
+backend/tmp/
+backend/data/
+backend/bin/
+backend/api
+backend/migrate
+backend/seed
+
+# Frontend
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/*.tsbuildinfo
+
+# Data operasional
+backups/
+uploads/
+invoices/
+
+# Editor & sistem
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Log
+*.log
+npm-debug.log*
+.gstack/

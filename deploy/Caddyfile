@@ -1,0 +1,39 @@
+# Reverse proxy production Ibatiks.
+#
+# Caddy mengurus sertifikat TLS Let's Encrypt secara otomatis selama domain
+# pada APP_DOMAIN sudah diarahkan ke IP server ini.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Header keamanan dasar untuk aplikasi back office internal.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		# Server header bawaan dihapus supaya versi software tidak terekspos.
+		-Server
+	}
+
+	# Berkas unggahan (bukti transfer, foto struk) dilayani langsung oleh backend.
+	handle /uploads/* {
+		reverse_proxy backend:8080
+	}
+
+	# Health check backend, berguna untuk monitoring dari luar.
+	handle /health* {
+		reverse_proxy backend:8080
+	}
+
+	# Seluruh sisanya ditangani Next.js, termasuk route handler /api/* miliknya
+	# sendiri yang meneruskan panggilan ke backend memakai token dari cookie.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

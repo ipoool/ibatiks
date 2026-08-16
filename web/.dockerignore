@@ -1,0 +1,19 @@
+# node_modules dipasang ulang di dalam image agar binary native cocok dengan
+# arsitektur container, bukan arsitektur mesin pengembang.
+node_modules/
+.next/
+out/
+build/
+
+.env
+.env.*
+!.env.example
+*.log
+
+Dockerfile*
+.dockerignore
+README.md
+
+.git/
+.gitignore
+.DS_Store

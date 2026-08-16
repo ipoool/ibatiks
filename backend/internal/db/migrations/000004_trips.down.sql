@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS trip_expenses;
+DROP TABLE IF EXISTS trip_items;
+DROP TABLE IF EXISTS trips;
