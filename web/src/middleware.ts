@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { canOpenPath } from "@/lib/route-permissions";
+
 const ACCESS_TOKEN_COOKIE = "jastipin_at";
 const REFRESH_TOKEN_COOKIE = "jastipin_rt";
 
@@ -80,7 +82,47 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  /*
+   * Menu yang tidak dimiliki pengguna disembunyikan dari sidebar, tapi
+   * alamatnya masih bisa diketik langsung. Halamannya lalu tetap dirender:
+   * datanya ditolak backend, dan yang terbaca di layar adalah "Belum ada
+   * customer" lengkap dengan tombol Tambah Customer — padahal customernya
+   * ratusan dan tombolnya pasti gagal.
+   *
+   * Ini bukan lapisan keamanan; backend tetap menolak endpoint-nya sendiri.
+   * Yang dijaga di sini adalah supaya orang tidak mendarat di halaman yang
+   * berbohong tentang isi tokonya.
+   */
+  const granted = grantedPermissions(request);
+  if (hasSession && granted && !canOpenPath(pathname, granted)) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   return NextResponse.next();
+}
+
+/**
+ * Hak akses efektif yang dibawa access token, atau null bila tidak terbaca.
+ *
+ * Isinya hanya dibaca, tidak diverifikasi — sama seperti pembacaan tanggal
+ * kedaluwarsa di atas. Null berarti penjagaan rute dilewati sepenuhnya:
+ * menghalangi orang gara-gara token yang tidak terbaca jauh lebih merugikan
+ * daripada membiarkannya lewat, sebab backend tetap yang memutuskan.
+ */
+function grantedPermissions(request: NextRequest): string[] | null {
+  const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  const payload = token?.split(".")[1];
+  if (!payload) return null;
+
+  try {
+    const claims = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as {
+      perms?: unknown;
+    };
+    if (!Array.isArray(claims.perms)) return null;
+    return claims.perms.filter((p): p is string => typeof p === "string");
+  } catch {
+    return null;
+  }
 }
 
 /** Halaman login beserta tujuan awal, supaya setelah masuk kembali ke sana. */
