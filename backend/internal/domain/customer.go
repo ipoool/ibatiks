@@ -30,6 +30,27 @@ type Customer struct {
 
 var nonDigit = regexp.MustCompile(`\D`)
 
+// phoneLike: hanya angka dan tanda baca yang lazim dipakai menulis nomor.
+var phoneLike = regexp.MustCompile(`^[0-9+\-() .]+$`)
+
+// LooksLikePhone menebak apakah sebuah kata kunci pencarian dimaksudkan sebagai
+// nomor telepon.
+//
+// Dipakai pencarian customer: nomor disimpan sudah ternormalkan (62812…),
+// sementara admin mengetiknya seperti yang mereka kenal (0812…). Tebakan ini
+// yang menentukan kapan kata kuncinya perlu ikut dinormalkan sebelum dicocokkan.
+// Sengaja ketat: kata kunci yang mengandung huruf adalah pencarian nama, dan
+// menormalkannya justru akan memunculkan customer yang tidak ada hubungannya.
+func LooksLikePhone(search string) bool {
+	trimmed := strings.TrimSpace(search)
+	if !phoneLike.MatchString(trimmed) {
+		return false
+	}
+	// Terlalu pendek untuk membedakan apa pun; membiarkannya lewat hanya
+	// membuat hasil pencarian melebar tanpa guna.
+	return len(nonDigit.ReplaceAllString(trimmed, "")) >= 4
+}
+
 // NormalizePhoneWA merapikan nomor telepon ke format internasional tanpa tanda
 // baca (62812xxxx), yang bisa langsung dipakai pada link wa.me.
 //

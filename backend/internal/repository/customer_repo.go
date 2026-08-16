@@ -65,9 +65,21 @@ func (r *CustomerRepo) List(ctx context.Context, q db.Querier, p pagination.Para
 	if p.Search != "" {
 		args = append(args, "%"+p.Search+"%")
 		n := len(args)
-		conditions = append(conditions, fmt.Sprintf(
-			"(name ILIKE $%d OR phone_wa ILIKE $%d OR code ILIKE $%d OR COALESCE(email, '') ILIKE $%d)",
-			n, n, n, n))
+		cocok := fmt.Sprintf(
+			"name ILIKE $%d OR phone_wa ILIKE $%d OR code ILIKE $%d OR COALESCE(email, '') ILIKE $%d",
+			n, n, n, n)
+
+		// Nomor disimpan sudah ternormalkan (62812…), tapi admin mengetiknya
+		// seperti yang tertera di WhatsApp customer (0812…). Tanpa baris ini,
+		// mencari orang lewat nomornya sendiri tidak menemukan apa-apa.
+		if domain.LooksLikePhone(p.Search) {
+			if normal := domain.NormalizePhoneWA(p.Search); normal != "" {
+				args = append(args, "%"+normal+"%")
+				cocok += fmt.Sprintf(" OR phone_wa ILIKE $%d", len(args))
+			}
+		}
+
+		conditions = append(conditions, "("+cocok+")")
 	}
 	where := buildWhere(conditions)
 

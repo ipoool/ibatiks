@@ -125,3 +125,39 @@ func TestNormalizePhoneWA(t *testing.T) {
 		})
 	}
 }
+
+// Regresi: CST-07 — nomor disimpan ternormalkan (62812…) sementara admin
+// mencarinya seperti yang tertera di WhatsApp customer (0812…), dan
+// pencariannya nol hasil. LooksLikePhone yang menentukan kapan kata kunci ikut
+// dinormalkan; kalau ia mengembalikan true untuk nama orang, hasil pencarian
+// nama justru melebar ke customer yang tidak ada hubungannya.
+// Ditemukan /qa 16 Agustus 2026.
+func TestLooksLikePhone(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+		why   string
+	}{
+		{"081227500001", true, "nomor utuh seperti diketik admin"},
+		{"0812275", true, "potongan awal nomor"},
+		{"+62 812 3456 7890", true, "format internasional dengan spasi"},
+		{"(0812) 3456-7890", true, "nomor bertanda kurung dan strip"},
+		{"6281234567890", true, "nomor yang sudah ternormalkan"},
+
+		{"Nadia", false, "nama orang"},
+		{"Nadia QA3", false, "nama dengan angka di belakang"},
+		{"CUS-0012", false, "kode customer"},
+		{"nadia@mail.com", false, "alamat email"},
+		{"", false, "kata kunci kosong"},
+		{"---", false, "tanda baca tanpa angka"},
+		{"812", false, "terlalu pendek untuk membedakan apa pun"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := domain.LooksLikePhone(tt.input); got != tt.want {
+				t.Errorf("LooksLikePhone(%q) = %v, ingin %v (%s)", tt.input, got, tt.want, tt.why)
+			}
+		})
+	}
+}
