@@ -3,7 +3,7 @@
 import { ArrowLeft, PackagePlus, Plus, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -91,6 +91,12 @@ function NewOrderForm() {
   const { data: catalog } = useTripItems(tripId || undefined);
   const createOrder = useCreateOrder();
 
+  /*
+   * Penanda "sedang mengirim" yang berubah saat itu juga, bukan setelah render
+   * berikutnya. Lihat handleSubmit: tanpa ini, klik ganda membuat order kembar.
+   */
+  const sedangMengirim = useRef(false);
+
   const selectedCustomer = customers?.items.find((customer) => customer.id === customerId);
   const selectedTrip = trips?.items.find((trip) => trip.id === tripId);
 
@@ -166,11 +172,32 @@ function NewOrderForm() {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
+    /*
+     * Tombolnya memang dinonaktifkan selama pengiriman berjalan, tapi baik
+     * atribut disabled maupun createOrder.isPending baru berubah setelah React
+     * merender ulang. Dua kiriman di tick yang sama — klik ganda, tombol Enter
+     * yang ditahan — sama-sama membaca nilai lama dan lolos berdua, lalu jadi
+     * order kembar untuk customer yang sama.
+     *
+     * Ref berubah saat itu juga, jadi penjagaannya tidak bergantung pada waktu
+     * render.
+     */
+    if (sedangMengirim.current) {
+      return;
+    }
+    sedangMengirim.current = true;
+
+    const batalkanPenjagaan = () => {
+      sedangMengirim.current = false;
+    };
+
     if (!tripId || !customerId) {
+      batalkanPenjagaan();
       toast.error("Pilih trip dan customer terlebih dahulu");
       return;
     }
     if (items.length === 0) {
+      batalkanPenjagaan();
       toast.error("Tambahkan minimal satu produk");
       return;
     }
@@ -198,6 +225,9 @@ function NewOrderForm() {
           router.push(`/orders/${order.id}`);
         },
         onError: (error) => {
+          // Gagal berarti belum ada order yang terbentuk, jadi admin harus
+          // boleh mencoba lagi.
+          batalkanPenjagaan();
           toast.error(error instanceof ApiError ? error.message : "Gagal membuat order");
         },
       },
