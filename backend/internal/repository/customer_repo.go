@@ -49,6 +49,15 @@ func (r *CustomerRepo) GetByID(ctx context.Context, q db.Querier, id uuid.UUID) 
 		`SELECT `+customerColumns+` FROM customers WHERE id = $1 AND deleted_at IS NULL`, id)
 }
 
+// GetByIDIncludingDeleted mengambil customer tanpa peduli sudah dihapus atau
+// belum. Dipakai dokumen historis seperti detail order: ordernya sendiri tidak
+// ikut hilang saat customernya dihapus, jadi halamannya tetap harus bisa
+// dibuka. Untuk daftar dan penyuntingan tetap pakai GetByID.
+func (r *CustomerRepo) GetByIDIncludingDeleted(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Customer, error) {
+	return collectOne[domain.Customer](ctx, q, "customer",
+		`SELECT `+customerColumns+` FROM customers WHERE id = $1`, id)
+}
+
 func (r *CustomerRepo) List(ctx context.Context, q db.Querier, p pagination.Params) ([]domain.Customer, int64, error) {
 	conditions := []string{"deleted_at IS NULL"}
 	args := []any{}

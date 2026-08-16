@@ -208,7 +208,11 @@ func (s *OrderService) Get(ctx context.Context, id uuid.UUID) (*domain.OrderDeta
 	if err != nil {
 		return nil, err
 	}
-	customer, err := s.customers.GetByID(ctx, s.pool, order.CustomerID)
+	// Sengaja termasuk customer yang sudah dihapus. Menghapus customer tidak
+	// menghapus ordernya, jadi kalau baris ini menolak yang sudah dihapus,
+	// seluruh halaman order lamanya mati dengan pesan "customer tidak
+	// ditemukan" — padahal ordernya masih ada dan masih perlu ditagih.
+	customer, err := s.customers.GetByIDIncludingDeleted(ctx, s.pool, order.CustomerID)
 	if err != nil {
 		return nil, err
 	}
