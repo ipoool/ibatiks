@@ -1076,11 +1076,23 @@ func (s *OrderService) advanceStatusAfterPayment(ctx context.Context, tx pgx.Tx,
 // tapi totalnya bertambah setelah diedit, supaya sisa tagihan yang baru tidak
 // tersembunyi di balik status "paid".
 func (s *OrderService) reconcileStatusAfterAmountChange(ctx context.Context, tx pgx.Tx, order *domain.Order) error {
-	if order.Status != domain.OrderPaid || order.BalanceDue.LessThanOrEqual(decimal.Zero) {
-		return nil
+	switch {
+	// Sudah ditandai lunas, tapi ternyata masih ada sisa: kembali ke penagihan.
+	case order.Status == domain.OrderPaid && order.BalanceDue.GreaterThan(decimal.Zero):
+		_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderInvoiced)
+		return err
+
+	// DP-nya ternyata tidak lagi tertutup — biasanya karena pembayaran yang
+	// salah catat dihapus. Tanpa langkah mundur ini ordernya tetap berlabel
+	// Diproses, ikut masuk daftar belanja tripper, dan bisa terus dikemas
+	// sampai dikirim padahal customer belum menyetor sepeser pun.
+	case order.Status == domain.OrderDPPaid &&
+		order.DPRequired.GreaterThan(decimal.Zero) &&
+		order.PaidAmount.LessThan(order.DPRequired):
+		_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderAwaitingDP)
+		return err
 	}
-	_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderInvoiced)
-	return err
+	return nil
 }
 
 type shippingInfo struct {
