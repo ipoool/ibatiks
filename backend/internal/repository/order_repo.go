@@ -219,8 +219,15 @@ func (r *OrderRepo) Delete(ctx context.Context, q db.Querier, id uuid.UUID) erro
 }
 
 // RecalculateTotals menghitung ulang subtotal dan total dari baris pesanan.
-// Selalu dipanggil setelah item ditambah, diubah, atau dihapus, di dalam
-// transaksi yang sama, sehingga angka order tidak pernah tertinggal dari isinya.
+// Selalu dipanggil setelah item ditambah, diubah, atau dihapus, dan setelah
+// barang datang dicocokkan, di dalam transaksi yang sama, sehingga angka order
+// tidak pernah tertinggal dari isinya.
+//
+// Barang yang tidak berhasil dibeli tidak ikut ditagihkan. Begitu sebuah item
+// ditandai tidak tersedia, kurang, atau direfund, yang dihitung adalah jumlah
+// yang benar-benar diterima customer — bukan jumlah yang dulu dipesan. Kolom
+// qty sengaja dibiarkan apa adanya supaya tetap terbaca apa yang dipesan
+// semula; yang berubah hanya apa yang ditagih.
 func (r *OrderRepo) RecalculateTotals(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Order, error) {
 	// Kolom subquery sengaja dinamai items_subtotal, bukan subtotal: nama yang
 	// sama dengan kolom orders akan membuat klausa RETURNING ambigu.
@@ -231,7 +238,12 @@ func (r *OrderRepo) RecalculateTotals(ctx context.Context, q db.Querier, id uuid
 		    -- validasi diskon yang wajar dilakukan di layer service.
 		    total    = GREATEST(s.items_subtotal - o.discount + o.shipping_fee, 0)
 		FROM (
-			SELECT COALESCE(sum(subtotal), 0) AS items_subtotal
+			SELECT COALESCE(sum(
+				CASE WHEN fulfillment_status IN ('unavailable', 'partial', 'refunded')
+				     THEN qty_received * unit_price
+				     ELSE subtotal
+				END
+			), 0) AS items_subtotal
 			FROM order_items
 			WHERE order_id = $1
 		) s

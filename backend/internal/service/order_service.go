@@ -840,6 +840,13 @@ func (s *OrderService) ReceiveItems(ctx context.Context, orderID uuid.UUID, rece
 		// penerimaan tiap item, dan order berpindah ke "Sedang Dikemas" ketika
 		// benar-benar dikemas.
 
+		// Yang berubah adalah uangnya. Barang yang tidak berhasil dibeli tidak
+		// boleh ikut ditagihkan: tanpa hitung ulang di sini, invoice pelunasan
+		// memuat barang yang tidak akan pernah dikirim ke customer.
+		if _, err := s.orders.RecalculateTotals(ctx, tx, orderID); err != nil {
+			return err
+		}
+
 		return s.audit.Record(ctx, tx, repository.AuditParams{
 			UserID:   nullableUUID(actorID),
 			Entity:   "order",
