@@ -60,12 +60,24 @@ func DefaultPermissions(role string) []string {
 	}
 }
 
+// OwnerLockedPermissions adalah menu yang tidak bisa dicabut dari owner.
+//
+// Pengaturan dan Pengguna adalah satu-satunya jalan untuk mengembalikan hak
+// akses siapa pun, termasuk hak owner itu sendiri. Tanpa penjagaan ini, satu
+// centang yang terlepas mengunci owner keluar dari tokonya sendiri dan satu-
+// satunya jalan pulih adalah menyunting database langsung.
+var OwnerLockedPermissions = []string{PermSettings, PermUsers}
+
 // EffectivePermissions menggabungkan daftar khusus pengguna dengan bawaan role.
 //
 // Daftar kosong berarti belum pernah disetel, jadi yang dipakai bawaan role.
 // Pengaturan khusus tidak boleh melampaui role: seorang tripper tetap tidak
 // bisa diberi menu pengaturan lewat centang, sebab batas role adalah keputusan
 // keamanan sedangkan centang hanyalah penyempitan.
+//
+// Owner adalah pengecualiannya ke arah sebaliknya: penyempitan tidak boleh
+// sampai mencabut OwnerLockedPermissions, supaya tokonya tidak pernah kehilangan
+// pemiliknya.
 func EffectivePermissions(role string, custom []string) []string {
 	defaults := DefaultPermissions(role)
 	if len(custom) == 0 {
@@ -78,9 +90,24 @@ func EffectivePermissions(role string, custom []string) []string {
 	}
 
 	out := make([]string, 0, len(custom))
+	seen := make(map[string]struct{}, len(custom))
 	for _, p := range custom {
-		if _, ok := allowed[p]; ok {
-			out = append(out, p)
+		if _, ok := allowed[p]; !ok {
+			continue
+		}
+		if _, sudah := seen[p]; sudah {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+
+	if role == RoleOwner {
+		for _, p := range OwnerLockedPermissions {
+			if _, sudah := seen[p]; !sudah {
+				seen[p] = struct{}{}
+				out = append(out, p)
+			}
 		}
 	}
 	return out
