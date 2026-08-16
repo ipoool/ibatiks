@@ -11,6 +11,8 @@ import { DetailRow, ErrorState } from "@/components/ui/page";
 import { useOrder } from "@/hooks/use-orders";
 import { formatDate, formatIDR, toNumber } from "@/lib/utils";
 
+import { BalanceDue } from "@/components/balance-due";
+
 import { OrderActions, OrderEditButton } from "./order-actions";
 import { OrderInvoices } from "./order-invoices";
 import { OrderItems } from "./order-items";
@@ -44,7 +46,6 @@ export default function OrderDetailPage() {
     );
   }
 
-  const balanceDue = toNumber(order.balance_due);
 
   return (
     <>
@@ -113,13 +114,11 @@ export default function OrderDetailPage() {
               <DetailRow
                 label="Sisa tagihan"
                 value={
-                  <span
-                    className={`text-base font-semibold ${
-                      balanceDue > 0 ? "text-amber-600" : "text-emerald-600"
-                    }`}
-                  >
-                    {formatIDR(order.balance_due)}
-                  </span>
+                  <BalanceDue
+                    amount={order.balance_due}
+                    status={order.status}
+                    className="text-base font-semibold"
+                  />
                 }
               />
             </CardContent>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { FilterSelect, OptionSelect } from "@/components/filter-select";
+import { BalanceDue } from "@/components/balance-due";
 import { OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,7 +15,7 @@ import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { deliveryNoteUrl } from "@/hooks/use-operations";
 import { useOrders } from "@/hooks/use-orders";
 import { useTrips } from "@/hooks/use-trips";
-import { formatIDR, formatNumber, toNumber } from "@/lib/utils";
+import { formatNumber, toNumber } from "@/lib/utils";
 import type { OrderStatus } from "@/types/api";
 
 /**
@@ -132,14 +133,8 @@ export default function PackingPage() {
               <TD className="tabular hidden text-right lg:table-cell">
                 {formatNumber(order.total_qty ?? 0)} pcs
               </TD>
-              <TD
-                className={`tabular text-right ${
-                  toNumber(order.balance_due) > 0
-                    ? "font-medium text-amber-600"
-                    : "text-emerald-600"
-                }`}
-              >
-                {formatIDR(order.balance_due)}
+              <TD className="tabular text-right font-medium">
+                <BalanceDue amount={order.balance_due} status={order.status} />
               </TD>
               <TD className="text-right">
                 {/* Surat jalan dicetak berbarengan dengan mengemas, jadi

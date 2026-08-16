@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ORDER_SOURCE_OPTIONS, ORDER_STATUS_OPTIONS, OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
+import { BalanceDue } from "@/components/balance-due";
 import { FilterSelect } from "@/components/filter-select";
 import { Button } from "@/components/ui/button";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
@@ -191,20 +192,14 @@ export default function OrdersPage() {
               </TD>
               <TD className="tabular whitespace-nowrap text-right font-medium">
                 {money(order.total, order)}
-                {toNumber(order.balance_due) > 0 && (
+                {toNumber(order.balance_due) > 0 && order.status !== "cancelled" && (
                   <p className="text-xs font-normal text-amber-600 sm:hidden">
                     sisa {money(order.balance_due, order)}
                   </p>
                 )}
               </TD>
-              <TD
-                className={`tabular hidden whitespace-nowrap text-right sm:table-cell ${
-                  toNumber(order.balance_due) > 0
-                    ? "font-medium text-amber-600"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {money(order.balance_due, order)}
+              <TD className="tabular hidden whitespace-nowrap text-right font-medium sm:table-cell">
+                <BalanceDue amount={order.balance_due} status={order.status} />
               </TD>
               <TD>
                 <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />

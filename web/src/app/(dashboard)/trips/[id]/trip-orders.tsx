@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { BalanceDue } from "@/components/balance-due";
 import { OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/page";
@@ -83,12 +84,8 @@ export function TripOrders({ trip }: { trip: Trip }) {
                 </p>
               </TD>
               <TD className="tabular text-right font-medium">{formatIDR(order.total)}</TD>
-              <TD
-                className={`tabular hidden text-right sm:table-cell ${
-                  toNumber(order.balance_due) > 0 ? "font-medium text-amber-600" : "text-muted-foreground"
-                }`}
-              >
-                {formatIDR(order.balance_due)}
+              <TD className="tabular hidden text-right font-medium sm:table-cell">
+                <BalanceDue amount={order.balance_due} status={order.status} />
               </TD>
               <TD>
                 <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
