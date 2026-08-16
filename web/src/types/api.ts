@@ -32,6 +32,22 @@ export interface ApiErrorPayload {
 
 export type UserRole = "owner" | "admin" | "tripper";
 
+/** Hak akses per menu; nilainya sama persis dengan yang dipakai backend. */
+export type Permission =
+  | "trips"
+  | "shopping_list"
+  | "purchases"
+  | "orders"
+  | "invoices"
+  | "packing"
+  | "shipments"
+  | "customers"
+  | "products"
+  | "stock"
+  | "reports"
+  | "settings"
+  | "users";
+
 export interface User {
   id: string;
   name: string;
@@ -39,6 +55,10 @@ export interface User {
   role: UserRole;
   phone: string | null;
   is_active: boolean;
+  /** Hak akses khusus pengguna ini. Kosong berarti mengikuti bawaan role. */
+  permissions: Permission[];
+  /** Hasil gabungan hak khusus dengan bawaan role, dihitung backend. */
+  effective_permissions: Permission[];
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -62,6 +82,10 @@ export interface Customer {
   instagram: string | null;
   address: string | null;
   city: string | null;
+  /** Kecamatan. */
+  district: string | null;
+  /** Kelurahan atau desa. */
+  subdistrict: string | null;
   province: string | null;
   postal_code: string | null;
   notes: string | null;
@@ -134,15 +158,8 @@ export interface PricePreview {
 
 // --- Trip ------------------------------------------------------------------
 
-export type TripStatus =
-  | "draft"
-  | "open"
-  | "closed"
-  | "shopping"
-  | "in_transit"
-  | "arrived"
-  | "settled"
-  | "cancelled";
+/** Status trip cukup dua: masih menerima order atau tidak. */
+export type TripStatus = "open" | "closed";
 
 export interface Trip {
   id: string;
@@ -219,8 +236,6 @@ export type OrderStatus =
   | "draft"
   | "awaiting_dp"
   | "dp_paid"
-  | "purchasing"
-  | "arrived"
   | "packed"
   | "invoiced"
   | "paid"
@@ -273,6 +288,8 @@ export interface Order {
   recipient_phone: string;
   shipping_address: string;
   shipping_city: string;
+  shipping_district: string | null;
+  shipping_subdistrict: string | null;
   shipping_province: string | null;
   shipping_postal_code: string | null;
   notes: string | null;
@@ -437,6 +454,8 @@ export interface Invoice {
   discount: Money;
   shipping_fee: Money;
   total: Money;
+  /** Uang muka: ditagih pada invoice DP, dikurangkan pada invoice pelunasan. */
+  dp_amount: Money;
   amount_paid: Money;
   amount_due: Money;
   status: InvoiceStatus;

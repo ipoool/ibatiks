@@ -202,6 +202,10 @@ export function useVoidInvoice() {
 
 export const invoicePDFUrl = (id: string) => api.downloadURL(`/invoices/${id}/pdf`);
 
+/** Surat jalan siap cetak untuk diserahkan bersama paket ke kurir. */
+export const deliveryNoteUrl = (orderID: string) =>
+  api.downloadURL(`/orders/${orderID}/delivery-note`);
+
 // --- Pengiriman ------------------------------------------------------------
 
 export interface ShipmentListParams extends ListParams {

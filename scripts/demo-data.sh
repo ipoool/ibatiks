@@ -124,7 +124,6 @@ say "Order Sari sengaja dibiarkan menunggu DP"
 
 # --- Belanja ----------------------------------------------------------------
 step "Mencatat pembelian tripper"
-api PATCH "/trips/$TRIP/status" '{"status":"shopping"}' >/dev/null
 
 buy() {
   local product="$1" qty="$2" cost="$3" store="$4"
@@ -149,7 +148,8 @@ say "Melano CC hanya dapat 2 dari 3 (stok toko habis)"
 
 # --- Barang tiba ------------------------------------------------------------
 step "Barang tiba di Indonesia"
-api PATCH "/trips/$TRIP/status" '{"status":"arrived"}' >/dev/null
+# Order untuk trip ini ditutup: belanjanya sudah selesai, tinggal dikemas.
+api PATCH "/trips/$TRIP/status" '{"status":"closed"}' >/dev/null
 
 # Diterima sejumlah yang benar-benar dibeli, bukan sejumlah yang dipesan.
 receive_as_purchased() {

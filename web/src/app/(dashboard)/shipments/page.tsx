@@ -1,9 +1,10 @@
 "use client";
 
-import { ExternalLink, MessageCircle } from "lucide-react";
+import { ExternalLink, MessageCircle, Printer } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterSelect } from "@/components/filter-select";
 import { ShipmentStatusBadge } from "@/components/status-badge";
@@ -11,7 +12,7 @@ import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { useDebounced } from "@/hooks/use-debounced";
-import { useShipments } from "@/hooks/use-operations";
+import { deliveryNoteUrl, useShipments } from "@/hooks/use-operations";
 import { useTrips } from "@/hooks/use-trips";
 import { formatDate, formatIDR, toNumber } from "@/lib/utils";
 import type { ShipmentStatus } from "@/types/api";
@@ -169,7 +170,24 @@ export default function ShipmentsPage() {
                 )}
               </TD>
               <TD>
-                <ShipmentStatusBadge status={shipment.status} />
+                <div className="flex items-center justify-between gap-1">
+                  <ShipmentStatusBadge status={shipment.status} />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon-sm" asChild>
+                        <a
+                          href={deliveryNoteUrl(shipment.order_id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Printer />
+                          <span className="sr-only">Cetak surat jalan</span>
+                        </a>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Cetak surat jalan</TooltipContent>
+                  </Tooltip>
+                </div>
               </TD>
             </TR>
           ))}

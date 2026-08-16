@@ -31,6 +31,12 @@ const TYPE_LABEL: Record<PaymentType, string> = {
   adjustment: "Penyesuaian",
 };
 
+/**
+ * Nama metode pembayaran untuk ditampilkan.
+ *
+ * Dipakai membaca pembayaran lama, jadi seluruh metode tetap ada di sini walau
+ * tidak semuanya bisa dipilih saat mencatat pembayaran baru.
+ */
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   transfer: "Transfer bank",
   cash: "Tunai",
@@ -38,6 +44,21 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   ewallet: "E-wallet",
   lainnya: "Lainnya",
 };
+
+/**
+ * Metode yang boleh dipilih saat ini.
+ *
+ * Untuk tahap ini toko hanya menerima transfer bank; metode lain sengaja
+ * disimpan sebagai komentar, bukan dihapus, supaya tinggal dibuka kembali
+ * ketika QRIS atau e-wallet mulai dipakai — backend sudah menerimanya.
+ */
+const SELECTABLE_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string }> = [
+  { value: "transfer", label: METHOD_LABEL.transfer },
+  // { value: "cash", label: METHOD_LABEL.cash },
+  // { value: "qris", label: METHOD_LABEL.qris },
+  // { value: "ewallet", label: METHOD_LABEL.ewallet },
+  // { value: "lainnya", label: METHOD_LABEL.lainnya },
+];
 
 export function OrderPayments({ order }: { order: OrderDetail }) {
   const [formOpen, setFormOpen] = useState(false);
@@ -256,7 +277,7 @@ export function OrderPayments({ order }: { order: OrderDetail }) {
               id="method"
               value={form.method}
               onChange={(value) => setForm({ ...form, method: value })}
-              options={toOptions(METHOD_LABEL)}
+              options={SELECTABLE_METHODS}
             />
           </Field>
 

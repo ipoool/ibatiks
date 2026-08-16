@@ -83,6 +83,8 @@ export type CreateOrderPayload = {
   recipient_phone?: string | null;
   shipping_address?: string | null;
   shipping_city?: string | null;
+  shipping_district?: string | null;
+  shipping_subdistrict?: string | null;
   shipping_province?: string | null;
   shipping_postal_code?: string | null;
   notes?: string | null;
@@ -107,6 +109,8 @@ export type UpdateOrderPayload = {
   recipient_phone: string;
   shipping_address: string;
   shipping_city: string;
+  shipping_district?: string | null;
+  shipping_subdistrict?: string | null;
   shipping_province?: string | null;
   shipping_postal_code?: string | null;
   notes?: string | null;

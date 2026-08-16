@@ -30,6 +30,8 @@ const EMPTY_FORM: CustomerPayload = {
   instagram: "",
   address: "",
   city: "",
+  district: "",
+  subdistrict: "",
   province: "",
   postal_code: "",
   notes: "",
@@ -65,6 +67,8 @@ export default function CustomersPage() {
       instagram: customer.instagram ?? "",
       address: customer.address ?? "",
       city: customer.city ?? "",
+      district: customer.district ?? "",
+      subdistrict: customer.subdistrict ?? "",
       province: customer.province ?? "",
       postal_code: customer.postal_code ?? "",
       notes: customer.notes ?? "",
@@ -84,6 +88,8 @@ export default function CustomersPage() {
       instagram: form.instagram || null,
       address: form.address || null,
       city: form.city || null,
+      district: form.district || null,
+      subdistrict: form.subdistrict || null,
       province: form.province || null,
       postal_code: form.postal_code || null,
       notes: form.notes || null,
@@ -286,11 +292,34 @@ export default function CustomersPage() {
               id="address"
               value={form.address ?? ""}
               onChange={(event) => setForm({ ...form, address: event.target.value })}
-              placeholder="Jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
+              placeholder="Jalan, nomor rumah, RT/RW"
             />
           </Field>
 
-          <Field label="Kota" htmlFor="city">
+          {/* Kelurahan dan kecamatan dipisah dari alamat jalan: kurir memakai
+              keduanya untuk menentukan gudang sortir, dan alamat yang menumpuk
+              semuanya dalam satu baris sering terpotong di label paket. */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Kelurahan" htmlFor="subdistrict">
+              <Input
+                id="subdistrict"
+                value={form.subdistrict ?? ""}
+                onChange={(event) => setForm({ ...form, subdistrict: event.target.value })}
+                placeholder="Cilandak Barat"
+              />
+            </Field>
+
+            <Field label="Kecamatan" htmlFor="district">
+              <Input
+                id="district"
+                value={form.district ?? ""}
+                onChange={(event) => setForm({ ...form, district: event.target.value })}
+                placeholder="Cilandak"
+              />
+            </Field>
+          </div>
+
+          <Field label="Kota/Kabupaten" htmlFor="city">
             <Input
               id="city"
               value={form.city ?? ""}

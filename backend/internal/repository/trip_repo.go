@@ -129,6 +129,12 @@ func (r *TripRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, p Tri
 		p.OrderDeadline, p.Currency, p.ExchangeRate, p.Notes)
 }
 
+// UpdateExchangeRate mengubah kurs trip tanpa menyentuh data lainnya.
+func (r *TripRepo) UpdateExchangeRate(ctx context.Context, q db.Querier, id uuid.UUID, rate decimal.Decimal) (*domain.Trip, error) {
+	return collectOne[domain.Trip](ctx, q, "trip",
+		`UPDATE trips SET exchange_rate = $2 WHERE id = $1 RETURNING `+tripColumns, id, rate)
+}
+
 func (r *TripRepo) UpdateStatus(ctx context.Context, q db.Querier, id uuid.UUID, status string) (*domain.Trip, error) {
 	return collectOne[domain.Trip](ctx, q, "trip",
 		`UPDATE trips SET status = $2 WHERE id = $1 RETURNING `+tripColumns, id, status)

@@ -16,6 +16,7 @@ import (
 const orderColumns = `id, order_number, trip_id, customer_id, order_date, status, order_source,
 	                  subtotal, discount, shipping_fee, total, dp_required, paid_amount, balance_due,
 	                  recipient_name, recipient_phone, shipping_address, shipping_city,
+	                  shipping_district, shipping_subdistrict,
 	                  shipping_province, shipping_postal_code,
 	                  notes, cancel_reason, cancelled_at, created_by, created_at, updated_at`
 
@@ -24,6 +25,7 @@ const orderColumnsPrefixed = `o.id, o.order_number, o.trip_id, o.customer_id, o.
 	                          o.subtotal, o.discount, o.shipping_fee, o.total, o.dp_required,
 	                          o.paid_amount, o.balance_due,
 	                          o.recipient_name, o.recipient_phone, o.shipping_address, o.shipping_city,
+	                          o.shipping_district, o.shipping_subdistrict,
 	                          o.shipping_province, o.shipping_postal_code,
 	                          o.notes, o.cancel_reason, o.cancelled_at, o.created_by,
 	                          o.created_at, o.updated_at`
@@ -33,37 +35,39 @@ type OrderRepo struct{}
 func NewOrderRepo() *OrderRepo { return &OrderRepo{} }
 
 type CreateOrderParams struct {
-	OrderNumber        string
-	TripID             uuid.UUID
-	CustomerID         uuid.UUID
-	OrderDate          time.Time
-	OrderSource        string
-	Status             string
-	Discount           decimal.Decimal
-	ShippingFee        decimal.Decimal
-	DPRequired         decimal.Decimal
-	RecipientName      string
-	RecipientPhone     string
-	ShippingAddress    string
-	ShippingCity       string
-	ShippingProvince   *string
-	ShippingPostalCode *string
-	Notes              *string
-	CreatedBy          *uuid.UUID
+	OrderNumber         string
+	TripID              uuid.UUID
+	CustomerID          uuid.UUID
+	OrderDate           time.Time
+	OrderSource         string
+	Status              string
+	Discount            decimal.Decimal
+	ShippingFee         decimal.Decimal
+	DPRequired          decimal.Decimal
+	RecipientName       string
+	RecipientPhone      string
+	ShippingAddress     string
+	ShippingCity        string
+	ShippingDistrict    *string
+	ShippingSubdistrict *string
+	ShippingProvince    *string
+	ShippingPostalCode  *string
+	Notes               *string
+	CreatedBy           *uuid.UUID
 }
 
 func (r *OrderRepo) Create(ctx context.Context, q db.Querier, p CreateOrderParams) (*domain.Order, error) {
 	return collectOne[domain.Order](ctx, q, "order", `
 		INSERT INTO orders (order_number, trip_id, customer_id, order_date, order_source, status,
 		                    discount, shipping_fee, dp_required, recipient_name, recipient_phone,
-		                    shipping_address, shipping_city, shipping_province, shipping_postal_code,
-		                    notes, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		                    shipping_address, shipping_city, shipping_district, shipping_subdistrict,
+		                    shipping_province, shipping_postal_code, notes, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING `+orderColumns,
 		p.OrderNumber, p.TripID, p.CustomerID, p.OrderDate, p.OrderSource, p.Status,
 		p.Discount, p.ShippingFee, p.DPRequired, p.RecipientName, p.RecipientPhone,
-		p.ShippingAddress, p.ShippingCity, p.ShippingProvince, p.ShippingPostalCode,
-		p.Notes, p.CreatedBy)
+		p.ShippingAddress, p.ShippingCity, p.ShippingDistrict, p.ShippingSubdistrict,
+		p.ShippingProvince, p.ShippingPostalCode, p.Notes, p.CreatedBy)
 }
 
 func (r *OrderRepo) GetByID(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Order, error) {
@@ -167,18 +171,20 @@ func (r *OrderRepo) List(ctx context.Context, q db.Querier, p pagination.Params,
 }
 
 type UpdateOrderParams struct {
-	OrderDate          time.Time
-	OrderSource        string
-	Discount           decimal.Decimal
-	ShippingFee        decimal.Decimal
-	DPRequired         decimal.Decimal
-	RecipientName      string
-	RecipientPhone     string
-	ShippingAddress    string
-	ShippingCity       string
-	ShippingProvince   *string
-	ShippingPostalCode *string
-	Notes              *string
+	OrderDate           time.Time
+	OrderSource         string
+	Discount            decimal.Decimal
+	ShippingFee         decimal.Decimal
+	DPRequired          decimal.Decimal
+	RecipientName       string
+	RecipientPhone      string
+	ShippingAddress     string
+	ShippingCity        string
+	ShippingDistrict    *string
+	ShippingSubdistrict *string
+	ShippingProvince    *string
+	ShippingPostalCode  *string
+	Notes               *string
 }
 
 func (r *OrderRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, p UpdateOrderParams) (*domain.Order, error) {
@@ -186,11 +192,13 @@ func (r *OrderRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, p Up
 		UPDATE orders
 		SET order_date = $2, order_source = $3, discount = $4, shipping_fee = $5, dp_required = $6,
 		    recipient_name = $7, recipient_phone = $8, shipping_address = $9, shipping_city = $10,
-		    shipping_province = $11, shipping_postal_code = $12, notes = $13
+		    shipping_district = $11, shipping_subdistrict = $12,
+		    shipping_province = $13, shipping_postal_code = $14, notes = $15
 		WHERE id = $1
 		RETURNING `+orderColumns,
 		id, p.OrderDate, p.OrderSource, p.Discount, p.ShippingFee, p.DPRequired,
 		p.RecipientName, p.RecipientPhone, p.ShippingAddress, p.ShippingCity,
+		p.ShippingDistrict, p.ShippingSubdistrict,
 		p.ShippingProvince, p.ShippingPostalCode, p.Notes)
 }
 

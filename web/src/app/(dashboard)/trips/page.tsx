@@ -15,6 +15,7 @@ import { useTrips } from "@/hooks/use-trips";
 import { formatDate, formatNumber } from "@/lib/utils";
 import type { TripStatus } from "@/types/api";
 
+import { SyncRateButton } from "./sync-rate-button";
 import { TripFormDialog } from "./trip-form";
 
 export default function TripsPage() {
@@ -120,7 +121,10 @@ export default function TripsPage() {
                 </p>
               </TD>
               <TD className="tabular hidden whitespace-nowrap text-sm xl:table-cell">
-                1 {trip.currency} = {formatNumber(trip.exchange_rate)}
+                <span className="inline-flex items-center gap-1">
+                  1 {trip.currency} = {formatNumber(trip.exchange_rate)}
+                  <SyncRateButton trip={trip} />
+                </span>
               </TD>
               <TD className="tabular hidden text-right lg:table-cell">
                 <span className="inline-flex items-center gap-1.5">

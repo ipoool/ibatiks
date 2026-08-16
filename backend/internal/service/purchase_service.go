@@ -91,9 +91,8 @@ func (s *PurchaseService) Record(ctx context.Context, tripID uuid.UUID, in Purch
 	if err != nil {
 		return nil, err
 	}
-	if trip.Status == domain.TripCancelled {
-		return nil, domain.InvalidState("trip sudah dibatalkan")
-	}
+	// Trip yang sudah ditutup tetap boleh dicatat pembeliannya: menutup order
+	// justru mendahului belanja, bukan mengakhirinya.
 	if _, err := s.products.GetByID(ctx, s.pool, in.ProductID); err != nil {
 		return nil, err
 	}

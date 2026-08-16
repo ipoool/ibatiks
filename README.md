@@ -165,6 +165,64 @@ Operasi paling sering dipakai, sekaligus paling rawan. Penjagaannya:
 - Total, sisa tagihan, dan status order dihitung ulang; kalau order tadinya lunas lalu totalnya naik, statusnya turun kembali agar sisa tagihan baru tidak tersembunyi
 - Semua perubahan tercatat di jejak audit
 
+### Invoice DP dan invoice pelunasan
+
+Keduanya memuat nilai pesanan yang sebenarnya — subtotal barang, diskon, ongkir, dan totalnya —
+dan hanya berbeda pada apa yang ditagih:
+
+```
+Invoice DP                     Invoice pelunasan
+  Subtotal      Rp 666.800       Subtotal        Rp 666.800
+  Ongkir        Rp  30.000       Ongkir          Rp  30.000
+  Total tagihan Rp 696.800       Total tagihan   Rp 696.800
+  Down payment  Rp 348.400       Down payment   -Rp 348.400
+  Ditagihkan    Rp 348.400       Sisa ditagihkan Rp 348.400
+```
+
+Dulu invoice DP menuliskan nilai uang muka sebagai subtotal dan totalnya, sehingga customer
+menerima dokumen yang terbaca seolah-olah harga pesanannya hanya sebesar DP.
+
+### Surat jalan
+
+Order punya surat jalan siap cetak (tombol **Surat Jalan** di detail order, antrean Siap Kemas,
+dan daftar Pengiriman). Isinya pengirim, penerima dengan alamat lengkap sampai kelurahan dan
+kecamatan, data kurir dan resi, daftar barang, serta kolom tanda tangan serah terima.
+
+Dokumennya tidak disimpan ke disk seperti invoice: isinya seluruhnya berasal dari order, jadi
+mencetak ulang selalu menghasilkan lembar yang sesuai keadaan terkini — termasuk ketika dicetak
+lebih dulu sebagai pendamping saat mengemas, dengan kolom resi yang masih kosong.
+
+### Status trip dan status order
+
+Status trip cukup dua, dan keduanya menjawab satu pertanyaan yang benar-benar dipakai sehari-hari:
+
+| Status | Artinya |
+|---|---|
+| **Open** | Order baru masih boleh dicatat untuk trip ini |
+| **Closed** | Pendaftaran order ditutup; order yang sudah masuk tetap diproses seperti biasa |
+
+Posisi barangnya — sedang dibelanjakan, dalam perjalanan pulang, sudah sampai — dibaca dari
+pembelian dan penerimaan yang tercatat, bukan dari status trip, supaya satu kejadian tidak perlu
+dicatat di dua tempat.
+
+Status order mengikuti perjalanan satu pesanan:
+
+| Status | Artinya |
+|---|---|
+| **Draft** | Masih disusun admin, belum ditagihkan |
+| **Menunggu DP** | Sudah dikonfirmasi, menunggu uang muka masuk |
+| **Diproses** | DP diterima. Belanja, penerimaan, dan pencocokan barang terjadi di tahap ini |
+| **Sedang Dikemas** | Sudah dikemas atas nama customer |
+| **Penagihan** | Invoice pelunasan sudah dikirim |
+| **Pembayaran Lunas** | Lunas, siap diserahkan ke kurir |
+| **Dikirim** | Sudah diserahkan ke kurir dan resinya terisi |
+| **Selesai** | Diterima customer |
+| **Batal** | Dibatalkan |
+
+Order yang sudah lunas tapi barangnya belum siap **tidak** dilompatkan ke Pembayaran Lunas —
+kalau dilompatkan, ia muncul di antrean siap kirim padahal barangnya belum ada. Yang muncul
+adalah penanda "Lunas" di sebelah statusnya.
+
 ### Daftar belanja hanya menghitung order ber-DP
 
 Yang muncul sebagai "harus dibeli" hanyalah order berstatus `dp_paid` ke atas.
@@ -255,6 +313,22 @@ Refresh token dirotasi setiap kali dipakai dan disimpan sebagai hash — kalau i
 | **tripper** | Trip dan katalog (baca), daftar belanja, dan input pembelian di lapangan |
 
 Beri tripper akun sendiri agar bisa mencatat belanja langsung dari ponsel saat di toko.
+
+### Mempersempit per pengguna
+
+Role menentukan batas kasarnya. Di dalam batas itu, owner bisa mencentang menu apa saja yang boleh
+dibuka seorang pengguna lewat **Pengaturan → Pengguna** — misalnya admin yang mengurus order tapi
+tidak perlu melihat laporan laba.
+
+Yang perlu diketahui:
+
+- Tidak mencentang apa pun berarti mengikuti bawaan role, bukan mengunci semuanya.
+- Centang hanya bisa mempersempit. Tripper tetap tidak bisa diberi menu pengaturan, karena batas
+  role adalah keputusan keamanan sedangkan centang cuma penyempitan.
+- Menu yang dimatikan benar-benar tertutup: backend menolak endpointnya, bukan sekadar
+  menyembunyikan menunya.
+- Begitu hak akses seseorang diubah, sesinya dicabut dan ia diminta login ulang supaya
+  pembatasannya berlaku saat itu juga.
 
 ---
 

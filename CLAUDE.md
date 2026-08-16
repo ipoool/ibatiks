@@ -27,7 +27,11 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 
 **Data layer.** pgx v5 langsung, tanpa ORM. Query ditulis di `internal/repository`, dipetakan dengan `pgx.CollectRows` + `RowToStructByName`/`Lax` dan tag `db`. Operasi multi-tabel dibungkus `db.WithTx`.
 
-**Aturan bisnis tinggal di service**, bukan di handler maupun di UI. Peta transisi status order ada di satu tempat: `internal/domain`.
+**Aturan bisnis tinggal di service**, bukan di handler maupun di UI. Peta transisi status order dan trip ada di satu tempat: `internal/domain`.
+
+**Status sengaja sedikit.** Trip hanya `open`/`closed`; order hanya sembilan: `draft`, `awaiting_dp`, `dp_paid`, `packed`, `invoiced`, `paid`, `shipped`, `completed`, `cancelled`. Belanja dan penerimaan barang terjadi *di dalam* tahap `dp_paid` — kemajuannya dibaca dari data pembelian dan penerimaan per item, bukan dari status order. Jangan menambah status baru untuk menandai kejadian yang datanya sudah tercatat di tempat lain.
+
+**Invoice memuat nilai order seutuhnya.** Baik invoice DP maupun pelunasan menuliskan subtotal, diskon, ongkir, dan total order yang sebenarnya; yang membedakan hanya apa yang ditagih (`dp_amount` untuk DP, sisa tagihan untuk pelunasan). Jangan kembali menyimpan nilai DP sebagai `total` — customer akan menerima dokumen yang seolah-olah menyatakan pesanannya cuma seharga uang muka.
 
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
 
@@ -52,6 +56,15 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 **Middleware harus berada di `src/middleware.ts`.** Proyek ini memakai direktori `src/`; berkas `middleware.ts` di akar `web/` diabaikan Next tanpa peringatan apa pun. Pastikan `ƒ Proxy (Middleware)` muncul di keluaran `next build`.
 
 **Konstanta yang dibaca komponen server tidak boleh diekspor dari modul `"use client"`.** Nilai yang diimpor dari modul klien berubah jadi rujukan modul, dan pemakaiannya gagal diam-diam (`cookies().get(konstanta)` mengembalikan undefined). Simpan di modul biasa seperti `src/lib/sidebar.ts`.
+
+## Hak akses
+
+Role (`owner`/`admin`/`tripper`) menentukan batas kasar; di dalamnya owner bisa mencentang menu per pengguna lewat **Pengaturan → Pengguna**. Aturannya hanya ditulis sekali, di `internal/domain/permission.go`:
+
+- Daftar kosong di kolom `users.permissions` berarti "ikut bawaan role" — bukan "tanpa akses".
+- Centang hanya bisa **mempersempit**; backend menyaring ulang permintaan supaya tripper tidak bisa diberi menu pengaturan.
+- Hak akses ikut dibawa di dalam access token, jadi mengubahnya mencabut sesi pengguna itu supaya pembatasannya berlaku saat itu juga.
+- Frontend memakai `effective_permissions` yang dihitung backend; jangan menyalin tabel bawaan role ke UI selain untuk menampilkan pilihan centang.
 
 ## Sesi dan autentikasi
 

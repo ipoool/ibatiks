@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ShippingInfoButton } from "@/components/shipping-info";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { FilterSelect, OptionSelect, toOptions } from "@/components/filter-select";
 import { useHasRole } from "@/components/layout/user-context";
@@ -14,6 +15,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageHeader } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
@@ -36,7 +38,7 @@ import {
 } from "@/hooks/use-reports";
 import { ApiError } from "@/lib/api";
 import { formatDateTime, formatIDR } from "@/lib/utils";
-import type { ShippingRate, User, UserRole } from "@/types/api";
+import type { Permission, ShippingRate, User, UserRole } from "@/types/api";
 
 /** Kunci pengaturan yang punya form khusus, dikelompokkan agar mudah dibaca. */
 const STORE_FIELDS = [
@@ -257,6 +259,61 @@ const ROLE_HINT: Record<UserRole, string> = {
   tripper: "Hanya daftar belanja dan input pembelian di lapangan",
 };
 
+const PERMISSION_LABEL: Record<Permission, string> = {
+  trips: "Trip",
+  shopping_list: "Daftar Belanja",
+  purchases: "Pembelian",
+  orders: "Order",
+  invoices: "Invoice",
+  packing: "Siap Kemas",
+  shipments: "Pengiriman",
+  customers: "Customer",
+  products: "Produk",
+  stock: "Stok",
+  reports: "Laporan",
+  settings: "Pengaturan",
+  users: "Manajemen Pengguna",
+};
+
+/**
+ * Menu bawaan tiap role — salinan dari `domain.DefaultPermissions` di backend.
+ *
+ * Dipakai hanya untuk menentukan centang apa yang ditawarkan; keputusan akhir
+ * tetap di backend, yang menyaring ulang permintaan supaya centang tidak bisa
+ * melebarkan batas role.
+ */
+const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
+  owner: [
+    "trips",
+    "shopping_list",
+    "purchases",
+    "orders",
+    "invoices",
+    "packing",
+    "shipments",
+    "customers",
+    "products",
+    "stock",
+    "reports",
+    "settings",
+    "users",
+  ],
+  admin: [
+    "trips",
+    "shopping_list",
+    "purchases",
+    "orders",
+    "invoices",
+    "packing",
+    "shipments",
+    "customers",
+    "products",
+    "stock",
+    "reports",
+  ],
+  tripper: ["trips", "shopping_list", "purchases", "products"],
+};
+
 function UserManagement() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
@@ -270,6 +327,7 @@ function UserManagement() {
     role: "admin" as UserRole,
     phone: "",
     is_active: true,
+    permissions: [] as Permission[],
   });
 
   const { data, isLoading, error } = useUsers({ per_page: 100 });
@@ -279,7 +337,18 @@ function UserManagement() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", email: "", password: "", role: "admin", phone: "", is_active: true });
+    setForm({
+      name: "",
+      email: "",
+      password: "",
+      role: "admin",
+      phone: "",
+      is_active: true,
+      // Dicentang penuh sesuai bawaan role: pengguna baru memang memulai
+      // dengan seluruh menu rolenya, dan kotak yang semuanya kosong akan
+      // terbaca seolah-olah ia tidak diberi akses apa pun.
+      permissions: DEFAULT_PERMISSIONS.admin,
+    });
     save.reset();
     setFormOpen(true);
   }
@@ -293,6 +362,9 @@ function UserManagement() {
       role: user.role,
       phone: user.phone ?? "",
       is_active: user.is_active,
+      // Yang ditampilkan adalah hak efektifnya, jadi centang di dialog persis
+      // menggambarkan menu yang sekarang bisa dibuka pengguna itu.
+      permissions: user.effective_permissions ?? [],
     });
     save.reset();
     setFormOpen(true);
@@ -303,14 +375,28 @@ function UserManagement() {
 
     // Saat mengubah, email dan password tidak ikut dikirim: keduanya punya
     // alur tersendiri agar tidak berubah tanpa disengaja.
+    // Mencentang semua yang boleh dibuka role ini sama saja dengan tidak
+    // menyetel apa-apa, jadi dikirim kosong supaya pengguna itu ikut berubah
+    // otomatis kalau bawaan role diperluas nanti.
+    const roleDefaults = DEFAULT_PERMISSIONS[form.role];
+    const permissions =
+      form.permissions.length === roleDefaults.length ? [] : form.permissions;
+
     const payload = editing
-      ? { name: form.name, role: form.role, phone: form.phone || null, is_active: form.is_active }
+      ? {
+          name: form.name,
+          role: form.role,
+          phone: form.phone || null,
+          is_active: form.is_active,
+          permissions,
+        }
       : {
           name: form.name,
           email: form.email,
           password: form.password,
           role: form.role,
           phone: form.phone || null,
+          permissions,
         };
 
     save.mutate(payload, {
@@ -452,7 +538,12 @@ function UserManagement() {
             <OptionSelect
               id="user_role"
               value={form.role}
-              onChange={(value) => setForm({ ...form, role: value })}
+              // Ganti role berarti daftar menunya berbeda, jadi centangnya
+              // dikembalikan ke bawaan role yang baru alih-alih menyisakan
+              // pilihan lama yang belum tentu masih berlaku.
+              onChange={(value) =>
+                setForm({ ...form, role: value, permissions: DEFAULT_PERMISSIONS[value] })
+              }
               options={toOptions(ROLE_LABEL)}
             />
           </Field>
@@ -464,6 +555,51 @@ function UserManagement() {
               onChange={(event) => setForm({ ...form, phone: event.target.value })}
             />
           </Field>
+
+          {/* Hak akses per menu: batas kasarnya tetap role, centang di sini
+              hanya bisa mempersempit. Backend menerapkan aturan yang sama, jadi
+              menu yang dimatikan benar-benar tertutup, bukan sekadar hilang
+              dari daftar. */}
+          <div className="space-y-2 sm:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">Menu yang boleh dibuka</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setForm({ ...form, permissions: DEFAULT_PERMISSIONS[form.role] })}
+              >
+                Ikuti bawaan role
+              </Button>
+            </div>
+
+            <div className="grid gap-x-4 gap-y-2 rounded-lg border border-border p-3 sm:grid-cols-2">
+              {DEFAULT_PERMISSIONS[form.role].map((permission) => (
+                <CheckboxField
+                  key={permission}
+                  id={`perm_${permission}`}
+                  checked={form.permissions.includes(permission)}
+                  onCheckedChange={(checked) =>
+                    setForm({
+                      ...form,
+                      permissions: checked
+                        ? [...form.permissions, permission]
+                        : form.permissions.filter((item) => item !== permission),
+                    })
+                  }
+                >
+                  {PERMISSION_LABEL[permission]}
+                </CheckboxField>
+              ))}
+            </div>
+
+            {editing && (
+              <p className="text-xs text-muted-foreground">
+                Mengubah hak akses mengeluarkan pengguna ini dari seluruh perangkatnya, supaya
+                pembatasannya berlaku saat itu juga.
+              </p>
+            )}
+          </div>
 
           {editing && (
             <CheckboxField
@@ -635,7 +771,10 @@ function ShippingRates() {
   return (
     <Card className="mt-6">
       <CardHeader>
-        <CardTitle>Tarif per kota tujuan</CardTitle>
+        <CardTitle className="flex items-center gap-1">
+          Tarif per kota tujuan
+          <ShippingInfoButton />
+        </CardTitle>
         <CardDescription>
           Tarif dipakai berurutan: kota tujuan order dicocokkan dulu di sini, kalau tidak ketemu
           barulah tarif cadangan di atas yang dipakai.
@@ -831,13 +970,12 @@ function ShippingRateDialog({ onClose }: { onClose: () => void }) {
           htmlFor="min_weight_gram"
           hint="Ekspedisi menagih minimal 1 kg"
         >
-          <Input
+          <NumberInput
             id="min_weight_gram"
-            type="number"
             min="0"
             step="any"
             value={form.min_weight_gram}
-            onChange={(event) => setForm({ ...form, min_weight_gram: Number(event.target.value) })}
+            onValueChange={(weight) => setForm({ ...form, min_weight_gram: weight })}
           />
         </Field>
 

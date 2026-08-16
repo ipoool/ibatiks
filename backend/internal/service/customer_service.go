@@ -26,15 +26,17 @@ func NewCustomerService(pool *pgxpool.Pool, customers *repository.CustomerRepo) 
 }
 
 type CustomerInput struct {
-	Name       string
-	PhoneWA    string
-	Email      *string
-	Instagram  *string
-	Address    *string
-	City       *string
-	Province   *string
-	PostalCode *string
-	Notes      *string
+	Name        string
+	PhoneWA     string
+	Email       *string
+	Instagram   *string
+	Address     *string
+	City        *string
+	District    *string
+	Subdistrict *string
+	Province    *string
+	PostalCode  *string
+	Notes       *string
 }
 
 func (s *CustomerService) Create(ctx context.Context, in CustomerInput) (*domain.Customer, error) {
@@ -55,16 +57,18 @@ func (s *CustomerService) Create(ctx context.Context, in CustomerInput) (*domain
 		}
 
 		customer, err = s.customers.Create(ctx, tx, repository.CustomerParams{
-			Code:       code,
-			Name:       strings.TrimSpace(in.Name),
-			PhoneWA:    phone,
-			Email:      trimPtr(in.Email),
-			Instagram:  trimPtr(in.Instagram),
-			Address:    trimPtr(in.Address),
-			City:       trimPtr(in.City),
-			Province:   trimPtr(in.Province),
-			PostalCode: trimPtr(in.PostalCode),
-			Notes:      trimPtr(in.Notes),
+			Code:        code,
+			Name:        strings.TrimSpace(in.Name),
+			PhoneWA:     phone,
+			Email:       trimPtr(in.Email),
+			Instagram:   trimPtr(in.Instagram),
+			Address:     trimPtr(in.Address),
+			City:        trimPtr(in.City),
+			District:    trimPtr(in.District),
+			Subdistrict: trimPtr(in.Subdistrict),
+			Province:    trimPtr(in.Province),
+			PostalCode:  trimPtr(in.PostalCode),
+			Notes:       trimPtr(in.Notes),
 		})
 		return err
 	})
@@ -98,15 +102,17 @@ func (s *CustomerService) Update(ctx context.Context, id uuid.UUID, in CustomerI
 	}
 
 	return s.customers.Update(ctx, s.pool, id, repository.CustomerParams{
-		Name:       strings.TrimSpace(in.Name),
-		PhoneWA:    phone,
-		Email:      trimPtr(in.Email),
-		Instagram:  trimPtr(in.Instagram),
-		Address:    trimPtr(in.Address),
-		City:       trimPtr(in.City),
-		Province:   trimPtr(in.Province),
-		PostalCode: trimPtr(in.PostalCode),
-		Notes:      trimPtr(in.Notes),
+		Name:        strings.TrimSpace(in.Name),
+		PhoneWA:     phone,
+		Email:       trimPtr(in.Email),
+		Instagram:   trimPtr(in.Instagram),
+		Address:     trimPtr(in.Address),
+		City:        trimPtr(in.City),
+		District:    trimPtr(in.District),
+		Subdistrict: trimPtr(in.Subdistrict),
+		Province:    trimPtr(in.Province),
+		PostalCode:  trimPtr(in.PostalCode),
+		Notes:       trimPtr(in.Notes),
 	})
 }
 

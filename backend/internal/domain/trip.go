@@ -7,29 +7,25 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Status perjalanan, berurutan dari perencanaan sampai selesai dibukukan.
+// Status perjalanan.
+//
+// Hanya dua, dan keduanya menjawab satu pertanyaan yang benar-benar dipakai
+// sehari-hari: trip ini masih menerima order atau tidak. Posisi barangnya —
+// sedang dibelanjakan, dalam perjalanan pulang, sudah sampai — dibaca dari
+// order dan pembelian yang tercatat, bukan dari status trip, supaya satu
+// kejadian tidak perlu dicatat di dua tempat.
 const (
-	TripDraft     = "draft"      // masih disusun, belum dibuka untuk order
-	TripOpen      = "open"       // sudah diposting, order boleh masuk
-	TripClosed    = "closed"     // pendaftaran order ditutup
-	TripShopping  = "shopping"   // tripper sedang belanja di negara tujuan
-	TripInTransit = "in_transit" // tripper dalam perjalanan pulang
-	TripArrived   = "arrived"    // barang sudah sampai Indonesia
-	TripSettled   = "settled"    // semua order selesai, profit sudah dibukukan
-	TripCancelled = "cancelled"
+	TripOpen   = "open"   // order masih boleh masuk
+	TripClosed = "closed" // pendaftaran order ditutup
 )
 
 // tripTransitions memetakan status trip ke daftar status berikutnya yang sah.
 // Peta ini satu-satunya sumber kebenaran alur trip.
 var tripTransitions = map[string][]string{
-	TripDraft:     {TripOpen, TripCancelled},
-	TripOpen:      {TripClosed, TripShopping, TripCancelled},
-	TripClosed:    {TripShopping, TripOpen, TripCancelled},
-	TripShopping:  {TripInTransit, TripArrived, TripCancelled},
-	TripInTransit: {TripArrived},
-	TripArrived:   {TripSettled},
-	TripSettled:   {},
-	TripCancelled: {},
+	// Bolak-balik dibiarkan terbuka: menutup order lalu membukanya lagi karena
+	// ada yang menyusul titip adalah kejadian biasa, bukan penyimpangan.
+	TripOpen:   {TripClosed},
+	TripClosed: {TripOpen},
 }
 
 func IsValidTripStatus(status string) bool {
@@ -57,10 +53,8 @@ func NextTripStatuses(from string) []string {
 }
 
 // TripAcceptsOrder menentukan apakah order baru masih boleh dicatat.
-// Order tetap diizinkan saat status shopping karena di lapangan sering ada
-// customer yang menyusul titip saat tripper sudah di toko.
 func TripAcceptsOrder(status string) bool {
-	return status == TripOpen || status == TripShopping
+	return status == TripOpen
 }
 
 type Trip struct {

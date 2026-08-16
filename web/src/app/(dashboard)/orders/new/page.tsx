@@ -66,6 +66,8 @@ function NewOrderForm() {
     recipient_phone: "",
     shipping_address: "",
     shipping_city: "",
+    shipping_district: "",
+    shipping_subdistrict: "",
     shipping_province: "",
     shipping_postal_code: "",
   });
@@ -104,6 +106,8 @@ function NewOrderForm() {
         recipient_phone: selectedCustomer.phone_wa,
         shipping_address: selectedCustomer.address ?? "",
         shipping_city: selectedCustomer.city ?? "",
+        shipping_district: selectedCustomer.district ?? "",
+        shipping_subdistrict: selectedCustomer.subdistrict ?? "",
         shipping_province: selectedCustomer.province ?? "",
         shipping_postal_code: selectedCustomer.postal_code ?? "",
       });
@@ -477,7 +481,27 @@ function NewOrderForm() {
                       required
                     />
                   </Field>
-                  <Field label="Kota" htmlFor="shipping_city" required>
+                  {/* Kelurahan dan kecamatan berdiri sendiri, bukan dijejalkan
+                      ke kolom alamat: keduanya yang dibaca kurir saat menyortir. */}
+                  <Field label="Kelurahan" htmlFor="shipping_subdistrict">
+                    <Input
+                      id="shipping_subdistrict"
+                      value={address.shipping_subdistrict}
+                      onChange={(event) =>
+                        setAddress({ ...address, shipping_subdistrict: event.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Kecamatan" htmlFor="shipping_district">
+                    <Input
+                      id="shipping_district"
+                      value={address.shipping_district}
+                      onChange={(event) =>
+                        setAddress({ ...address, shipping_district: event.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Kota/Kabupaten" htmlFor="shipping_city" required>
                     <Input
                       id="shipping_city"
                       value={address.shipping_city}

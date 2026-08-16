@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/ipoool/jastipin/backend/internal/domain"
 	"github.com/ipoool/jastipin/backend/internal/http/middleware"
 	"github.com/ipoool/jastipin/backend/internal/http/request"
 	"github.com/ipoool/jastipin/backend/internal/http/response"
@@ -19,11 +20,12 @@ func NewUserHandler(users *service.UserService) *UserHandler {
 }
 
 type createUserRequest struct {
-	Name     string  `json:"name"     validate:"required,min=2,max=100"`
-	Email    string  `json:"email"    validate:"required,email"`
-	Password string  `json:"password" validate:"required,min=8,max=72"`
-	Role     string  `json:"role"     validate:"required,oneof=owner admin tripper"`
-	Phone    *string `json:"phone"`
+	Name        string   `json:"name"     validate:"required,min=2,max=100"`
+	Email       string   `json:"email"    validate:"required,email"`
+	Password    string   `json:"password" validate:"required,min=8,max=72"`
+	Role        string   `json:"role"        validate:"required,oneof=owner admin tripper"`
+	Phone       *string  `json:"phone"`
+	Permissions []string `json:"permissions"`
 }
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -34,17 +36,39 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.users.Create(r.Context(), service.CreateUserInput{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: req.Password,
-		Role:     req.Role,
-		Phone:    req.Phone,
+		Name:        req.Name,
+		Email:       req.Email,
+		Password:    req.Password,
+		Role:        req.Role,
+		Phone:       req.Phone,
+		Permissions: req.Permissions,
 	})
 	if err != nil {
 		response.Error(w, r, err)
 		return
 	}
-	response.Created(w, user)
+	response.Created(w, withEffectivePermissions(user))
+}
+
+// withEffectivePermissions mengisi hak akses hasil gabungan sebelum data
+// dikirim ke antarmuka.
+//
+// Aturan penggabungannya tinggal di domain, dan antarmuka cukup membaca
+// hasilnya — kalau tidak, aturan yang sama harus ditulis ulang di frontend dan
+// cepat atau lambat keduanya berbeda.
+func withEffectivePermissions(user *domain.User) *domain.User {
+	if user == nil {
+		return nil
+	}
+	user.EffectivePermissions = domain.EffectivePermissions(user.Role, user.Permissions)
+	return user
+}
+
+func withEffectivePermissionsAll(users []domain.User) []domain.User {
+	for i := range users {
+		users[i].EffectivePermissions = domain.EffectivePermissions(users[i].Role, users[i].Permissions)
+	}
+	return users
 }
 
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +79,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.Paginated(w, users, p.Page, p.PerPage, total)
+	response.Paginated(w, withEffectivePermissionsAll(users), p.Page, p.PerPage, total)
 }
 
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -70,14 +94,15 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.OK(w, user)
+	response.OK(w, withEffectivePermissions(user))
 }
 
 type updateUserRequest struct {
-	Name     string  `json:"name"      validate:"required,min=2,max=100"`
-	Role     string  `json:"role"      validate:"required,oneof=owner admin tripper"`
-	Phone    *string `json:"phone"`
-	IsActive bool    `json:"is_active"`
+	Name        string   `json:"name"      validate:"required,min=2,max=100"`
+	Role        string   `json:"role"        validate:"required,oneof=owner admin tripper"`
+	Phone       *string  `json:"phone"`
+	IsActive    bool     `json:"is_active"`
+	Permissions []string `json:"permissions"`
 }
 
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -94,16 +119,17 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.users.Update(r.Context(), id, service.UpdateUserInput{
-		Name:     req.Name,
-		Role:     req.Role,
-		Phone:    req.Phone,
-		IsActive: req.IsActive,
+		Name:        req.Name,
+		Role:        req.Role,
+		Phone:       req.Phone,
+		IsActive:    req.IsActive,
+		Permissions: req.Permissions,
 	})
 	if err != nil {
 		response.Error(w, r, err)
 		return
 	}
-	response.OK(w, user)
+	response.OK(w, withEffectivePermissions(user))
 }
 
 type resetPasswordRequest struct {

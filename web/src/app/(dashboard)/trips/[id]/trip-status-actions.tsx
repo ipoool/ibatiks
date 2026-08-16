@@ -15,34 +15,15 @@ import type { Trip, TripStatus } from "@/types/api";
  * diterima server, bukan menampilkan pilihan yang berujung penolakan.
  */
 const NEXT_STATUS: Record<TripStatus, TripStatus[]> = {
-  draft: ["open"],
-  open: ["closed", "shopping"],
-  closed: ["shopping", "open"],
-  shopping: ["in_transit", "arrived"],
-  in_transit: ["arrived"],
-  arrived: ["settled"],
-  settled: [],
-  cancelled: [],
+  open: ["closed"],
+  closed: ["open"],
 };
 
-/**
- * Penjelasan dampak tiap perpindahan status trip, ditampilkan pada dialog
- * konfirmasi. Dua di antaranya mengubah status banyak order sekaligus, dan
- * itulah alasan utama perpindahan status trip perlu dikonfirmasi.
- */
+/** Penjelasan dampak perpindahan status, ditampilkan pada dialog konfirmasi. */
 const STATUS_EFFECT: Record<TripStatus, string> = {
-  draft: "Trip dikembalikan ke draft.",
-  open: "Trip dibuka untuk menerima order. Katalognya sudah bisa dipakai saat mencatat pesanan.",
+  open: "Trip kembali menerima order. Katalognya bisa dipakai lagi saat mencatat pesanan baru.",
   closed:
-    "Order baru untuk trip ini ditutup. Order yang sudah masuk tidak terpengaruh dan tetap diproses seperti biasa.",
-  shopping:
-    "Trip ditandai sedang belanja. Semua order pada trip ini yang DP-nya sudah masuk otomatis berpindah ke tahap Dibelikan sekaligus.",
-  in_transit: "Trip ditandai dalam perjalanan pulang. Belanja dianggap sudah selesai.",
-  arrived:
-    "Barang dianggap sudah sampai di Indonesia. Semua order pada trip ini yang sedang dibelikan otomatis berpindah ke Barang Tiba sekaligus, siap dicocokkan.",
-  settled:
-    "Trip ditutup dan dibukukan. Tidak ada perpindahan status lagi setelah ini, jadi pastikan seluruh belanja dan biaya perjalanan sudah tercatat.",
-  cancelled: "Trip dibatalkan.",
+    "Order baru untuk trip ini ditutup. Order yang sudah masuk tidak terpengaruh dan tetap diproses seperti biasa — termasuk belanja, pengemasan, dan pengiriman.",
 };
 
 export function TripStatusActions({ trip }: { trip: Trip }) {
@@ -74,8 +55,9 @@ export function TripStatusActions({ trip }: { trip: Trip }) {
           title={`Pindahkan trip ke "${tripStatusLabel(status)}"?`}
           description={STATUS_EFFECT[status]}
           confirmLabel={`Ya, ${tripStatusLabel(status).toLowerCase()}`}
-          // Pembukuan trip tidak bisa diurungkan.
-          destructive={status === "settled"}
+          // Menutup dan membuka order sama-sama bisa diurungkan, jadi tidak
+          // perlu ditampilkan sebagai aksi merah.
+          destructive={false}
           error={changeStatus.error}
           onConfirm={() => handleChange(status)}
         >

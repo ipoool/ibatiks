@@ -1,112 +1,44 @@
 "use client";
 
-import { ArrowRight, Ban, PackageSearch, Pencil } from "lucide-react";
+import { Ban, PackageSearch, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { OptionSelect } from "@/components/filter-select";
-import { ORDER_SOURCE_OPTIONS, orderStatusLabel } from "@/components/status-badge";
+import { ORDER_SOURCE_OPTIONS } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { ConfirmButton } from "@/components/ui/confirm-button";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useCancelOrder,
-  useChangeOrderStatus,
-  useReceiveOrder,
-  useUpdateOrder,
-} from "@/hooks/use-orders";
+import { useCancelOrder, useReceiveOrder, useUpdateOrder } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
 import { formatNumber, toDateInput } from "@/lib/utils";
-import type { FulfillmentStatus, OrderDetail, OrderStatus } from "@/types/api";
+import type { FulfillmentStatus, OrderDetail } from "@/types/api";
 
 /**
- * Penjelasan dampak tiap perpindahan status, ditampilkan pada dialog
- * konfirmasi. Yang ditulis di sini adalah akibatnya bagi pekerjaan admin,
- * bukan pengulangan nama statusnya.
+ * Aksi order pada kop halaman: pembatalan saja.
+ *
+ * Deretan tombol perpindahan status yang dulu ada di sini dihapus karena
+ * membingungkan — ia meminta admin memilih nama status, padahal setiap
+ * perpindahan sudah terjadi sendiri lewat pekerjaan yang nyata: DP dicatat di
+ * Pembayaran, "Tandai Dikemas" di Pengiriman, invoice diterbitkan, resi
+ * diisi, paket ditandai diterima. Menyediakan dua jalan untuk satu kejadian
+ * hanya membuat orang ragu mana yang benar.
+ *
+ * Yang tersisa adalah pembatalan, karena itu satu-satunya perpindahan yang
+ * tidak punya pekerjaan lain sebagai pemicunya.
  */
-const STATUS_EFFECT: Record<OrderStatus, string> = {
-  draft:
-    "Order dikembalikan ke draft dan tidak lagi masuk antrean penagihan DP. Pakai ini kalau pesanannya ternyata belum pasti.",
-  awaiting_dp:
-    "Order dianggap sudah pasti dan masuk antrean penagihan DP. Isinya masih bisa diubah.",
-  dp_paid:
-    "Order ditandai DP-nya sudah masuk dan terkunci untuk dibelikan. Pastikan uangnya benar-benar sudah tercatat di daftar pembayaran.",
-  purchasing: "Order ditandai sedang dibelikan tripper di luar negeri.",
-  arrived:
-    "Barang untuk order ini dianggap sudah tiba dan siap dicocokkan satu per satu dengan pesanannya.",
-  packed: "Order ditandai sudah dikemas atas nama customer dan siap ditagih pelunasannya.",
-  invoiced: "Order ditandai sudah ditagihkan. Pakai setelah invoice pelunasan benar-benar dikirim.",
-  paid: "Order ditandai lunas dan boleh dikirim. Pastikan pelunasannya sudah tercatat di daftar pembayaran.",
-  shipped:
-    "Order ditandai sudah diserahkan ke kurir. Setelah ini isi order tidak bisa diubah lagi, karena dokumen pengiriman dan invoice harus tetap cocok dengan barang yang sudah jalan.",
-  completed: "Order ditutup sebagai selesai. Tidak ada perpindahan status lagi setelah ini.",
-  cancelled: "Order dibatalkan.",
-};
-
 export function OrderActions({ order }: { order: OrderDetail }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [editOpen, setEditOpen] = useState(false);
-  const [receiveOpen, setReceiveOpen] = useState(false);
 
-  const changeStatus = useChangeOrderStatus(order.id);
   const cancel = useCancelOrder(order.id);
-
-  // Pembatalan punya dialognya sendiri karena butuh alasan, jadi dikeluarkan
-  // dari daftar tombol status biasa.
-  const nextStatuses = order.next_statuses.filter((status) => status !== "cancelled");
   const canCancel = order.next_statuses.includes("cancelled");
-  const canReceive = ["dp_paid", "purchasing", "arrived"].includes(order.status);
-
-  async function handleChangeStatus(status: OrderStatus) {
-    // mutateAsync dipakai supaya dialog konfirmasi bisa menunggu hasilnya:
-    // ditutup kalau berhasil, tetap terbuka beserta pesan galat kalau gagal.
-    await changeStatus.mutateAsync(status, {
-      onSuccess: () => toast.success(`Order berpindah ke "${orderStatusLabel(status)}"`),
-      onError: (error) => {
-        toast.error(error instanceof ApiError ? error.message : "Gagal mengubah status");
-      },
-    });
-  }
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        {order.editable && (
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil />
-            Ubah Order
-          </Button>
-        )}
-
-        {canReceive && (
-          <Button variant="outline" onClick={() => setReceiveOpen(true)}>
-            <PackageSearch />
-            Cocokkan Barang
-          </Button>
-        )}
-
-        {nextStatuses.map((status, index) => (
-          <ConfirmButton
-            key={status}
-            variant={index === 0 ? "default" : "outline"}
-            title={`Pindahkan order ke "${orderStatusLabel(status)}"?`}
-            description={STATUS_EFFECT[status]}
-            confirmLabel={`Ya, ${orderStatusLabel(status).toLowerCase()}`}
-            // Perpindahan ke Dikirim membekukan isi order, jadi ditandai merah
-            // agar tidak ditekan sambil lalu.
-            destructive={status === "shipped"}
-            error={changeStatus.error}
-            onConfirm={() => handleChangeStatus(status)}
-          >
-            <ArrowRight />
-            {orderStatusLabel(status)}
-          </ConfirmButton>
-        ))}
-
         {canCancel && (
           <Button
             variant="ghost"
@@ -114,7 +46,7 @@ export function OrderActions({ order }: { order: OrderDetail }) {
             onClick={() => setCancelOpen(true)}
           >
             <Ban />
-            Batalkan
+            Batalkan Order
           </Button>
         )}
       </div>
@@ -152,8 +84,51 @@ export function OrderActions({ order }: { order: OrderDetail }) {
         </Field>
       </FormDialog>
 
-      {editOpen && <EditOrderDialog order={order} onClose={() => setEditOpen(false)} />}
-      {receiveOpen && <ReceiveDialog order={order} onClose={() => setReceiveOpen(false)} />}
+    </>
+  );
+}
+
+/**
+ * Tombol ubah order, ditempatkan pada kartu Ringkasan biaya.
+ *
+ * Isinya diskon, ongkir, DP, dan alamat kirim — angka-angka yang justru
+ * ditampilkan kartu itu, jadi tombolnya duduk di sebelah hal yang diubahnya.
+ */
+export function OrderEditButton({ order }: { order: OrderDetail }) {
+  const [open, setOpen] = useState(false);
+
+  if (!order.editable) return null;
+
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Pencil />
+        Ubah
+      </Button>
+      {open && <EditOrderDialog order={order} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/**
+ * Tombol mencocokkan barang datang, ditempatkan pada kartu Item pesanan.
+ *
+ * Yang dicocokkan adalah item pesanan satu per satu, jadi tombolnya berada di
+ * kartu yang memuat daftarnya. Tetap tersedia setelah dikemas karena barang
+ * susulan sering datang belakangan.
+ */
+export function OrderReceiveButton({ order }: { order: OrderDetail }) {
+  const [open, setOpen] = useState(false);
+
+  if (!["dp_paid", "packed"].includes(order.status)) return null;
+
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <PackageSearch />
+        Cocokkan Barang
+      </Button>
+      {open && <ReceiveDialog order={order} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -170,6 +145,8 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
     recipient_phone: order.recipient_phone,
     shipping_address: order.shipping_address,
     shipping_city: order.shipping_city,
+    shipping_district: order.shipping_district ?? "",
+    shipping_subdistrict: order.shipping_subdistrict ?? "",
     shipping_province: order.shipping_province ?? "",
     shipping_postal_code: order.shipping_postal_code ?? "",
     notes: order.notes ?? "",
@@ -181,6 +158,8 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
     update.mutate(
       {
         ...form,
+        shipping_district: form.shipping_district || null,
+        shipping_subdistrict: form.shipping_subdistrict || null,
         shipping_province: form.shipping_province || null,
         shipping_postal_code: form.shipping_postal_code || null,
         notes: form.notes || null,
@@ -302,7 +281,29 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
           />
         </Field>
 
-        <Field label="Kota" htmlFor="edit_shipping_city" required error={fieldError("shipping_city")}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Kelurahan" htmlFor="edit_shipping_subdistrict">
+            <Input
+              id="edit_shipping_subdistrict"
+              value={form.shipping_subdistrict}
+              onChange={(event) => setForm({ ...form, shipping_subdistrict: event.target.value })}
+            />
+          </Field>
+          <Field label="Kecamatan" htmlFor="edit_shipping_district">
+            <Input
+              id="edit_shipping_district"
+              value={form.shipping_district}
+              onChange={(event) => setForm({ ...form, shipping_district: event.target.value })}
+            />
+          </Field>
+        </div>
+
+        <Field
+          label="Kota/Kabupaten"
+          htmlFor="edit_shipping_city"
+          required
+          error={fieldError("shipping_city")}
+        >
           <Input
             id="edit_shipping_city"
             value={form.shipping_city}

@@ -105,6 +105,8 @@ interface ConfirmDialogProps {
   loading?: boolean;
   error?: unknown;
   onConfirm: () => void;
+  /** Isian tambahan sebelum tombol, misalnya pilihan yang menyertai aksinya. */
+  children?: React.ReactNode;
 }
 
 /** Konfirmasi untuk aksi yang sulit dibatalkan, seperti menghapus data. */
@@ -118,6 +120,7 @@ export function ConfirmDialog({
   loading = false,
   error,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +129,8 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+
+        {children}
 
         <ErrorState error={error} />
 

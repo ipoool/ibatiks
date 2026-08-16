@@ -12,8 +12,6 @@ const (
 	OrderDraft      = "draft"       // masih disusun admin, belum ditagihkan
 	OrderAwaitingDP = "awaiting_dp" // sudah dikonfirmasi, menunggu DP masuk
 	OrderDPPaid     = "dp_paid"     // DP diterima, pesanan terkunci
-	OrderPurchasing = "purchasing"  // barang sedang dibelikan tripper
-	OrderArrived    = "arrived"     // barang sudah sampai dan dicocokkan
 	OrderPacked     = "packed"      // sudah dikemas atas nama customer
 	OrderInvoiced   = "invoiced"    // invoice pelunasan sudah dikirim
 	OrderPaid       = "paid"        // lunas, siap kirim
@@ -27,12 +25,15 @@ const (
 var orderTransitions = map[string][]string{
 	OrderDraft:      {OrderAwaitingDP, OrderCancelled},
 	OrderAwaitingDP: {OrderDPPaid, OrderDraft, OrderCancelled},
-	OrderDPPaid:     {OrderPurchasing, OrderArrived, OrderCancelled},
-	OrderPurchasing: {OrderArrived, OrderCancelled},
-	OrderArrived:    {OrderPacked, OrderCancelled},
-	OrderPacked:     {OrderInvoiced, OrderCancelled},
-	// Order boleh langsung ke paid kalau customer melunasi sebelum invoice
-	// resmi dibuat, yang sering terjadi untuk pelanggan lama.
+	// Membeli barang, menerimanya, dan mencocokkannya semuanya terjadi selagi
+	// order berstatus Diproses. Yang menandai kemajuannya adalah data
+	// pembelian dan penerimaan per item, bukan status ordernya.
+	OrderDPPaid: {OrderPacked, OrderCancelled},
+	// Dari packed boleh langsung ke paid: pelanggan lama sering melunasi
+	// begitu diberi tahu barangnya sudah sampai, tanpa menunggu invoice resmi
+	// diterbitkan. Sebelumnya jalur ini hanya disebut di komentar tapi tidak
+	// ada di peta, sehingga pelunasan penuh tidak mengubah status apa pun.
+	OrderPacked:    {OrderInvoiced, OrderPaid, OrderCancelled},
 	OrderInvoiced:  {OrderPaid, OrderPacked, OrderCancelled},
 	OrderPaid:      {OrderShipped},
 	OrderShipped:   {OrderCompleted},
@@ -141,12 +142,14 @@ type Order struct {
 	PaidAmount  decimal.Decimal `db:"paid_amount"  json:"paid_amount"`
 	BalanceDue  decimal.Decimal `db:"balance_due"  json:"balance_due"`
 
-	RecipientName      string  `db:"recipient_name"       json:"recipient_name"`
-	RecipientPhone     string  `db:"recipient_phone"      json:"recipient_phone"`
-	ShippingAddress    string  `db:"shipping_address"     json:"shipping_address"`
-	ShippingCity       string  `db:"shipping_city"        json:"shipping_city"`
-	ShippingProvince   *string `db:"shipping_province"    json:"shipping_province"`
-	ShippingPostalCode *string `db:"shipping_postal_code" json:"shipping_postal_code"`
+	RecipientName       string  `db:"recipient_name"       json:"recipient_name"`
+	RecipientPhone      string  `db:"recipient_phone"      json:"recipient_phone"`
+	ShippingAddress     string  `db:"shipping_address"     json:"shipping_address"`
+	ShippingCity        string  `db:"shipping_city"        json:"shipping_city"`
+	ShippingDistrict    *string `db:"shipping_district"    json:"shipping_district"`
+	ShippingSubdistrict *string `db:"shipping_subdistrict" json:"shipping_subdistrict"`
+	ShippingProvince    *string `db:"shipping_province"    json:"shipping_province"`
+	ShippingPostalCode  *string `db:"shipping_postal_code" json:"shipping_postal_code"`
 
 	Notes        *string    `db:"notes"         json:"notes"`
 	CancelReason *string    `db:"cancel_reason" json:"cancel_reason"`

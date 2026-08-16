@@ -56,8 +56,11 @@ type Invoice struct {
 	Discount    decimal.Decimal `db:"discount"     json:"discount"`
 	ShippingFee decimal.Decimal `db:"shipping_fee" json:"shipping_fee"`
 	Total       decimal.Decimal `db:"total"        json:"total"`
-	AmountPaid  decimal.Decimal `db:"amount_paid"  json:"amount_paid"`
-	AmountDue   decimal.Decimal `db:"amount_due"   json:"amount_due"`
+	// DPAmount adalah uang muka pesanan ini: pada invoice DP ia yang ditagih,
+	// pada invoice pelunasan ia yang dikurangkan dari total.
+	DPAmount   decimal.Decimal `db:"dp_amount"   json:"dp_amount"`
+	AmountPaid decimal.Decimal `db:"amount_paid" json:"amount_paid"`
+	AmountDue  decimal.Decimal `db:"amount_due"   json:"amount_due"`
 
 	Status      string     `db:"status"       json:"status"`
 	PDFPath     *string    `db:"pdf_path"     json:"pdf_path"`

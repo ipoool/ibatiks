@@ -165,7 +165,8 @@ func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 	userService := service.NewUserService(pool, userRepo)
 	customerService := service.NewCustomerService(pool, customerRepo)
 	productService := service.NewProductService(pool, productRepo)
-	tripService := service.NewTripService(pool, tripRepo, productRepo, orderRepo, auditRepo)
+	fxService := service.NewFXService()
+	tripService := service.NewTripService(pool, tripRepo, productRepo, orderRepo, auditRepo, fxService)
 	orderService := service.NewOrderService(pool, orderRepo, tripRepo, customerRepo, productRepo,
 		purchaseRepo, invoiceRepo, auditRepo, cfg.Business)
 	purchaseService := service.NewPurchaseService(pool, purchaseRepo, tripRepo, orderRepo, productRepo, auditRepo)
@@ -173,7 +174,7 @@ func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 		tripRepo, settingsRepo, auditRepo, renderer)
 	shippingService := service.NewShippingService(pool, shippingRepo, orderRepo, settingsRepo)
 	shipmentService := service.NewShipmentService(pool, shipmentRepo, orderRepo, customerRepo,
-		settingsRepo, shippingService, auditRepo)
+		settingsRepo, shippingService, auditRepo, tripRepo, renderer)
 	reportService := service.NewReportService(pool, reportRepo, tripRepo, orderRepo)
 	settingsService := service.NewSettingsService(pool, settingsRepo, auditRepo)
 	auditService := service.NewAuditService(pool, auditRepo)
@@ -192,7 +193,7 @@ func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 		Reports:   handler.NewReportHandler(reportService),
 		Settings:  handler.NewSettingsHandler(settingsService, auditService),
 		Shipping:  handler.NewShippingHandler(shippingService),
-		FX:        handler.NewFXHandler(service.NewFXService()),
+		FX:        handler.NewFXHandler(fxService),
 		Uploads:   handler.NewUploadHandler(cfg.Storage.UploadDir, cfg.App.BaseURL),
 	}
 }

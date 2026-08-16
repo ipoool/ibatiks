@@ -13,6 +13,7 @@ import (
 )
 
 const userColumns = `id, name, email, password_hash, role, phone, is_active,
+	                 COALESCE(permissions, '{}') AS permissions,
 	                 last_login_at, created_at, updated_at`
 
 type UserRepo struct{}
@@ -25,14 +26,15 @@ type CreateUserParams struct {
 	PasswordHash string
 	Role         string
 	Phone        *string
+	Permissions  []string
 }
 
 func (r *UserRepo) Create(ctx context.Context, q db.Querier, p CreateUserParams) (*domain.User, error) {
 	return collectOne[domain.User](ctx, q, "pengguna", `
-		INSERT INTO users (name, email, password_hash, role, phone)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO users (name, email, password_hash, role, phone, permissions)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING `+userColumns,
-		p.Name, p.Email, p.PasswordHash, p.Role, p.Phone)
+		p.Name, p.Email, p.PasswordHash, p.Role, p.Phone, nullableStrings(p.Permissions))
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.User, error) {
@@ -80,19 +82,32 @@ func (r *UserRepo) List(ctx context.Context, q db.Querier, p pagination.Params) 
 }
 
 type UpdateUserParams struct {
-	Name     string
-	Role     string
-	Phone    *string
-	IsActive bool
+	Name        string
+	Role        string
+	Phone       *string
+	IsActive    bool
+	Permissions []string
 }
 
 func (r *UserRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, p UpdateUserParams) (*domain.User, error) {
 	return collectOne[domain.User](ctx, q, "pengguna", `
 		UPDATE users
-		SET name = $2, role = $3, phone = $4, is_active = $5
+		SET name = $2, role = $3, phone = $4, is_active = $5, permissions = $6
 		WHERE id = $1
 		RETURNING `+userColumns,
-		id, p.Name, p.Role, p.Phone, p.IsActive)
+		id, p.Name, p.Role, p.Phone, p.IsActive, nullableStrings(p.Permissions))
+}
+
+// nullableStrings menyimpan daftar kosong sebagai NULL.
+//
+// Bedanya penting: NULL berarti "ikut bawaan role", sedangkan array kosong
+// berarti "tidak boleh membuka menu apa pun" — dan itu bukan yang dimaksud
+// ketika owner belum pernah menyetel apa-apa.
+func nullableStrings(values []string) any {
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }
 
 func (r *UserRepo) UpdatePassword(ctx context.Context, q db.Querier, id uuid.UUID, passwordHash string) error {

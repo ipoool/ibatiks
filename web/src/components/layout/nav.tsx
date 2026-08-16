@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import type { UserRole } from "@/types/api";
+import type { Permission, UserRole } from "@/types/api";
 
 export interface NavItem {
   href: string;
@@ -29,6 +29,15 @@ export interface NavItem {
   icon: LucideIcon;
   /** Role yang boleh melihat menu ini. */
   roles: UserRole[];
+  /**
+   * Hak akses yang harus dimiliki pengguna. Owner bisa mencabutnya per
+   * pengguna lewat Pengaturan, dan backend menolak endpoint-nya dengan aturan
+   * yang sama — menu yang hilang di sini bukan sekadar disembunyikan.
+   *
+   * Kosong berarti menu itu terbuka untuk siapa pun yang sudah login, seperti
+   * Dashboard yang isinya menyesuaikan hak masing-masing.
+   */
+  permission?: Permission;
 }
 
 export interface NavSection {
@@ -56,45 +65,62 @@ export const NAV_SECTIONS: NavSection[] = [
     title: "Perjalanan",
     icon: Luggage,
     items: [
-      { href: "/trips", label: "Trip", icon: Plane, roles: ALL },
-      { href: "/shopping-list", label: "Daftar Belanja", icon: ClipboardList, roles: ALL },
-      { href: "/purchases", label: "Pembelian", icon: ShoppingCart, roles: ALL },
+      { href: "/trips", label: "Trip", icon: Plane, roles: ALL, permission: "trips" },
+      { href: "/shopping-list", label: "Daftar Belanja", icon: ClipboardList, roles: ALL, permission: "shopping_list" },
+      { href: "/purchases", label: "Pembelian", icon: ShoppingCart, roles: ALL, permission: "purchases" },
     ],
   },
   {
     title: "Penjualan",
     icon: Store,
     items: [
-      { href: "/orders", label: "Order", icon: Receipt, roles: STAFF },
-      { href: "/invoices", label: "Invoice", icon: FileText, roles: STAFF },
-      { href: "/shipments", label: "Pengiriman", icon: Truck, roles: STAFF },
-      { href: "/packing", label: "Siap Kemas", icon: PackageCheck, roles: STAFF },
+      { href: "/orders", label: "Order", icon: Receipt, roles: STAFF, permission: "orders" },
+      { href: "/invoices", label: "Invoice", icon: FileText, roles: STAFF, permission: "invoices" },
+      // Barang dikemas dulu baru diserahkan ke kurir, jadi menunya berurutan
+      // sama seperti pekerjaannya.
+      { href: "/packing", label: "Siap Kemas", icon: PackageCheck, roles: STAFF, permission: "packing" },
+      { href: "/shipments", label: "Pengiriman", icon: Truck, roles: STAFF, permission: "shipments" },
     ],
   },
   {
     title: "Data Master",
     icon: Database,
     items: [
-      { href: "/customers", label: "Customer", icon: Users, roles: STAFF },
-      { href: "/products", label: "Produk", icon: Package, roles: ALL },
-      { href: "/stock", label: "Stok", icon: Boxes, roles: STAFF },
+      { href: "/customers", label: "Customer", icon: Users, roles: STAFF, permission: "customers" },
+      { href: "/products", label: "Produk", icon: Package, roles: ALL, permission: "products" },
+      { href: "/stock", label: "Stok", icon: Boxes, roles: STAFF, permission: "stock" },
     ],
   },
   {
     title: "Lainnya",
     icon: MoreHorizontal,
     items: [
-      { href: "/reports", label: "Laporan", icon: BarChart3, roles: STAFF },
-      { href: "/settings", label: "Pengaturan", icon: Settings, roles: OWNER },
+      { href: "/reports", label: "Laporan", icon: BarChart3, roles: STAFF, permission: "reports" },
+      { href: "/settings", label: "Pengaturan", icon: Settings, roles: OWNER, permission: "settings" },
     ],
   },
 ];
 
-/** Menyaring menu sesuai role, sekaligus membuang seksi yang jadi kosong. */
-export function visibleSections(role: UserRole): NavSection[] {
+/**
+ * Menyaring menu sesuai role dan hak akses, sekaligus membuang seksi yang jadi
+ * kosong.
+ *
+ * Hak akses efektif dihitung backend dan ikut di dalam data pengguna, jadi
+ * aturan siapa boleh apa hanya ditulis di satu tempat.
+ */
+export function visibleSections(user: {
+  role: UserRole;
+  effective_permissions?: Permission[] | null;
+}): NavSection[] {
+  const granted = user.effective_permissions ?? [];
+
   return NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => item.roles.includes(role)),
+    items: section.items.filter(
+      (item) =>
+        item.roles.includes(user.role) &&
+        (!item.permission || granted.includes(item.permission)),
+    ),
   })).filter((section) => section.items.length > 0);
 }
 

@@ -37,7 +37,7 @@ export function AppShell({
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const sections = visibleSections(user.role);
+  const sections = visibleSections(user);
 
   async function handleLogout() {
     setLoggingOut(true);

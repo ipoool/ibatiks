@@ -12,31 +12,36 @@ import (
 )
 
 const customerColumns = `id, code, name, phone_wa, email, instagram, address, city,
-	                     province, postal_code, notes, created_at, updated_at, deleted_at`
+	                     district, subdistrict, province, postal_code, notes,
+	                     created_at, updated_at, deleted_at`
 
 type CustomerRepo struct{}
 
 func NewCustomerRepo() *CustomerRepo { return &CustomerRepo{} }
 
 type CustomerParams struct {
-	Code       string
-	Name       string
-	PhoneWA    string
-	Email      *string
-	Instagram  *string
-	Address    *string
-	City       *string
-	Province   *string
-	PostalCode *string
-	Notes      *string
+	Code        string
+	Name        string
+	PhoneWA     string
+	Email       *string
+	Instagram   *string
+	Address     *string
+	City        *string
+	District    *string
+	Subdistrict *string
+	Province    *string
+	PostalCode  *string
+	Notes       *string
 }
 
 func (r *CustomerRepo) Create(ctx context.Context, q db.Querier, p CustomerParams) (*domain.Customer, error) {
 	return collectOne[domain.Customer](ctx, q, "customer", `
-		INSERT INTO customers (code, name, phone_wa, email, instagram, address, city, province, postal_code, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO customers (code, name, phone_wa, email, instagram, address, city,
+		                       district, subdistrict, province, postal_code, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING `+customerColumns,
-		p.Code, p.Name, p.PhoneWA, p.Email, p.Instagram, p.Address, p.City, p.Province, p.PostalCode, p.Notes)
+		p.Code, p.Name, p.PhoneWA, p.Email, p.Instagram, p.Address, p.City,
+		p.District, p.Subdistrict, p.Province, p.PostalCode, p.Notes)
 }
 
 func (r *CustomerRepo) GetByID(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Customer, error) {
@@ -84,10 +89,12 @@ func (r *CustomerRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, p
 	return collectOne[domain.Customer](ctx, q, "customer", `
 		UPDATE customers
 		SET name = $2, phone_wa = $3, email = $4, instagram = $5, address = $6,
-		    city = $7, province = $8, postal_code = $9, notes = $10
+		    city = $7, district = $8, subdistrict = $9, province = $10,
+		    postal_code = $11, notes = $12
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+customerColumns,
-		id, p.Name, p.PhoneWA, p.Email, p.Instagram, p.Address, p.City, p.Province, p.PostalCode, p.Notes)
+		id, p.Name, p.PhoneWA, p.Email, p.Instagram, p.Address, p.City,
+		p.District, p.Subdistrict, p.Province, p.PostalCode, p.Notes)
 }
 
 // SoftDelete menandai customer terhapus tanpa menghilangkan datanya, karena

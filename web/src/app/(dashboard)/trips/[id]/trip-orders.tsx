@@ -91,7 +91,7 @@ export function TripOrders({ trip }: { trip: Trip }) {
                 {formatIDR(order.balance_due)}
               </TD>
               <TD>
-                <OrderStatusBadge status={order.status} />
+                <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
               </TD>
             </TR>
           ))}

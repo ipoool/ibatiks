@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { useSaveCustomer } from "@/hooks/use-master";
 import { ApiError } from "@/lib/api";
 
-const EMPTY = { name: "", phone_wa: "", address: "", city: "" };
+const EMPTY = {
+  name: "",
+  phone_wa: "",
+  address: "",
+  subdistrict: "",
+  district: "",
+  city: "",
+  postal_code: "",
+};
 
 /**
  * Dialog ringkas untuk membuat customer di tengah pencatatan order.
@@ -41,7 +49,10 @@ export function QuickAddCustomerDialog({
         name: form.name.trim(),
         phone_wa: form.phone_wa.trim(),
         address: form.address.trim() || null,
+        subdistrict: form.subdistrict.trim() || null,
+        district: form.district.trim() || null,
         city: form.city.trim() || null,
+        postal_code: form.postal_code.trim() || null,
       },
       {
         onSuccess: (customer) => {
@@ -111,12 +122,39 @@ export function QuickAddCustomerDialog({
           />
         </Field>
 
-        <Field label="Kota" htmlFor="qa_city" className="sm:col-span-2">
+        <Field label="Kelurahan" htmlFor="qa_subdistrict">
+          <Input
+            id="qa_subdistrict"
+            value={form.subdistrict}
+            onChange={(event) => setForm({ ...form, subdistrict: event.target.value })}
+            placeholder="Cilandak Barat"
+          />
+        </Field>
+
+        <Field label="Kecamatan" htmlFor="qa_district">
+          <Input
+            id="qa_district"
+            value={form.district}
+            onChange={(event) => setForm({ ...form, district: event.target.value })}
+            placeholder="Cilandak"
+          />
+        </Field>
+
+        <Field label="Kota/Kabupaten" htmlFor="qa_city">
           <Input
             id="qa_city"
             value={form.city}
             onChange={(event) => setForm({ ...form, city: event.target.value })}
             placeholder="Jakarta Selatan"
+          />
+        </Field>
+
+        <Field label="Kode pos" htmlFor="qa_postal_code">
+          <Input
+            id="qa_postal_code"
+            value={form.postal_code}
+            onChange={(event) => setForm({ ...form, postal_code: event.target.value })}
+            placeholder="12430"
           />
         </Field>
       </div>

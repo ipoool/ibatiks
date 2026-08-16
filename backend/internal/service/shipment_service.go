@@ -14,6 +14,7 @@ import (
 	"github.com/ipoool/jastipin/backend/internal/db"
 	"github.com/ipoool/jastipin/backend/internal/domain"
 	"github.com/ipoool/jastipin/backend/internal/notify"
+	"github.com/ipoool/jastipin/backend/internal/pdf"
 	"github.com/ipoool/jastipin/backend/internal/pkg/money"
 	"github.com/ipoool/jastipin/backend/internal/pkg/pagination"
 	"github.com/ipoool/jastipin/backend/internal/repository"
@@ -27,6 +28,8 @@ type ShipmentService struct {
 	settings  *repository.SettingsRepo
 	shipping  *ShippingService
 	audit     *repository.AuditRepo
+	trips     *repository.TripRepo
+	renderer  *pdf.Renderer
 }
 
 func NewShipmentService(
@@ -37,11 +40,65 @@ func NewShipmentService(
 	settings *repository.SettingsRepo,
 	shipping *ShippingService,
 	audit *repository.AuditRepo,
+	trips *repository.TripRepo,
+	renderer *pdf.Renderer,
 ) *ShipmentService {
 	return &ShipmentService{
 		pool: pool, shipments: shipments, orders: orders,
 		customers: customers, settings: settings, shipping: shipping, audit: audit,
+		trips: trips, renderer: renderer,
 	}
+}
+
+// DeliveryNote menyusun surat jalan sebuah order sebagai PDF.
+//
+// Dokumennya dibentuk saat diminta, bukan disimpan: isinya seluruhnya berasal
+// dari order dan paketnya, jadi mencetak ulang selalu menghasilkan dokumen yang
+// sama dengan keadaan terkini.
+func (s *ShipmentService) DeliveryNote(ctx context.Context, orderID uuid.UUID) ([]byte, string, error) {
+	order, err := s.orders.GetByID(ctx, s.pool, orderID)
+	if err != nil {
+		return nil, "", err
+	}
+	items, err := s.orders.ListItems(ctx, s.pool, orderID)
+	if err != nil {
+		return nil, "", err
+	}
+	customer, err := s.customers.GetByID(ctx, s.pool, order.CustomerID)
+	if err != nil {
+		return nil, "", err
+	}
+	trip, err := s.trips.GetByID(ctx, s.pool, order.TripID)
+	if err != nil {
+		return nil, "", err
+	}
+	settings, err := s.settings.All(ctx, s.pool)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Paket belum tentu sudah dibuat: surat jalan boleh dicetak lebih dulu
+	// sebagai lembar pendamping saat mengemas, dan kolom resinya menyusul.
+	shipment, err := s.shipments.GetByOrder(ctx, s.pool, orderID)
+	if err != nil {
+		if domainErr, ok := domain.AsError(err); !ok || domainErr.Code != domain.CodeNotFound {
+			return nil, "", err
+		}
+		shipment = nil
+	}
+
+	content, err := s.renderer.RenderDeliveryNote(pdf.DeliveryNoteData{
+		Order:    order,
+		Customer: customer,
+		Trip:     trip,
+		Items:    items,
+		Shipment: shipment,
+		Settings: settings,
+	})
+	if err != nil {
+		return nil, "", domain.Internal(err)
+	}
+	return content, "SJ-" + order.OrderNumber, nil
 }
 
 type PackInput struct {

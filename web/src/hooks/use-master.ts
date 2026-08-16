@@ -59,6 +59,8 @@ export type CustomerPayload = {
   instagram?: string | null;
   address?: string | null;
   city?: string | null;
+  district?: string | null;
+  subdistrict?: string | null;
   province?: string | null;
   postal_code?: string | null;
   notes?: string | null;

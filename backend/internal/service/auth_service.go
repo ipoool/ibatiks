@@ -127,8 +127,27 @@ func (s *AuthService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
 	return s.users.RevokeAllRefreshTokens(ctx, s.pool, userID)
 }
 
+// Me mengambil identitas pemilik token yang sedang dipakai.
+//
+// Akun yang sudah tidak ada atau dinonaktifkan dijawab UNAUTHORIZED, bukan
+// NOT_FOUND. Bedanya menentukan pengalaman pengguna: NOT_FOUND membuat aplikasi
+// mengira ada data yang hilang lalu menampilkan galat 404 di setiap halaman,
+// sedangkan UNAUTHORIZED adalah kenyataannya — sesinya tidak berlaku lagi —
+// sehingga proxy bisa mencoba memperbarui token dan, kalau gagal, mengantar
+// pengguna ke halaman login dengan bersih.
 func (s *AuthService) Me(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
-	return s.users.GetByID(ctx, s.pool, userID)
+	user, err := s.users.GetByID(ctx, s.pool, userID)
+	if err != nil {
+		var domainErr *domain.Error
+		if errors.As(err, &domainErr) && domainErr.Code == domain.CodeNotFound {
+			return nil, domain.Unauthorized("sesi tidak berlaku lagi, silakan login ulang")
+		}
+		return nil, err
+	}
+	if !user.IsActive {
+		return nil, domain.Unauthorized("akun ini sedang dinonaktifkan")
+	}
+	return user, nil
 }
 
 func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
@@ -161,7 +180,8 @@ func (s *AuthService) issueSession(ctx context.Context, user *domain.User, userA
 }
 
 func (s *AuthService) issueSessionTx(ctx context.Context, q db.Querier, user *domain.User, userAgent, ipAddress string) (*Session, error) {
-	accessToken, expiresAt, err := s.tokens.IssueAccessToken(user.ID, user.Email, user.Role)
+	accessToken, expiresAt, err := s.tokens.IssueAccessToken(
+		user.ID, user.Email, user.Role, domain.EffectivePermissions(user.Role, user.Permissions))
 	if err != nil {
 		return nil, domain.Internal(err)
 	}
@@ -196,11 +216,12 @@ func NewUserService(pool *pgxpool.Pool, users *repository.UserRepo) *UserService
 }
 
 type CreateUserInput struct {
-	Name     string
-	Email    string
-	Password string
-	Role     string
-	Phone    *string
+	Name        string
+	Email       string
+	Password    string
+	Role        string
+	Phone       *string
+	Permissions []string
 }
 
 func (s *UserService) Create(ctx context.Context, in CreateUserInput) (*domain.User, error) {
@@ -215,12 +236,18 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (*domain.U
 		return nil, err
 	}
 
+	permissions, err := sanitizePermissions(in.Role, in.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
 	return s.users.Create(ctx, s.pool, repository.CreateUserParams{
 		Name:         strings.TrimSpace(in.Name),
 		Email:        strings.ToLower(strings.TrimSpace(in.Email)),
 		PasswordHash: hashed,
 		Role:         in.Role,
 		Phone:        in.Phone,
+		Permissions:  permissions,
 	})
 }
 
@@ -237,6 +264,37 @@ type UpdateUserInput struct {
 	Role     string
 	Phone    *string
 	IsActive bool
+	// Permissions kosong berarti kembali mengikuti bawaan role.
+	Permissions []string
+}
+
+// sanitizePermissions membuang hak akses yang tidak dikenal dan yang melampaui
+// batas role.
+//
+// Batas role adalah keputusan keamanan; centang di antarmuka hanya boleh
+// mempersempitnya, tidak pernah melebarkan. Tanpa penyaringan ini, seorang
+// tripper bisa diberi menu pengaturan hanya dengan mengirim permintaan yang
+// dirakit sendiri.
+func sanitizePermissions(role string, requested []string) ([]string, error) {
+	if len(requested) == 0 {
+		return nil, nil
+	}
+
+	for _, p := range requested {
+		if !domain.IsValidPermission(p) {
+			return nil, domain.Validation("hak akses tidak dikenal", map[string]string{
+				"permissions": p + " bukan menu yang ada di aplikasi",
+			})
+		}
+	}
+
+	effective := domain.EffectivePermissions(role, requested)
+	if len(effective) == 0 {
+		return nil, domain.Validation("hak akses tidak sesuai role", map[string]string{
+			"permissions": "tidak ada satu pun menu yang boleh dibuka role ini",
+		})
+	}
+	return effective, nil
 }
 
 func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInput) (*domain.User, error) {
@@ -263,12 +321,44 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInp
 		}
 	}
 
-	return s.users.Update(ctx, s.pool, id, repository.UpdateUserParams{
-		Name:     strings.TrimSpace(in.Name),
-		Role:     in.Role,
-		Phone:    in.Phone,
-		IsActive: in.IsActive,
+	permissions, err := sanitizePermissions(in.Role, in.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := s.users.Update(ctx, s.pool, id, repository.UpdateUserParams{
+		Name:        strings.TrimSpace(in.Name),
+		Role:        in.Role,
+		Phone:       in.Phone,
+		IsActive:    in.IsActive,
+		Permissions: permissions,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Hak akses ikut dibawa di dalam access token, jadi perubahannya tidak akan
+	// terasa sampai token berikutnya terbit. Sesi pengguna itu dicabut supaya
+	// pembatasan berlaku saat itu juga — termasuk saat hak akses dicabut karena
+	// alasan mendesak.
+	if permissionsChanged(current, updated) {
+		if err := s.users.RevokeAllRefreshTokens(ctx, s.pool, id); err != nil {
+			return nil, err
+		}
+	}
+	return updated, nil
+}
+
+func permissionsChanged(before, after *domain.User) bool {
+	if before.Role != after.Role || len(before.Permissions) != len(after.Permissions) {
+		return true
+	}
+	for i := range before.Permissions {
+		if before.Permissions[i] != after.Permissions[i] {
+			return true
+		}
+	}
+	return false
 }
 
 // ResetPassword dipakai owner untuk mengganti password pengguna lain yang lupa.

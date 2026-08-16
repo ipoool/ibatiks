@@ -132,9 +132,15 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
 
                 <div className="flex items-center gap-2">
                   <div className="text-right">
-                    <p className="tabular font-semibold">{formatIDR(invoice.total)}</p>
+                    {/* Angka besar adalah yang ditagih invoice ini — pada
+                        invoice DP itu uang mukanya, bukan total order — supaya
+                        cocok dengan dokumen yang diterima customer. */}
+                    <p className="tabular font-semibold">
+                      {formatIDR(invoice.type === "dp" ? invoice.dp_amount : invoice.total)}
+                    </p>
                     <p className="tabular text-xs text-muted-foreground">
-                      sisa {formatIDR(invoice.amount_due)}
+                      {invoice.type === "dp" ? "DP dari " : "total "}
+                      {formatIDR(invoice.total)} · sisa {formatIDR(invoice.amount_due)}
                     </p>
                   </div>
                   <Button variant="outline" size="sm" asChild>

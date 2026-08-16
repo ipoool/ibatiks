@@ -1,15 +1,17 @@
 "use client";
 
-import { PackageCheck } from "lucide-react";
+import { PackageCheck, Printer } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { FilterSelect, OptionSelect } from "@/components/filter-select";
 import { OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ErrorState, PageHeader } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
+import { deliveryNoteUrl } from "@/hooks/use-operations";
 import { useOrders } from "@/hooks/use-orders";
 import { useTrips } from "@/hooks/use-trips";
 import { formatIDR, formatNumber, toNumber } from "@/lib/utils";
@@ -24,15 +26,15 @@ import type { OrderStatus } from "@/types/api";
 /* Label antrean memakai bahasa gudang, bukan nama status order: yang dicari
    petugas adalah "hari ini saya kerjakan apa", bukan status formalnya. */
 const QUEUE_OPTIONS: ReadonlyArray<{ value: OrderStatus; label: string }> = [
-  { value: "arrived", label: "Siap dikemas" },
-  { value: "packed", label: "Sudah dikemas" },
+  { value: "dp_paid", label: "Siap dikemas" },
+  { value: "packed", label: "Sedang dikemas" },
   { value: "invoiced", label: "Menunggu pelunasan" },
   { value: "paid", label: "Siap dikirim" },
 ];
 
 export default function PackingPage() {
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<OrderStatus>("arrived");
+  const [status, setStatus] = useState<OrderStatus>("dp_paid");
   const [tripId, setTripId] = useState("");
 
   const { data: trips } = useTrips({ per_page: 100 });
@@ -111,7 +113,7 @@ export default function PackingPage() {
                   {order.order_number}
                 </Link>
                 <div className="mt-1">
-                  <OrderStatusBadge status={order.status} />
+                  <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
                 </div>
                 {/* Penerima dan kota menyusul nomor order saat kolomnya
                     disembunyikan; itu yang dipakai mencocokkan paket. */}
@@ -140,6 +142,23 @@ export default function PackingPage() {
                 {formatIDR(order.balance_due)}
               </TD>
               <TD className="text-right">
+                {/* Surat jalan dicetak berbarengan dengan mengemas, jadi
+                    tombolnya duduk di antrean ini juga. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" asChild className="mr-1">
+                      <a
+                        href={deliveryNoteUrl(order.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Printer />
+                        <span className="sr-only">Cetak surat jalan</span>
+                      </a>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Cetak surat jalan</TooltipContent>
+                </Tooltip>
                 <Button size="sm" asChild>
                   <Link href={`/orders/${order.id}`}>
                     <PackageCheck />

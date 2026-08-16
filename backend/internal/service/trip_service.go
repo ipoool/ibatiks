@@ -23,6 +23,7 @@ type TripService struct {
 	products *repository.ProductRepo
 	orders   *repository.OrderRepo
 	audit    *repository.AuditRepo
+	fx       *FXService
 }
 
 func NewTripService(
@@ -31,8 +32,91 @@ func NewTripService(
 	products *repository.ProductRepo,
 	orders *repository.OrderRepo,
 	audit *repository.AuditRepo,
+	fx *FXService,
 ) *TripService {
-	return &TripService{pool: pool, trips: trips, products: products, orders: orders, audit: audit}
+	return &TripService{
+		pool: pool, trips: trips, products: products, orders: orders, audit: audit, fx: fx,
+	}
+}
+
+// SyncExchangeRateResult melaporkan apa yang berubah setelah kurs disegarkan.
+type SyncExchangeRateResult struct {
+	Trip         *domain.Trip    `json:"trip"`
+	PreviousRate decimal.Decimal `json:"previous_rate"`
+	NewRate      decimal.Decimal `json:"new_rate"`
+	Source       string          `json:"source"`
+	ItemsUpdated int             `json:"items_updated"`
+}
+
+// SyncExchangeRate mengambil kurs terkini dan menyimpannya ke trip.
+//
+// Menghitung ulang harga katalog dibuat opsional dan bukan bawaan: kurs yang
+// bergerak tidak dengan sendirinya berarti harga yang sudah diumumkan ke
+// customer boleh ikut bergerak. Yang memutuskan itu admin, dan keputusannya
+// dicatat di jejak audit bersama kurs lama dan barunya.
+func (s *TripService) SyncExchangeRate(ctx context.Context, tripID uuid.UUID, recalculatePrices bool, actorID uuid.UUID) (*SyncExchangeRateResult, error) {
+	trip, err := s.trips.GetByID(ctx, s.pool, tripID)
+	if err != nil {
+		return nil, err
+	}
+
+	rate, err := s.fx.Rate(ctx, trip.Currency)
+	if err != nil {
+		return nil, err
+	}
+
+	previous := trip.ExchangeRate
+	result := &SyncExchangeRateResult{PreviousRate: previous, NewRate: rate.Rate, Source: rate.Source}
+
+	err = db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		updated, err := s.trips.UpdateExchangeRate(ctx, tx, tripID, rate.Rate)
+		if err != nil {
+			return err
+		}
+		result.Trip = updated
+
+		if recalculatePrices {
+			items, err := s.trips.ListItems(ctx, tx, tripID)
+			if err != nil {
+				return err
+			}
+			for _, item := range items {
+				costIDR, sellPrice := domain.CalculateSellPrice(
+					item.CostPrice, updated.ExchangeRate, item.MarkupType, item.MarkupValue)
+
+				if _, err := s.trips.UpdateItem(ctx, tx, item.ID, repository.TripItemParams{
+					CostPrice:    item.CostPrice,
+					CostPriceIDR: costIDR,
+					MarkupType:   item.MarkupType,
+					MarkupValue:  item.MarkupValue,
+					SellPrice:    sellPrice,
+					MaxQty:       item.MaxQty,
+					IsActive:     item.IsActive,
+					Notes:        item.Notes,
+				}); err != nil {
+					return err
+				}
+			}
+			result.ItemsUpdated = len(items)
+		}
+
+		return s.audit.Record(ctx, tx, repository.AuditParams{
+			UserID:   nullableUUID(actorID),
+			Entity:   "trip",
+			EntityID: &tripID,
+			Action:   domain.AuditUpdate,
+			Changes: map[string]any{
+				"exchange_rate_lama":   previous.String(),
+				"exchange_rate_baru":   rate.Rate.String(),
+				"sumber":               rate.Source,
+				"harga_dihitung_ulang": recalculatePrices,
+			},
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 type TripInput struct {
@@ -98,12 +182,10 @@ func (s *TripService) Update(ctx context.Context, id uuid.UUID, in TripInput) (*
 		return nil, err
 	}
 
-	trip, err := s.trips.GetByID(ctx, s.pool, id)
-	if err != nil {
+	// Keberadaan tripnya tetap dipastikan lebih dulu supaya pesan galatnya
+	// "trip tidak ditemukan", bukan "0 baris terpengaruh".
+	if _, err := s.trips.GetByID(ctx, s.pool, id); err != nil {
 		return nil, err
-	}
-	if trip.Status == domain.TripSettled || trip.Status == domain.TripCancelled {
-		return nil, domain.InvalidState("trip berstatus %s tidak bisa diubah lagi", trip.Status)
 	}
 
 	return s.trips.Update(ctx, s.pool, id, repository.TripParams{
@@ -148,22 +230,10 @@ func (s *TripService) ChangeStatus(ctx context.Context, id uuid.UUID, newStatus 
 			return err
 		}
 
-		// Efek samping yang wajar untuk tiap perpindahan status trip.
-		switch newStatus {
-		case domain.TripShopping:
-			// Order yang DP-nya sudah masuk otomatis masuk tahap dibelikan.
-			if _, err := s.orders.BulkUpdateStatus(ctx, tx, id,
-				[]string{domain.OrderDPPaid}, domain.OrderPurchasing); err != nil {
-				return err
-			}
-		case domain.TripArrived:
-			// Barang sudah di Indonesia: order yang sedang dibelikan siap dicocokkan.
-			if _, err := s.orders.BulkUpdateStatus(ctx, tx, id,
-				[]string{domain.OrderPurchasing}, domain.OrderArrived); err != nil {
-				return err
-			}
-		}
-
+		// Menutup atau membuka trip tidak lagi menggeser status ordernya:
+		// kemajuan tiap pesanan ditentukan pembelian dan penerimaannya
+		// sendiri, dan menggesernya massal dari sini dulu membuat order yang
+		// belum dibelanjakan ikut terlihat sudah dikerjakan.
 		return s.audit.Record(ctx, tx, repository.AuditParams{
 			UserID:   nullableUUID(actorID),
 			Entity:   "trip",
@@ -209,10 +279,6 @@ func (s *TripService) AddItem(ctx context.Context, tripID uuid.UUID, in TripItem
 	if err != nil {
 		return nil, err
 	}
-	if trip.Status == domain.TripSettled || trip.Status == domain.TripCancelled {
-		return nil, domain.InvalidState("katalog trip berstatus %s tidak bisa diubah", trip.Status)
-	}
-
 	product, err := s.products.GetByID(ctx, s.pool, in.ProductID)
 	if err != nil {
 		return nil, err

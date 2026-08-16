@@ -198,7 +198,13 @@ func (r *Renderer) parties(pdf *fpdf.Fpdf, tr func(string) string, data InvoiceD
 		data.Order.RecipientName,
 		data.Order.RecipientPhone,
 		data.Order.ShippingAddress,
-		joinNonEmpty(", ", data.Order.ShippingCity, derefStr(data.Order.ShippingProvince), derefStr(data.Order.ShippingPostalCode)),
+		joinNonEmpty(", ",
+			derefStr(data.Order.ShippingSubdistrict),
+			derefStr(data.Order.ShippingDistrict)),
+		joinNonEmpty(", ",
+			data.Order.ShippingCity,
+			derefStr(data.Order.ShippingProvince),
+			derefStr(data.Order.ShippingPostalCode)),
 	}
 
 	pdf.SetFont("Helvetica", "", 9)
@@ -289,16 +295,39 @@ func (r *Renderer) totals(pdf *fpdf.Fpdf, tr func(string) string, data InvoiceDa
 		row("Ongkir", money.Format(data.Invoice.ShippingFee), false)
 	}
 
-	pdf.SetX(marginLeft + offset)
-	pdf.SetDrawColor(180, 180, 180)
-	pdf.Line(marginLeft+offset, pdf.GetY(), pageWidth-marginRight, pdf.GetY())
-	pdf.Ln(1)
-
-	row("Total", money.Format(data.Invoice.Total), true)
-	if data.Invoice.AmountPaid.IsPositive() {
-		row("Sudah dibayar", money.Format(data.Invoice.AmountPaid), false)
+	line := func() {
+		pdf.SetX(marginLeft + offset)
+		pdf.SetDrawColor(180, 180, 180)
+		pdf.Line(marginLeft+offset, pdf.GetY(), pageWidth-marginRight, pdf.GetY())
+		pdf.Ln(1)
 	}
-	row("Sisa tagihan", money.Format(data.Invoice.AmountDue), true)
+
+	line()
+	// Nilai pesanan seutuhnya, sama pada invoice DP maupun pelunasan: itulah
+	// harga yang disepakati, dan customer harus melihatnya di dokumen mana pun.
+	row("Total tagihan", money.Format(data.Invoice.Total), true)
+
+	if data.Invoice.Type == domain.InvoiceDP {
+		row("Down payment", money.Format(data.Invoice.DPAmount), false)
+		if data.Invoice.AmountPaid.IsPositive() {
+			row("Sudah dibayar", "-"+money.Format(data.Invoice.AmountPaid), false)
+		}
+		line()
+		row("Ditagihkan sekarang", money.Format(data.Invoice.AmountDue), true)
+		pdf.Ln(4)
+		return
+	}
+
+	if data.Invoice.DPAmount.IsPositive() {
+		row("Down payment", "-"+money.Format(data.Invoice.DPAmount), false)
+	}
+	// Pembayaran di luar uang muka dipisah barisnya supaya angka DP tetap
+	// terbaca sebagai DP, bukan bercampur dengan cicilan lain.
+	if others := data.Invoice.AmountPaid.Sub(data.Invoice.DPAmount); others.IsPositive() {
+		row("Pembayaran lain", "-"+money.Format(others), false)
+	}
+	line()
+	row("Sisa ditagihkan", money.Format(data.Invoice.AmountDue), true)
 
 	pdf.Ln(4)
 }

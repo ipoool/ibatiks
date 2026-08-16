@@ -14,12 +14,12 @@ import (
 )
 
 const invoiceColumns = `id, invoice_number, order_id, type, issue_date, due_date,
-	                    subtotal, discount, shipping_fee, total, amount_paid, amount_due,
+	                    subtotal, discount, shipping_fee, total, dp_amount, amount_paid, amount_due,
 	                    status, pdf_path, sent_channel, sent_at, paid_at, notes,
 	                    created_by, created_at, updated_at`
 
 const invoiceColumnsPrefixed = `i.id, i.invoice_number, i.order_id, i.type, i.issue_date, i.due_date,
-	                            i.subtotal, i.discount, i.shipping_fee, i.total, i.amount_paid,
+	                            i.subtotal, i.discount, i.shipping_fee, i.total, i.dp_amount, i.amount_paid,
 	                            i.amount_due, i.status, i.pdf_path, i.sent_channel, i.sent_at,
 	                            i.paid_at, i.notes, i.created_by, i.created_at, i.updated_at`
 
@@ -37,6 +37,7 @@ type InvoiceParams struct {
 	Discount      decimal.Decimal
 	ShippingFee   decimal.Decimal
 	Total         decimal.Decimal
+	DPAmount      decimal.Decimal
 	AmountPaid    decimal.Decimal
 	AmountDue     decimal.Decimal
 	Notes         *string
@@ -46,11 +47,13 @@ type InvoiceParams struct {
 func (r *InvoiceRepo) Create(ctx context.Context, q db.Querier, p InvoiceParams) (*domain.Invoice, error) {
 	return collectOne[domain.Invoice](ctx, q, "invoice", `
 		INSERT INTO invoices (invoice_number, order_id, type, issue_date, due_date, subtotal,
-		                      discount, shipping_fee, total, amount_paid, amount_due, notes, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		                      discount, shipping_fee, total, dp_amount, amount_paid, amount_due,
+		                      notes, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING `+invoiceColumns,
 		p.InvoiceNumber, p.OrderID, p.Type, p.IssueDate, p.DueDate, p.Subtotal,
-		p.Discount, p.ShippingFee, p.Total, p.AmountPaid, p.AmountDue, p.Notes, p.CreatedBy)
+		p.Discount, p.ShippingFee, p.Total, p.DPAmount, p.AmountPaid, p.AmountDue,
+		p.Notes, p.CreatedBy)
 }
 
 func (r *InvoiceRepo) GetByID(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Invoice, error) {
@@ -134,7 +137,10 @@ func (r *InvoiceRepo) MarkSent(ctx context.Context, q db.Querier, id uuid.UUID, 
 func (r *InvoiceRepo) MarkPaid(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Invoice, error) {
 	return collectOne[domain.Invoice](ctx, q, "invoice", `
 		UPDATE invoices
-		SET status = 'paid', amount_paid = total, amount_due = 0, paid_at = now()
+		SET status = 'paid',
+		    amount_paid = CASE WHEN type = 'dp' THEN dp_amount ELSE total END,
+		    amount_due = 0,
+		    paid_at = now()
 		WHERE id = $1 AND status <> 'void'
 		RETURNING `+invoiceColumns, id)
 }
@@ -155,10 +161,12 @@ func (r *InvoiceRepo) SetPDFPath(ctx context.Context, q db.Querier, id uuid.UUID
 func (r *InvoiceRepo) SyncAmountsFromOrder(ctx context.Context, q db.Querier, orderID uuid.UUID) error {
 	_, err := exec(ctx, q, `
 		UPDATE invoices i
-		SET amount_paid = LEAST(o.paid_amount, i.total),
-		    amount_due  = GREATEST(i.total - o.paid_amount, 0),
-		    status      = CASE WHEN o.paid_amount >= i.total THEN 'paid' ELSE i.status END,
-		    paid_at     = CASE WHEN o.paid_amount >= i.total AND i.paid_at IS NULL THEN now() ELSE i.paid_at END
+		SET amount_paid = LEAST(o.paid_amount, CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END),
+		    amount_due  = GREATEST((CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END) - o.paid_amount, 0),
+		    status      = CASE WHEN o.paid_amount >= (CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END)
+		                       THEN 'paid' ELSE i.status END,
+		    paid_at     = CASE WHEN o.paid_amount >= (CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END)
+		                            AND i.paid_at IS NULL THEN now() ELSE i.paid_at END
 		FROM orders o
 		WHERE i.order_id = o.id AND o.id = $1 AND i.status NOT IN ('void', 'paid')`, orderID)
 	return err

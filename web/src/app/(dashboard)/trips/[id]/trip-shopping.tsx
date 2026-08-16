@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState } from "@/components/ui/page";
 import { StatCard } from "@/components/ui/stat-card";
@@ -210,12 +211,11 @@ export function TripShopping({ trip }: { trip: Trip }) {
               required
               hint={`Dipesan ${buying.qty_ordered} pcs, sisa ${buying.qty_remaining} pcs`}
             >
-              <Input
+              <NumberInput
                 id="qty"
-                type="number"
                 min="1"
                 value={form.qty}
-                onChange={(event) => setForm({ ...form, qty: Number(event.target.value) })}
+                onValueChange={(qty) => setForm({ ...form, qty })}
                 required
                 autoFocus
               />

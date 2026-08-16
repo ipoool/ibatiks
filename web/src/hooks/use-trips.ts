@@ -155,6 +155,35 @@ export function useDeleteTripItem(tripId: string) {
   });
 }
 
+export type SyncExchangeRateResult = {
+  trip: Trip;
+  previous_rate: string;
+  new_rate: string;
+  source: string;
+  items_updated: number;
+};
+
+/**
+ * Menyegarkan kurs sebuah trip dari sumber kurs harian.
+ *
+ * `recalculate_prices` sengaja terpisah: menyegarkan kurs adalah pencatatan,
+ * sedangkan menghitung ulang harga katalog berarti mengubah harga yang sudah
+ * dilihat customer — dua hal yang tidak boleh terjadi tanpa disadari.
+ */
+export function useSyncExchangeRate(tripId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (recalculatePrices: boolean) =>
+      api.post<SyncExchangeRateResult>(`/trips/${tripId}/sync-exchange-rate`, {
+        recalculate_prices: recalculatePrices,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tripKeys.all });
+    },
+  });
+}
+
 /** Menghitung ulang seluruh harga katalog memakai kurs trip terkini. */
 export function useRecalculatePrices(tripId: string) {
   const queryClient = useQueryClient();

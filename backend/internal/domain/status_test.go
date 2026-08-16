@@ -14,11 +14,15 @@ func TestCanTransitionOrder(t *testing.T) {
 		// Alur normal satu pesanan dari awal sampai selesai.
 		{domain.OrderDraft, domain.OrderAwaitingDP, true},
 		{domain.OrderAwaitingDP, domain.OrderDPPaid, true},
-		{domain.OrderDPPaid, domain.OrderPurchasing, true},
-		{domain.OrderPurchasing, domain.OrderArrived, true},
-		{domain.OrderArrived, domain.OrderPacked, true},
+		// Belanja dan penerimaan barang terjadi selagi order Diproses, jadi
+		// tahap berikutnya langsung Sedang Dikemas.
+		{domain.OrderDPPaid, domain.OrderPacked, true},
 		{domain.OrderPacked, domain.OrderInvoiced, true},
 		{domain.OrderInvoiced, domain.OrderPaid, true},
+
+		// Pelanggan lama sering melunasi begitu diberi tahu barangnya sudah
+		// sampai, sebelum invoice resmi diterbitkan.
+		{domain.OrderPacked, domain.OrderPaid, true},
 		{domain.OrderPaid, domain.OrderShipped, true},
 		{domain.OrderShipped, domain.OrderCompleted, true},
 
@@ -27,7 +31,7 @@ func TestCanTransitionOrder(t *testing.T) {
 		{domain.OrderDraft, domain.OrderShipped, false},
 		{domain.OrderAwaitingDP, domain.OrderShipped, false},
 		{domain.OrderDPPaid, domain.OrderPaid, false},
-		{domain.OrderArrived, domain.OrderShipped, false},
+		{domain.OrderDPPaid, domain.OrderShipped, false},
 
 		// Status akhir tidak bisa berpindah ke mana pun.
 		{domain.OrderCompleted, domain.OrderShipped, false},
@@ -59,8 +63,7 @@ func TestCanTransitionOrder(t *testing.T) {
 func TestOrderIsEditable(t *testing.T) {
 	editable := []string{
 		domain.OrderDraft, domain.OrderAwaitingDP, domain.OrderDPPaid,
-		domain.OrderPurchasing, domain.OrderArrived, domain.OrderPacked,
-		domain.OrderInvoiced, domain.OrderPaid,
+		domain.OrderPacked, domain.OrderInvoiced, domain.OrderPaid,
 	}
 	for _, status := range editable {
 		if !domain.OrderIsEditable(status) {
@@ -100,18 +103,13 @@ func TestCanTransitionTrip(t *testing.T) {
 		from, to string
 		want     bool
 	}{
-		{domain.TripDraft, domain.TripOpen, true},
-		{domain.TripOpen, domain.TripShopping, true},
 		{domain.TripOpen, domain.TripClosed, true},
 		{domain.TripClosed, domain.TripOpen, true}, // order dibuka kembali
-		{domain.TripShopping, domain.TripInTransit, true},
-		{domain.TripInTransit, domain.TripArrived, true},
-		{domain.TripArrived, domain.TripSettled, true},
 
-		{domain.TripDraft, domain.TripArrived, false},
-		{domain.TripSettled, domain.TripOpen, false},
-		{domain.TripCancelled, domain.TripOpen, false},
-		{domain.TripInTransit, domain.TripCancelled, false},
+		// Status yang sudah tidak ada tidak boleh membuka jalur apa pun.
+		{"shopping", domain.TripOpen, false},
+		{domain.TripOpen, "settled", false},
+		{"draft", domain.TripOpen, false},
 	}
 
 	for _, tt := range tests {
@@ -124,22 +122,13 @@ func TestCanTransitionTrip(t *testing.T) {
 }
 
 func TestTripAcceptsOrder(t *testing.T) {
-	// Order masih boleh masuk saat tripper sudah di lokasi, karena di lapangan
-	// sering ada customer yang menyusul titip.
 	if !domain.TripAcceptsOrder(domain.TripOpen) {
 		t.Error("trip open seharusnya menerima order")
 	}
-	if !domain.TripAcceptsOrder(domain.TripShopping) {
-		t.Error("trip shopping seharusnya masih menerima order")
-	}
-
-	for _, status := range []string{
-		domain.TripDraft, domain.TripClosed, domain.TripInTransit,
-		domain.TripArrived, domain.TripSettled, domain.TripCancelled,
-	} {
-		if domain.TripAcceptsOrder(status) {
-			t.Errorf("trip berstatus %s seharusnya tidak menerima order baru", status)
-		}
+	// Menutup trip adalah cara admin menghentikan order yang masuk, jadi
+	// harus benar-benar menutupnya.
+	if domain.TripAcceptsOrder(domain.TripClosed) {
+		t.Error("trip closed seharusnya tidak menerima order baru")
 	}
 }
 

@@ -34,25 +34,17 @@ const ORDER_STATUS: Record<OrderStatus, { label: string; tone: BadgeTone }> = {
   // PRD memakai istilah "Diproses" untuk order yang DP-nya sudah diverifikasi;
   // status inilah yang masuk hitungan daftar belanja tripper.
   dp_paid: { label: "Diproses", tone: "info" },
-  purchasing: { label: "Dibelikan", tone: "progress" },
-  arrived: { label: "Barang Tiba", tone: "progress" },
-  packed: { label: "Sudah Dikemas", tone: "progress" },
-  invoiced: { label: "Ditagihkan", tone: "warning" },
-  paid: { label: "Lunas", tone: "success" },
+  packed: { label: "Sedang Dikemas", tone: "progress" },
+  invoiced: { label: "Penagihan", tone: "warning" },
+  paid: { label: "Pembayaran Lunas", tone: "success" },
   shipped: { label: "Dikirim", tone: "info" },
   completed: { label: "Selesai", tone: "success" },
   cancelled: { label: "Batal", tone: "danger" },
 };
 
 const TRIP_STATUS: Record<TripStatus, { label: string; tone: BadgeTone }> = {
-  draft: { label: "Draft", tone: "neutral" },
-  open: { label: "Buka Order", tone: "success" },
-  closed: { label: "Order Ditutup", tone: "warning" },
-  shopping: { label: "Sedang Belanja", tone: "progress" },
-  in_transit: { label: "Perjalanan Pulang", tone: "progress" },
-  arrived: { label: "Tiba di Indonesia", tone: "info" },
-  settled: { label: "Selesai Dibukukan", tone: "success" },
-  cancelled: { label: "Batal", tone: "danger" },
+  open: { label: "Open", tone: "success" },
+  closed: { label: "Closed", tone: "warning" },
 };
 
 const INVOICE_STATUS: Record<InvoiceStatus, { label: string; tone: BadgeTone }> = {
@@ -95,9 +87,33 @@ export function OrderSourceBadge({ source }: { source: OrderSource }) {
   return <Badge variant={meta.tone}>{meta.label}</Badge>;
 }
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+/**
+ * Status order, dengan penanda lunas terpisah bila perlu.
+ *
+ * Status order menceritakan posisi barangnya — belum dibeli, sudah dikemas,
+ * sudah dikirim — jadi order yang dilunasi saat barangnya belum siap tidak
+ * boleh melompat ke "Lunas": kalau itu terjadi, ia muncul di antrean siap
+ * kirim padahal barangnya belum ada. Karena itu pelunasan lebih awal ditandai
+ * chip tersendiri, supaya admin tetap melihat uangnya sudah masuk.
+ */
+export function OrderStatusBadge({
+  status,
+  settled = false,
+}: {
+  status: OrderStatus;
+  /** Sisa tagihannya sudah nol walau statusnya belum "paid". */
+  settled?: boolean;
+}) {
   const meta = ORDER_STATUS[status] ?? { label: status, tone: "neutral" as BadgeTone };
-  return <Badge variant={meta.tone}>{meta.label}</Badge>;
+  const showSettled =
+    settled && !["paid", "shipped", "completed", "cancelled"].includes(status);
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <Badge variant={meta.tone}>{meta.label}</Badge>
+      {showSettled && <Badge variant="success">Lunas</Badge>}
+    </span>
+  );
 }
 
 export function TripStatusBadge({ status }: { status: TripStatus }) {

@@ -13,6 +13,7 @@ import { PriceHistoryDialog } from "@/components/price-history";
 import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
@@ -381,12 +382,13 @@ export default function ProductsPage() {
           </Field>
 
           <Field label="Berat (gram)" htmlFor="weight_gram" hint="Dipakai memperkirakan ongkir">
-            <Input
+            <NumberInput
               id="weight_gram"
-              type="number"
               min="0"
+              blankWhenZero
+              placeholder="0"
               value={form.weight_gram ?? 0}
-              onChange={(event) => setForm({ ...form, weight_gram: Number(event.target.value) })}
+              onValueChange={(weight) => setForm({ ...form, weight_gram: weight })}
             />
           </Field>
 

@@ -70,13 +70,15 @@ type CreateOrderInput struct {
 	// DPRequired opsional: kalau nil, dipakai persentase DP default.
 	DPRequired *decimal.Decimal
 	// Alamat pengiriman opsional: kalau kosong, disalin dari data customer.
-	RecipientName      *string
-	RecipientPhone     *string
-	ShippingAddress    *string
-	ShippingCity       *string
-	ShippingProvince   *string
-	ShippingPostalCode *string
-	Notes              *string
+	RecipientName       *string
+	RecipientPhone      *string
+	ShippingAddress     *string
+	ShippingCity        *string
+	ShippingDistrict    *string
+	ShippingSubdistrict *string
+	ShippingProvince    *string
+	ShippingPostalCode  *string
+	Notes               *string
 }
 
 // Create mencatat order baru beserta seluruh itemnya dalam satu transaksi.
@@ -134,18 +136,20 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput, actorID 
 			// Order yang baru dicatat langsung menunggu DP. Admin mencatatnya
 			// setelah customer benar-benar memesan, jadi tahap draft hanya
 			// menambah satu klik tanpa memberi manfaat.
-			Status:             domain.OrderAwaitingDP,
-			Discount:           in.Discount,
-			ShippingFee:        in.ShippingFee,
-			DPRequired:         decimal.Zero, // diisi setelah total diketahui
-			RecipientName:      shipping.Name,
-			RecipientPhone:     shipping.Phone,
-			ShippingAddress:    shipping.Address,
-			ShippingCity:       shipping.City,
-			ShippingProvince:   shipping.Province,
-			ShippingPostalCode: shipping.PostalCode,
-			Notes:              trimPtr(in.Notes),
-			CreatedBy:          nullableUUID(actorID),
+			Status:              domain.OrderAwaitingDP,
+			Discount:            in.Discount,
+			ShippingFee:         in.ShippingFee,
+			DPRequired:          decimal.Zero, // diisi setelah total diketahui
+			RecipientName:       shipping.Name,
+			RecipientPhone:      shipping.Phone,
+			ShippingAddress:     shipping.Address,
+			ShippingCity:        shipping.City,
+			ShippingDistrict:    shipping.District,
+			ShippingSubdistrict: shipping.Subdistrict,
+			ShippingProvince:    shipping.Province,
+			ShippingPostalCode:  shipping.PostalCode,
+			Notes:               trimPtr(in.Notes),
+			CreatedBy:           nullableUUID(actorID),
 		})
 		if err != nil {
 			return err
@@ -240,18 +244,20 @@ func (s *OrderService) List(ctx context.Context, p pagination.Params, f reposito
 }
 
 type UpdateOrderInput struct {
-	OrderDate          time.Time
-	OrderSource        string
-	Discount           decimal.Decimal
-	ShippingFee        decimal.Decimal
-	DPRequired         *decimal.Decimal
-	RecipientName      string
-	RecipientPhone     string
-	ShippingAddress    string
-	ShippingCity       string
-	ShippingProvince   *string
-	ShippingPostalCode *string
-	Notes              *string
+	OrderDate           time.Time
+	OrderSource         string
+	Discount            decimal.Decimal
+	ShippingFee         decimal.Decimal
+	DPRequired          *decimal.Decimal
+	RecipientName       string
+	RecipientPhone      string
+	ShippingAddress     string
+	ShippingCity        string
+	ShippingDistrict    *string
+	ShippingSubdistrict *string
+	ShippingProvince    *string
+	ShippingPostalCode  *string
+	Notes               *string
 }
 
 func (s *OrderService) Update(ctx context.Context, id uuid.UUID, in UpdateOrderInput, actorID uuid.UUID) (*domain.OrderDetail, error) {
@@ -287,18 +293,20 @@ func (s *OrderService) Update(ctx context.Context, id uuid.UUID, in UpdateOrderI
 		}
 
 		updated, err := s.orders.Update(ctx, tx, id, repository.UpdateOrderParams{
-			OrderDate:          in.OrderDate,
-			OrderSource:        source,
-			Discount:           in.Discount,
-			ShippingFee:        in.ShippingFee,
-			DPRequired:         order.DPRequired,
-			RecipientName:      shipping.Name,
-			RecipientPhone:     shipping.Phone,
-			ShippingAddress:    shipping.Address,
-			ShippingCity:       shipping.City,
-			ShippingProvince:   shipping.Province,
-			ShippingPostalCode: shipping.PostalCode,
-			Notes:              trimPtr(in.Notes),
+			OrderDate:           in.OrderDate,
+			OrderSource:         source,
+			Discount:            in.Discount,
+			ShippingFee:         in.ShippingFee,
+			DPRequired:          order.DPRequired,
+			RecipientName:       shipping.Name,
+			RecipientPhone:      shipping.Phone,
+			ShippingAddress:     shipping.Address,
+			ShippingCity:        shipping.City,
+			ShippingDistrict:    shipping.District,
+			ShippingSubdistrict: shipping.Subdistrict,
+			ShippingProvince:    shipping.Province,
+			ShippingPostalCode:  shipping.PostalCode,
+			Notes:               trimPtr(in.Notes),
 		})
 		if err != nil {
 			return err
@@ -827,12 +835,10 @@ func (s *OrderService) ReceiveItems(ctx context.Context, orderID uuid.UUID, rece
 			}
 		}
 
-		// Order naik ke arrived begitu proses pencocokan selesai dijalankan.
-		if domain.CanTransitionOrder(order.Status, domain.OrderArrived) {
-			if _, err := s.orders.UpdateStatus(ctx, tx, orderID, domain.OrderArrived); err != nil {
-				return err
-			}
-		}
+		// Status order sengaja tidak digeser di sini. Mencocokkan barang datang
+		// adalah bagian dari tahap "Diproses"; yang naik justru catatan
+		// penerimaan tiap item, dan order berpindah ke "Sedang Dikemas" ketika
+		// benar-benar dikemas.
 
 		return s.audit.Record(ctx, tx, repository.AuditParams{
 			UserID:   nullableUUID(actorID),
@@ -1014,18 +1020,20 @@ func (s *OrderService) applyDPRequired(ctx context.Context, tx pgx.Tx, order *do
 	}
 
 	_, err := s.orders.Update(ctx, tx, order.ID, repository.UpdateOrderParams{
-		OrderDate:          order.OrderDate,
-		OrderSource:        order.OrderSource,
-		Discount:           order.Discount,
-		ShippingFee:        order.ShippingFee,
-		DPRequired:         dp,
-		RecipientName:      order.RecipientName,
-		RecipientPhone:     order.RecipientPhone,
-		ShippingAddress:    order.ShippingAddress,
-		ShippingCity:       order.ShippingCity,
-		ShippingProvince:   order.ShippingProvince,
-		ShippingPostalCode: order.ShippingPostalCode,
-		Notes:              order.Notes,
+		OrderDate:           order.OrderDate,
+		OrderSource:         order.OrderSource,
+		Discount:            order.Discount,
+		ShippingFee:         order.ShippingFee,
+		DPRequired:          dp,
+		RecipientName:       order.RecipientName,
+		RecipientPhone:      order.RecipientPhone,
+		ShippingAddress:     order.ShippingAddress,
+		ShippingCity:        order.ShippingCity,
+		ShippingDistrict:    order.ShippingDistrict,
+		ShippingSubdistrict: order.ShippingSubdistrict,
+		ShippingProvince:    order.ShippingProvince,
+		ShippingPostalCode:  order.ShippingPostalCode,
+		Notes:               order.Notes,
 	})
 	return err
 }
@@ -1065,24 +1073,28 @@ func (s *OrderService) reconcileStatusAfterAmountChange(ctx context.Context, tx 
 }
 
 type shippingInfo struct {
-	Name       string
-	Phone      string
-	Address    string
-	City       string
-	Province   *string
-	PostalCode *string
+	Name        string
+	Phone       string
+	Address     string
+	City        string
+	District    *string
+	Subdistrict *string
+	Province    *string
+	PostalCode  *string
 }
 
 // resolveShipping menyalin alamat customer sebagai default, tapi tetap
 // mengizinkan pengiriman ke alamat lain (hadiah, kantor, titip teman).
 func resolveShipping(in CreateOrderInput, customer *domain.Customer) shippingInfo {
 	info := shippingInfo{
-		Name:       strings.TrimSpace(customer.Name),
-		Phone:      customer.PhoneWA,
-		City:       derefString(customer.City),
-		Address:    derefString(customer.Address),
-		Province:   customer.Province,
-		PostalCode: customer.PostalCode,
+		Name:        strings.TrimSpace(customer.Name),
+		Phone:       customer.PhoneWA,
+		City:        derefString(customer.City),
+		Address:     derefString(customer.Address),
+		District:    customer.District,
+		Subdistrict: customer.Subdistrict,
+		Province:    customer.Province,
+		PostalCode:  customer.PostalCode,
 	}
 
 	if v := trimPtr(in.RecipientName); v != nil {
@@ -1096,6 +1108,12 @@ func resolveShipping(in CreateOrderInput, customer *domain.Customer) shippingInf
 	}
 	if v := trimPtr(in.ShippingCity); v != nil {
 		info.City = *v
+	}
+	if v := trimPtr(in.ShippingDistrict); v != nil {
+		info.District = v
+	}
+	if v := trimPtr(in.ShippingSubdistrict); v != nil {
+		info.Subdistrict = v
 	}
 	if v := trimPtr(in.ShippingProvince); v != nil {
 		info.Province = v

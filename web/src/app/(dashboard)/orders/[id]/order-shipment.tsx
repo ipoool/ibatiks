@@ -1,11 +1,19 @@
 "use client";
 
-import { Calculator, CheckCircle2, MessageCircle, PackageCheck, Truck } from "lucide-react";
+import {
+  Calculator,
+  CheckCircle2,
+  MessageCircle,
+  PackageCheck,
+  Printer,
+  Truck,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { OptionSelect } from "@/components/filter-select";
 import { ShipmentStatusBadge } from "@/components/status-badge";
+import { ShippingInfoButton } from "@/components/shipping-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,6 +22,7 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { DetailRow } from "@/components/ui/page";
 import { WAMessageDialog } from "@/components/wa-message-dialog";
@@ -22,6 +31,7 @@ import {
   useMarkDelivered,
   useMarkShipmentNotified,
   usePackOrder,
+  deliveryNoteUrl,
   useShipOrder,
   useShipmentMessage,
 } from "@/hooks/use-operations";
@@ -224,6 +234,20 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
             </Button>
           )}
 
+          {/* Surat jalan boleh dicetak kapan saja, termasuk sebelum resi ada:
+              lembarnya dipakai sebagai pendamping saat mengemas dan saat
+              menyerahkan paket ke konter kurir. */}
+          <Button variant="outline" asChild>
+            <a
+              href={deliveryNoteUrl(order.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Printer />
+              Surat Jalan
+            </a>
+          </Button>
+
           {shipment?.status === "shipped" && (
             <ConfirmButton
               variant="outline"
@@ -278,14 +302,13 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
           </Field>
 
           <Field label="Berat (gram)" htmlFor="weight_gram">
-            <Input
+            <NumberInput
               id="weight_gram"
-              type="number"
               min="0"
+              blankWhenZero
+              placeholder="0"
               value={packForm.weight_gram}
-              onChange={(event) =>
-                setPackForm({ ...packForm, weight_gram: Number(event.target.value) })
-              }
+              onValueChange={(weight) => setPackForm({ ...packForm, weight_gram: weight })}
             />
           </Field>
 
@@ -296,34 +319,31 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
             className="sm:col-span-2"
           >
             <div className="flex items-center gap-2">
-              <Input
+              <NumberInput
                 id="length_cm"
-                type="number"
                 min="0"
+                blankWhenZero
+                placeholder="0"
                 value={packForm.length_cm}
-                onChange={(event) =>
-                  setPackForm({ ...packForm, length_cm: Number(event.target.value) })
-                }
+                onValueChange={(length) => setPackForm({ ...packForm, length_cm: length })}
                 aria-label="Panjang (cm)"
               />
               <span className="text-muted-foreground">×</span>
-              <Input
-                type="number"
+              <NumberInput
                 min="0"
+                blankWhenZero
+                placeholder="0"
                 value={packForm.width_cm}
-                onChange={(event) =>
-                  setPackForm({ ...packForm, width_cm: Number(event.target.value) })
-                }
+                onValueChange={(width) => setPackForm({ ...packForm, width_cm: width })}
                 aria-label="Lebar (cm)"
               />
               <span className="text-muted-foreground">×</span>
-              <Input
-                type="number"
+              <NumberInput
                 min="0"
+                blankWhenZero
+                placeholder="0"
                 value={packForm.height_cm}
-                onChange={(event) =>
-                  setPackForm({ ...packForm, height_cm: Number(event.target.value) })
-                }
+                onValueChange={(height) => setPackForm({ ...packForm, height_cm: height })}
                 aria-label="Tinggi (cm)"
               />
             </div>
@@ -339,6 +359,7 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
               <Calculator />
               Hitung Ongkir ke {order.shipping_city}
             </Button>
+            <ShippingInfoButton className="ml-1 align-middle" />
 
             {estimate.data && (
               <div className="mt-3 space-y-1 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">

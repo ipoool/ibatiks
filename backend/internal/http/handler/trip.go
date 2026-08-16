@@ -276,6 +276,39 @@ func (h *TripHandler) RecalculatePrices(w http.ResponseWriter, r *http.Request) 
 	response.OK(w, items)
 }
 
+type syncExchangeRateRequest struct {
+	// RecalculatePrices menentukan apakah harga jual katalog ikut dihitung
+	// ulang. Bawaannya tidak, supaya kurs bisa disegarkan tanpa diam-diam
+	// mengubah harga yang sudah diumumkan ke customer.
+	RecalculatePrices bool `json:"recalculate_prices"`
+}
+
+// SyncExchangeRate menyegarkan kurs trip dari sumber kurs harian.
+func (h *TripHandler) SyncExchangeRate(w http.ResponseWriter, r *http.Request) {
+	tripID, err := request.UUIDParam(r, "id")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	var req syncExchangeRateRequest
+	// Body boleh kosong; artinya kurs saja yang disegarkan.
+	if r.ContentLength > 0 {
+		if err := request.DecodeJSON(w, r, &req); err != nil {
+			response.Error(w, r, err)
+			return
+		}
+	}
+
+	result, err := h.trips.SyncExchangeRate(
+		r.Context(), tripID, req.RecalculatePrices, middleware.UserIDFrom(r.Context()))
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, result)
+}
+
 // --- Biaya perjalanan ------------------------------------------------------
 
 type tripExpenseRequest struct {

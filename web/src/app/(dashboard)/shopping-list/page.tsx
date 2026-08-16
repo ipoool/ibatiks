@@ -26,9 +26,9 @@ export default function ShoppingListPage() {
   // perlu memilih apa pun saat membuka halaman ini di tengah belanja. Nilainya
   // diturunkan langsung dari data, bukan disalin ke state lewat efek, sehingga
   // pilihan tripper sendiri selalu menang atas nilai bawaan.
-  const defaultTrip =
-    trips?.items.find((trip) => ["shopping", "open", "closed"].includes(trip.status)) ??
-    trips?.items[0];
+  // Trip yang sedang berjalan dipilih lebih dulu; kalau semuanya sudah
+  // ditutup, yang terbaru tetap ditawarkan supaya halaman tidak kosong.
+  const defaultTrip = trips?.items.find((trip) => trip.status === "open") ?? trips?.items[0];
   const tripId = chosenTripId || defaultTrip?.id || "";
 
   const selectedTrip = trips?.items.find((trip) => trip.id === tripId);

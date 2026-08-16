@@ -407,8 +407,9 @@ func (r *ReportRepo) DashboardCounters(ctx context.Context, q db.Querier) (*Dash
 			  AND order_date >= date_trunc('month', CURRENT_DATE)
 		)
 		SELECT
-			(SELECT count(*) FROM trips
-			 WHERE status IN ('open', 'closed', 'shopping', 'in_transit', 'arrived'))::int AS active_trips,
+			-- Trip aktif = yang masih menerima order. Trip yang sudah ditutup
+			-- pekerjaannya diikuti lewat order dan pembeliannya sendiri.
+			(SELECT count(*) FROM trips WHERE status = 'open')::int AS active_trips,
 			(SELECT count(*) FROM orders
 			 WHERE status NOT IN ('completed', 'cancelled'))::int AS open_orders,
 			(SELECT count(*) FROM orders WHERE status = 'paid')::int AS pending_shipment,

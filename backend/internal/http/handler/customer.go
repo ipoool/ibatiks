@@ -18,28 +18,32 @@ func NewCustomerHandler(customers *service.CustomerService) *CustomerHandler {
 }
 
 type customerRequest struct {
-	Name       string  `json:"name"        validate:"required,min=2,max=120"`
-	PhoneWA    string  `json:"phone_wa"    validate:"required,min=8,max=20"`
-	Email      *string `json:"email"       validate:"omitempty,email"`
-	Instagram  *string `json:"instagram"`
-	Address    *string `json:"address"`
-	City       *string `json:"city"`
-	Province   *string `json:"province"`
-	PostalCode *string `json:"postal_code"`
-	Notes      *string `json:"notes"`
+	Name        string  `json:"name"        validate:"required,min=2,max=120"`
+	PhoneWA     string  `json:"phone_wa"    validate:"required,min=8,max=20"`
+	Email       *string `json:"email"       validate:"omitempty,email"`
+	Instagram   *string `json:"instagram"`
+	Address     *string `json:"address"`
+	City        *string `json:"city"`
+	District    *string `json:"district"`
+	Subdistrict *string `json:"subdistrict"`
+	Province    *string `json:"province"`
+	PostalCode  *string `json:"postal_code"`
+	Notes       *string `json:"notes"`
 }
 
 func (req customerRequest) toInput() service.CustomerInput {
 	return service.CustomerInput{
-		Name:       req.Name,
-		PhoneWA:    req.PhoneWA,
-		Email:      req.Email,
-		Instagram:  req.Instagram,
-		Address:    req.Address,
-		City:       req.City,
-		Province:   req.Province,
-		PostalCode: req.PostalCode,
-		Notes:      req.Notes,
+		Name:        req.Name,
+		PhoneWA:     req.PhoneWA,
+		Email:       req.Email,
+		Instagram:   req.Instagram,
+		Address:     req.Address,
+		City:        req.City,
+		District:    req.District,
+		Subdistrict: req.Subdistrict,
+		Province:    req.Province,
+		PostalCode:  req.PostalCode,
+		Notes:       req.Notes,
 	}
 }
 

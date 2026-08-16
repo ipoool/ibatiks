@@ -270,13 +270,14 @@ expect "$(jq -r '[.data[] | select(.action=="item_change")] | length > 0' <<<"$A
 
 # ---------------------------------------------------------------------------
 step "Terima barang, kemas, dan terbitkan invoice"
-api PATCH "/trips/$TRIP/status" '{"status":"shopping"}' >/dev/null
-api PATCH "/trips/$TRIP/status" '{"status":"arrived"}' >/dev/null
-ok "trip ditandai sudah tiba di Indonesia"
+api PATCH "/trips/$TRIP/status" '{"status":"closed"}' >/dev/null
+ok "order untuk trip ini ditutup"
 
 RECEIVE_ITEMS="$(api GET "/orders/$ORDER_A_ID" | jq -c '[.data.items[] | {item_id: .id, qty_received: .qty}]')"
 RECEIVED="$(api POST "/orders/$ORDER_A_ID/receive" "{\"items\":$RECEIVE_ITEMS}")"
-expect "$(jq -r '.data.status' <<<"$RECEIVED")" "arrived" "status order A setelah barang dicocokkan"
+# Mencocokkan barang datang tidak menggeser status order: belanja dan
+# penerimaan adalah bagian dari tahap Diproses.
+expect "$(jq -r '.data.status' <<<"$RECEIVED")" "dp_paid" "status order A tetap Diproses setelah barang dicocokkan"
 
 # Kardus 40x30x25 cm -> berat volume (40*30*25)/6000 = 5 kg, jauh di atas berat
 # asli 900 g, jadi yang ditagih ekspedisi adalah 5 kg.
@@ -351,8 +352,15 @@ expect "$(money "$(jq -r '.data.total_capital_out' <<<"$REPORT")")" "1850000" "t
 # ---------------------------------------------------------------------------
 step "Cek dashboard dan laporan piutang"
 DASH="$(api GET /reports/dashboard)"
-[[ "$(jq -r '.data.active_trips' <<<"$DASH")" -ge 1 ]] || fail "dashboard tidak menghitung trip aktif"
-ok "dashboard menghitung trip aktif"
+# "Trip aktif" kini berarti trip yang masih menerima order. Trip pada skrip ini
+# sudah ditutup, jadi yang diuji adalah angkanya ikut turun — bukan sekadar ada.
+expect "$(jq -r '.data.active_trips' <<<"$DASH")" "0" "trip yang sudah ditutup tidak lagi dihitung aktif"
+
+api PATCH "/trips/$TRIP/status" '{"status":"open"}' >/dev/null
+DASH_OPEN="$(api GET /reports/dashboard)"
+[[ "$(jq -r '.data.active_trips' <<<"$DASH_OPEN")" -ge 1 ]] || fail "dashboard tidak menghitung trip yang dibuka"
+ok "dashboard menghitung trip yang masih menerima order"
+api PATCH "/trips/$TRIP/status" '{"status":"closed"}' >/dev/null
 
 RECEIVABLES="$(api GET /reports/receivables)"
 expect "$(jq -r --arg id "$ORDER_B_ID" '[.data[] | select(.order_id==$id)] | length' <<<"$RECEIVABLES")" "1" "order B muncul di laporan piutang"

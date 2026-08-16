@@ -6,11 +6,14 @@ import { toast } from "sonner";
 
 import { FulfillmentBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+
+import { OrderReceiveButton } from "./order-actions";
 import { Combobox } from "@/components/ui/combobox";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { useAddOrderItem, useDeleteOrderItem, useUpdateOrderItem } from "@/hooks/use-orders";
 import { useTripItems } from "@/hooks/use-trips";
@@ -94,21 +97,24 @@ export function OrderItems({ order }: { order: OrderDetail }) {
     <Card>
       <CardHeader>
         <CardTitle>Item pesanan</CardTitle>
-        {order.editable && (
-          <CardAction>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                addItem.reset();
-                setAddOpen(true);
-              }}
-            >
-              <Plus />
-              Tambah Produk
-            </Button>
-          </CardAction>
-        )}
+        <CardAction>
+          <div className="flex flex-wrap items-center gap-2">
+            <OrderReceiveButton order={order} />
+            {order.editable && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  addItem.reset();
+                  setAddOpen(true);
+                }}
+              >
+                <Plus />
+                Tambah Produk
+              </Button>
+            )}
+          </div>
+        </CardAction>
       </CardHeader>
 
       <CardContent>
@@ -151,11 +157,10 @@ export function OrderItems({ order }: { order: OrderDetail }) {
 
                 <TD className="text-right">
                   {editing ? (
-                    <Input
-                      type="number"
+                    <NumberInput
                       min={Math.max(item.qty_received, 1)}
                       value={editQty}
-                      onChange={(event) => setEditQty(Number(event.target.value))}
+                      onValueChange={setEditQty}
                       className="h-9 text-right"
                       autoFocus
                     />
@@ -281,12 +286,11 @@ export function OrderItems({ order }: { order: OrderDetail }) {
           </Field>
 
           <Field label="Jumlah" htmlFor="add_qty" required>
-            <Input
+            <NumberInput
               id="add_qty"
-              type="number"
               min="1"
               value={addForm.qty}
-              onChange={(event) => setAddForm({ ...addForm, qty: Number(event.target.value) })}
+              onValueChange={(qty) => setAddForm({ ...addForm, qty })}
               required
             />
           </Field>

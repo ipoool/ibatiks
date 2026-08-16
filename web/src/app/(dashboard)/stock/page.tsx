@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
@@ -277,13 +278,12 @@ function SellDialog({ item, onClose }: { item: StockItem; onClose: () => void })
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Jumlah terjual" htmlFor="sell_qty" required>
-          <Input
+          <NumberInput
             id="sell_qty"
-            type="number"
             min="1"
             max={item.qty_on_hand}
             value={form.qty}
-            onChange={(event) => setForm({ ...form, qty: Number(event.target.value) })}
+            onValueChange={(qty) => setForm({ ...form, qty })}
             required
             autoFocus
           />
@@ -370,12 +370,11 @@ function AdjustDialog({ item, onClose }: { item: StockItem; onClose: () => void 
           required
           hint={delta !== 0 ? `Selisih ${delta > 0 ? "+" : ""}${delta} pcs` : "Tidak ada selisih"}
         >
-          <Input
+          <NumberInput
             id="new_qty"
-            type="number"
             min="0"
             value={form.new_qty}
-            onChange={(event) => setForm({ ...form, new_qty: Number(event.target.value) })}
+            onValueChange={(newQty) => setForm({ ...form, new_qty: newQty })}
             required
             autoFocus
           />

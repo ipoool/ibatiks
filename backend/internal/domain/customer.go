@@ -9,20 +9,23 @@ import (
 )
 
 type Customer struct {
-	ID         uuid.UUID  `db:"id"          json:"id"`
-	Code       string     `db:"code"        json:"code"`
-	Name       string     `db:"name"        json:"name"`
-	PhoneWA    string     `db:"phone_wa"    json:"phone_wa"`
-	Email      *string    `db:"email"       json:"email"`
-	Instagram  *string    `db:"instagram"   json:"instagram"`
-	Address    *string    `db:"address"     json:"address"`
-	City       *string    `db:"city"        json:"city"`
-	Province   *string    `db:"province"    json:"province"`
-	PostalCode *string    `db:"postal_code" json:"postal_code"`
-	Notes      *string    `db:"notes"       json:"notes"`
-	CreatedAt  time.Time  `db:"created_at"  json:"created_at"`
-	UpdatedAt  time.Time  `db:"updated_at"  json:"updated_at"`
-	DeletedAt  *time.Time `db:"deleted_at"  json:"-"`
+	ID        uuid.UUID `db:"id"          json:"id"`
+	Code      string    `db:"code"        json:"code"`
+	Name      string    `db:"name"        json:"name"`
+	PhoneWA   string    `db:"phone_wa"    json:"phone_wa"`
+	Email     *string   `db:"email"       json:"email"`
+	Instagram *string   `db:"instagram"   json:"instagram"`
+	Address   *string   `db:"address"     json:"address"`
+	City      *string   `db:"city"        json:"city"`
+	// District = kecamatan, Subdistrict = kelurahan/desa.
+	District    *string    `db:"district"    json:"district"`
+	Subdistrict *string    `db:"subdistrict" json:"subdistrict"`
+	Province    *string    `db:"province"    json:"province"`
+	PostalCode  *string    `db:"postal_code" json:"postal_code"`
+	Notes       *string    `db:"notes"       json:"notes"`
+	CreatedAt   time.Time  `db:"created_at"  json:"created_at"`
+	UpdatedAt   time.Time  `db:"updated_at"  json:"updated_at"`
+	DeletedAt   *time.Time `db:"deleted_at"  json:"-"`
 }
 
 var nonDigit = regexp.MustCompile(`\D`)

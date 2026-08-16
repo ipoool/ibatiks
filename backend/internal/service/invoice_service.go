@@ -104,6 +104,7 @@ func (s *InvoiceService) Create(ctx context.Context, orderID uuid.UUID, in Creat
 			Discount:      amounts.Discount,
 			ShippingFee:   amounts.ShippingFee,
 			Total:         amounts.Total,
+			DPAmount:      amounts.DPAmount,
 			AmountPaid:    amounts.AmountPaid,
 			AmountDue:     amounts.AmountDue,
 			Notes:         trimPtr(in.Notes),
@@ -148,34 +149,42 @@ type invoiceAmounts struct {
 	Discount    decimal.Decimal
 	ShippingFee decimal.Decimal
 	Total       decimal.Decimal
+	DPAmount    decimal.Decimal
 	AmountPaid  decimal.Decimal
 	AmountDue   decimal.Decimal
 }
 
 // calculateAmounts membedakan invoice DP dari invoice pelunasan.
-// Invoice DP hanya menagih uang muka, sedangkan invoice final menagih seluruh
-// nilai order dikurangi apa yang sudah dibayar.
+//
+// Nilai order ditulis apa adanya pada kedua jenis invoice — subtotal barang,
+// diskon, ongkir, dan totalnya. Yang membedakan hanyalah apa yang ditagih:
+// invoice DP menagih uang mukanya, invoice pelunasan menagih sisanya setelah
+// uang muka dikurangkan. Dengan begitu customer selalu melihat harga pesanan
+// yang sebenarnya, bukan dokumen yang seolah-olah menyatakan pesanannya cuma
+// seharga uang muka.
 func (s *InvoiceService) calculateAmounts(order *domain.Order, invoiceType string) invoiceAmounts {
-	if invoiceType == domain.InvoiceDP {
-		paid := decimal.Min(order.PaidAmount, order.DPRequired)
-		return invoiceAmounts{
-			Subtotal:    order.DPRequired,
-			Discount:    decimal.Zero,
-			ShippingFee: decimal.Zero,
-			Total:       order.DPRequired,
-			AmountPaid:  paid,
-			AmountDue:   money.Max(order.DPRequired.Sub(paid), decimal.Zero),
-		}
-	}
-
-	return invoiceAmounts{
+	amounts := invoiceAmounts{
 		Subtotal:    order.Subtotal,
 		Discount:    order.Discount,
 		ShippingFee: order.ShippingFee,
 		Total:       order.Total,
-		AmountPaid:  order.PaidAmount,
-		AmountDue:   money.Max(order.BalanceDue, decimal.Zero),
+		DPAmount:    order.DPRequired,
 	}
+
+	if invoiceType == domain.InvoiceDP {
+		paid := decimal.Min(order.PaidAmount, order.DPRequired)
+		amounts.AmountPaid = paid
+		amounts.AmountDue = money.Max(order.DPRequired.Sub(paid), decimal.Zero)
+		return amounts
+	}
+
+	// Pada invoice pelunasan yang ditulis sebagai uang muka adalah yang benar-
+	// benar sudah diterima, bukan yang diminta: kalau customer membayar kurang
+	// dari DP yang disepakati, sisanya tetap ikut ditagih di sini.
+	amounts.DPAmount = decimal.Min(order.PaidAmount, order.DPRequired)
+	amounts.AmountPaid = order.PaidAmount
+	amounts.AmountDue = money.Max(order.BalanceDue, decimal.Zero)
+	return amounts
 }
 
 func (s *InvoiceService) Get(ctx context.Context, id uuid.UUID) (*domain.Invoice, error) {

@@ -6,12 +6,12 @@ import { useParams } from "next/navigation";
 
 import { OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { DetailRow, ErrorState } from "@/components/ui/page";
 import { useOrder } from "@/hooks/use-orders";
 import { formatDate, formatIDR, toNumber } from "@/lib/utils";
 
-import { OrderActions } from "./order-actions";
+import { OrderActions, OrderEditButton } from "./order-actions";
 import { OrderInvoices } from "./order-invoices";
 import { OrderItems } from "./order-items";
 import { OrderPayments } from "./order-payments";
@@ -60,7 +60,7 @@ export default function OrderDetailPage() {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight">{order.order_number}</h1>
-              <OrderStatusBadge status={order.status} />
+              <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
               <OrderSourceBadge source={order.order_source} />
             </div>
             <p className="text-sm text-muted-foreground">
@@ -93,6 +93,9 @@ export default function OrderDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle>Ringkasan biaya</CardTitle>
+              <CardAction>
+                <OrderEditButton order={order} />
+              </CardAction>
             </CardHeader>
             <CardContent className="divide-y divide-border">
               <DetailRow label="Subtotal" value={formatIDR(order.subtotal)} />
@@ -158,8 +161,16 @@ export default function OrderDetailPage() {
                   <p className="font-medium">{order.recipient_name}</p>
                   <p className="text-muted-foreground">{order.recipient_phone}</p>
                   <p className="text-muted-foreground">{order.shipping_address}</p>
+                  {/* Urutannya mengikuti cara alamat Indonesia ditulis:
+                      kelurahan, kecamatan, kota, provinsi, kode pos. */}
                   <p className="text-muted-foreground">
-                    {[order.shipping_city, order.shipping_province, order.shipping_postal_code]
+                    {[
+                      order.shipping_subdistrict,
+                      order.shipping_district,
+                      order.shipping_city,
+                      order.shipping_province,
+                      order.shipping_postal_code,
+                    ]
                       .filter(Boolean)
                       .join(", ")}
                   </p>

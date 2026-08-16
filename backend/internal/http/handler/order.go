@@ -39,13 +39,15 @@ type createOrderRequest struct {
 	ShippingFee decimal.Decimal    `json:"shipping_fee"`
 	DPRequired  *decimal.Decimal   `json:"dp_required"`
 
-	RecipientName      *string `json:"recipient_name"`
-	RecipientPhone     *string `json:"recipient_phone"`
-	ShippingAddress    *string `json:"shipping_address"`
-	ShippingCity       *string `json:"shipping_city"`
-	ShippingProvince   *string `json:"shipping_province"`
-	ShippingPostalCode *string `json:"shipping_postal_code"`
-	Notes              *string `json:"notes"`
+	RecipientName       *string `json:"recipient_name"`
+	RecipientPhone      *string `json:"recipient_phone"`
+	ShippingAddress     *string `json:"shipping_address"`
+	ShippingCity        *string `json:"shipping_city"`
+	ShippingDistrict    *string `json:"shipping_district"`
+	ShippingSubdistrict *string `json:"shipping_subdistrict"`
+	ShippingProvince    *string `json:"shipping_province"`
+	ShippingPostalCode  *string `json:"shipping_postal_code"`
+	Notes               *string `json:"notes"`
 }
 
 func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -66,21 +68,23 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	order, err := h.orders.Create(r.Context(), service.CreateOrderInput{
-		TripID:             req.TripID,
-		CustomerID:         req.CustomerID,
-		OrderDate:          req.OrderDate.OrNow(),
-		OrderSource:        req.OrderSource,
-		Items:              items,
-		Discount:           req.Discount,
-		ShippingFee:        req.ShippingFee,
-		DPRequired:         req.DPRequired,
-		RecipientName:      req.RecipientName,
-		RecipientPhone:     req.RecipientPhone,
-		ShippingAddress:    req.ShippingAddress,
-		ShippingCity:       req.ShippingCity,
-		ShippingProvince:   req.ShippingProvince,
-		ShippingPostalCode: req.ShippingPostalCode,
-		Notes:              req.Notes,
+		TripID:              req.TripID,
+		CustomerID:          req.CustomerID,
+		OrderDate:           req.OrderDate.OrNow(),
+		OrderSource:         req.OrderSource,
+		Items:               items,
+		Discount:            req.Discount,
+		ShippingFee:         req.ShippingFee,
+		DPRequired:          req.DPRequired,
+		RecipientName:       req.RecipientName,
+		RecipientPhone:      req.RecipientPhone,
+		ShippingAddress:     req.ShippingAddress,
+		ShippingCity:        req.ShippingCity,
+		ShippingDistrict:    req.ShippingDistrict,
+		ShippingSubdistrict: req.ShippingSubdistrict,
+		ShippingProvince:    req.ShippingProvince,
+		ShippingPostalCode:  req.ShippingPostalCode,
+		Notes:               req.Notes,
 	}, middleware.UserIDFrom(r.Context()))
 	if err != nil {
 		response.Error(w, r, err)
@@ -140,13 +144,15 @@ type updateOrderRequest struct {
 	ShippingFee decimal.Decimal  `json:"shipping_fee"`
 	DPRequired  *decimal.Decimal `json:"dp_required"`
 
-	RecipientName      string  `json:"recipient_name"   validate:"required"`
-	RecipientPhone     string  `json:"recipient_phone"  validate:"required"`
-	ShippingAddress    string  `json:"shipping_address" validate:"required"`
-	ShippingCity       string  `json:"shipping_city"    validate:"required"`
-	ShippingProvince   *string `json:"shipping_province"`
-	ShippingPostalCode *string `json:"shipping_postal_code"`
-	Notes              *string `json:"notes"`
+	RecipientName       string  `json:"recipient_name"   validate:"required"`
+	RecipientPhone      string  `json:"recipient_phone"  validate:"required"`
+	ShippingAddress     string  `json:"shipping_address" validate:"required"`
+	ShippingCity        string  `json:"shipping_city"    validate:"required"`
+	ShippingDistrict    *string `json:"shipping_district"`
+	ShippingSubdistrict *string `json:"shipping_subdistrict"`
+	ShippingProvince    *string `json:"shipping_province"`
+	ShippingPostalCode  *string `json:"shipping_postal_code"`
+	Notes               *string `json:"notes"`
 }
 
 func (h *OrderHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -163,18 +169,20 @@ func (h *OrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	order, err := h.orders.Update(r.Context(), id, service.UpdateOrderInput{
-		OrderDate:          req.OrderDate.OrNow(),
-		OrderSource:        req.OrderSource,
-		Discount:           req.Discount,
-		ShippingFee:        req.ShippingFee,
-		DPRequired:         req.DPRequired,
-		RecipientName:      req.RecipientName,
-		RecipientPhone:     req.RecipientPhone,
-		ShippingAddress:    req.ShippingAddress,
-		ShippingCity:       req.ShippingCity,
-		ShippingProvince:   req.ShippingProvince,
-		ShippingPostalCode: req.ShippingPostalCode,
-		Notes:              req.Notes,
+		OrderDate:           req.OrderDate.OrNow(),
+		OrderSource:         req.OrderSource,
+		Discount:            req.Discount,
+		ShippingFee:         req.ShippingFee,
+		DPRequired:          req.DPRequired,
+		RecipientName:       req.RecipientName,
+		RecipientPhone:      req.RecipientPhone,
+		ShippingAddress:     req.ShippingAddress,
+		ShippingCity:        req.ShippingCity,
+		ShippingDistrict:    req.ShippingDistrict,
+		ShippingSubdistrict: req.ShippingSubdistrict,
+		ShippingProvince:    req.ShippingProvince,
+		ShippingPostalCode:  req.ShippingPostalCode,
+		Notes:               req.Notes,
 	}, middleware.UserIDFrom(r.Context()))
 	if err != nil {
 		response.Error(w, r, err)

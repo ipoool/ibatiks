@@ -19,12 +19,17 @@ import (
 
 var ErrInvalidToken = errors.New("token tidak valid atau sudah kedaluwarsa")
 
-// Claims adalah isi access token. Role ikut dibawa supaya pengecekan hak akses
-// di middleware tidak perlu query database tiap request.
+// Claims adalah isi access token. Role dan daftar hak akses ikut dibawa supaya
+// pengecekan di middleware tidak perlu query database tiap request.
+//
+// Konsekuensinya, perubahan hak akses baru berlaku saat token diperbarui.
+// Karena itu service pengguna mencabut sesi seseorang begitu haknya diubah —
+// lihat UserService.Update.
 type Claims struct {
-	UserID uuid.UUID `json:"uid"`
-	Email  string    `json:"email"`
-	Role   string    `json:"role"`
+	UserID      uuid.UUID `json:"uid"`
+	Email       string    `json:"email"`
+	Role        string    `json:"role"`
+	Permissions []string  `json:"perms,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -48,14 +53,15 @@ func (m *Manager) AccessTTL() time.Duration  { return m.accessTTL }
 func (m *Manager) RefreshTTL() time.Duration { return m.refreshTTL }
 
 // IssueAccessToken membuat JWT bertanda tangan HS256.
-func (m *Manager) IssueAccessToken(userID uuid.UUID, email, role string) (string, time.Time, error) {
+func (m *Manager) IssueAccessToken(userID uuid.UUID, email, role string, permissions []string) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(m.accessTTL)
 
 	claims := Claims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
+		UserID:      userID,
+		Email:       email,
+		Role:        role,
+		Permissions: permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.issuer,
 			Subject:   userID.String(),

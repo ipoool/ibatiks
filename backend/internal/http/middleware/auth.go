@@ -20,9 +20,10 @@ const userCtxKey ctxKey = iota
 
 // AuthUser adalah identitas pengguna yang sudah terverifikasi dari access token.
 type AuthUser struct {
-	ID    uuid.UUID
-	Email string
-	Role  string
+	ID          uuid.UUID
+	Email       string
+	Role        string
+	Permissions []string
 }
 
 // Authenticate memvalidasi header Authorization: Bearer <token> dan menaruh
@@ -42,7 +43,15 @@ func Authenticate(tm *token.Manager) func(http.Handler) http.Handler {
 				return
 			}
 
-			user := AuthUser{ID: claims.UserID, Email: claims.Email, Role: claims.Role}
+			user := AuthUser{
+				ID:    claims.UserID,
+				Email: claims.Email,
+				Role:  claims.Role,
+				// Token lama (terbit sebelum fitur hak akses ada) tidak membawa
+				// daftar apa pun; supaya sesi yang sedang berjalan tidak
+				// mendadak kehilangan menu, isinya dijatuhkan ke bawaan role.
+				Permissions: domain.EffectivePermissions(claims.Role, claims.Permissions),
+			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userCtxKey, user)))
 		})
 	}
@@ -65,6 +74,25 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 			}
 			if _, permitted := allowed[user.Role]; !permitted {
 				response.Error(w, r, domain.Forbidden("role kamu tidak punya akses ke menu ini"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequirePermission membatasi akses ke satu menu. Dipasang setelah Authenticate,
+// biasanya bersama RequireRole yang menjaga batas kasarnya.
+func RequirePermission(permission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, ok := UserFrom(r.Context())
+			if !ok {
+				response.Error(w, r, domain.Unauthorized("token akses tidak ditemukan"))
+				return
+			}
+			if !domain.HasPermission(user.Permissions, permission) {
+				response.Error(w, r, domain.Forbidden("akunmu tidak diberi akses ke menu ini"))
 				return
 			}
 			next.ServeHTTP(w, r)

@@ -84,6 +84,11 @@ func NewRouter(d RouterDeps) http.Handler {
 	staffOnly := middleware.RequireRole(domain.RoleOwner, domain.RoleAdmin)
 	ownerOnly := middleware.RequireRole(domain.RoleOwner)
 
+	// Hak akses per menu memperhalus batas role: owner boleh mempersempit menu
+	// mana saja yang dibuka untuk seorang pengguna. Dipasang berdampingan
+	// dengan penjaga role, bukan menggantikannya — role tetap batas kasarnya.
+	canAccess := middleware.RequirePermission
+
 	r.Route("/api/v1", func(api chi.Router) {
 		// --- Publik ---------------------------------------------------------
 		api.Route("/auth", func(auth chi.Router) {
@@ -106,7 +111,7 @@ func NewRouter(d RouterDeps) http.Handler {
 
 			// Manajemen pengguna khusus owner.
 			private.Route("/users", func(users chi.Router) {
-				users.Use(ownerOnly)
+				users.Use(ownerOnly, canAccess(domain.PermUsers))
 				users.Post("/", d.Handlers.Users.Create)
 				users.Get("/", d.Handlers.Users.List)
 				users.Get("/{id}", d.Handlers.Users.Get)
@@ -116,7 +121,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/customers", func(customers chi.Router) {
-				customers.Use(staffOnly)
+				customers.Use(staffOnly, canAccess(domain.PermCustomers))
 				customers.Post("/", d.Handlers.Customers.Create)
 				customers.Get("/", d.Handlers.Customers.List)
 				customers.Get("/{id}", d.Handlers.Customers.Get)
@@ -139,6 +144,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/products", func(products chi.Router) {
+				products.Use(canAccess(domain.PermProducts))
 				products.Get("/", d.Handlers.Products.List)
 				products.Get("/{id}", d.Handlers.Products.Get)
 				products.Get("/{id}/price-history", d.Handlers.Products.PriceHistory)
@@ -153,18 +159,20 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/trips", func(trips chi.Router) {
-				trips.Get("/", d.Handlers.Trips.List)
-				trips.Get("/{id}", d.Handlers.Trips.Get)
-				trips.Get("/{id}/items", d.Handlers.Trips.ListItems)
-				trips.Get("/{id}/expenses", d.Handlers.Trips.ListExpenses)
+				trips.With(canAccess(domain.PermTrips)).Get("/", d.Handlers.Trips.List)
+				trips.With(canAccess(domain.PermTrips)).Get("/{id}", d.Handlers.Trips.Get)
+				trips.With(canAccess(domain.PermTrips)).Get("/{id}/items", d.Handlers.Trips.ListItems)
+				trips.With(canAccess(domain.PermTrips)).Get("/{id}/expenses", d.Handlers.Trips.ListExpenses)
 
 				// Daftar belanja dan input pembelian adalah pekerjaan tripper,
 				// jadi sengaja tidak dibatasi staffOnly.
-				trips.Get("/{id}/shopping-list", d.Handlers.Purchases.ShoppingList)
-				trips.Post("/{id}/purchases", d.Handlers.Purchases.Record)
+				trips.With(canAccess(domain.PermShoppingList)).
+					Get("/{id}/shopping-list", d.Handlers.Purchases.ShoppingList)
+				trips.With(canAccess(domain.PermPurchases)).
+					Post("/{id}/purchases", d.Handlers.Purchases.Record)
 
 				trips.Group(func(write chi.Router) {
-					write.Use(staffOnly)
+					write.Use(staffOnly, canAccess(domain.PermTrips))
 					write.Post("/", d.Handlers.Trips.Create)
 					write.Put("/{id}", d.Handlers.Trips.Update)
 					write.Patch("/{id}/status", d.Handlers.Trips.ChangeStatus)
@@ -174,6 +182,7 @@ func NewRouter(d RouterDeps) http.Handler {
 					write.Put("/{id}/items/{itemId}", d.Handlers.Trips.UpdateItem)
 					write.Delete("/{id}/items/{itemId}", d.Handlers.Trips.DeleteItem)
 					write.Post("/{id}/recalculate-prices", d.Handlers.Trips.RecalculatePrices)
+					write.Post("/{id}/sync-exchange-rate", d.Handlers.Trips.SyncExchangeRate)
 
 					write.Post("/{id}/expenses", d.Handlers.Trips.AddExpense)
 					write.Put("/{id}/expenses/{expenseId}", d.Handlers.Trips.UpdateExpense)
@@ -182,7 +191,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/orders", func(orders chi.Router) {
-				orders.Use(staffOnly)
+				orders.Use(staffOnly, canAccess(domain.PermOrders))
 				orders.Post("/", d.Handlers.Orders.Create)
 				orders.Get("/", d.Handlers.Orders.List)
 				orders.Get("/{id}", d.Handlers.Orders.Get)
@@ -199,6 +208,7 @@ func NewRouter(d RouterDeps) http.Handler {
 
 				orders.Post("/{id}/receive", d.Handlers.Orders.Receive)
 
+				orders.Get("/{id}/delivery-note", d.Handlers.Shipments.DeliveryNote)
 				orders.Get("/{id}/invoices", d.Handlers.Invoices.ListByOrder)
 				orders.Post("/{id}/invoices", d.Handlers.Invoices.Create)
 				orders.Get("/{id}/dp-message", d.Handlers.Invoices.DPMessage)
@@ -213,6 +223,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/purchases", func(purchases chi.Router) {
+				purchases.Use(canAccess(domain.PermPurchases))
 				purchases.Get("/", d.Handlers.Purchases.List)
 				purchases.Get("/{id}", d.Handlers.Purchases.Get)
 				purchases.Get("/{id}/allocations", d.Handlers.Purchases.ListAllocations)
@@ -224,7 +235,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/stock", func(stock chi.Router) {
-				stock.Use(staffOnly)
+				stock.Use(staffOnly, canAccess(domain.PermStock))
 				stock.Get("/", d.Handlers.Stock.List)
 				stock.Get("/movements", d.Handlers.Stock.ListMovements)
 				stock.Post("/sell", d.Handlers.Stock.Sell)
@@ -232,7 +243,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/invoices", func(invoices chi.Router) {
-				invoices.Use(staffOnly)
+				invoices.Use(staffOnly, canAccess(domain.PermInvoices))
 				invoices.Get("/", d.Handlers.Invoices.List)
 				invoices.Get("/{id}", d.Handlers.Invoices.Get)
 				invoices.Get("/{id}/pdf", d.Handlers.Invoices.PDF)
@@ -242,7 +253,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/shipments", func(shipments chi.Router) {
-				shipments.Use(staffOnly)
+				shipments.Use(staffOnly, canAccess(domain.PermShipments))
 				shipments.Get("/", d.Handlers.Shipments.List)
 				shipments.Put("/{id}", d.Handlers.Shipments.Update)
 			})
@@ -260,14 +271,14 @@ func NewRouter(d RouterDeps) http.Handler {
 				shipping.Get("/rates", d.Handlers.Shipping.ListRates)
 
 				shipping.Group(func(write chi.Router) {
-					write.Use(ownerOnly)
+					write.Use(ownerOnly, canAccess(domain.PermSettings))
 					write.Post("/rates", d.Handlers.Shipping.SaveRate)
 					write.Delete("/rates/{id}", d.Handlers.Shipping.DeleteRate)
 				})
 			})
 
 			private.Route("/reports", func(reports chi.Router) {
-				reports.Use(staffOnly)
+				reports.Use(staffOnly, canAccess(domain.PermReports))
 				reports.Get("/dashboard", d.Handlers.Reports.Dashboard)
 				reports.Get("/receivables", d.Handlers.Reports.Receivables)
 				reports.Get("/products", d.Handlers.Reports.ProductSales)
@@ -286,12 +297,13 @@ func NewRouter(d RouterDeps) http.Handler {
 				settings.Get("/", d.Handlers.Settings.List)
 
 				settings.Group(func(write chi.Router) {
-					write.Use(ownerOnly)
+					write.Use(ownerOnly, canAccess(domain.PermSettings))
 					write.Put("/", d.Handlers.Settings.Update)
 				})
 			})
 
-			private.With(ownerOnly).Get("/audit-logs", d.Handlers.Settings.AuditLogs)
+			private.With(ownerOnly, canAccess(domain.PermSettings)).
+				Get("/audit-logs", d.Handlers.Settings.AuditLogs)
 		})
 	})
 

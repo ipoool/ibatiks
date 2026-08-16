@@ -30,16 +30,23 @@ func IsValidRole(role string) bool {
 }
 
 type User struct {
-	ID           uuid.UUID  `db:"id"            json:"id"`
-	Name         string     `db:"name"          json:"name"`
-	Email        string     `db:"email"         json:"email"`
-	PasswordHash string     `db:"password_hash" json:"-"`
-	Role         string     `db:"role"          json:"role"`
-	Phone        *string    `db:"phone"         json:"phone"`
-	IsActive     bool       `db:"is_active"     json:"is_active"`
-	LastLoginAt  *time.Time `db:"last_login_at" json:"last_login_at"`
-	CreatedAt    time.Time  `db:"created_at"    json:"created_at"`
-	UpdatedAt    time.Time  `db:"updated_at"    json:"updated_at"`
+	ID           uuid.UUID `db:"id"            json:"id"`
+	Name         string    `db:"name"          json:"name"`
+	Email        string    `db:"email"         json:"email"`
+	PasswordHash string    `db:"password_hash" json:"-"`
+	Role         string    `db:"role"          json:"role"`
+	Phone        *string   `db:"phone"         json:"phone"`
+	IsActive     bool      `db:"is_active"     json:"is_active"`
+	// Permissions kosong berarti mengikuti bawaan role; lihat permission.go.
+	Permissions []string `db:"permissions" json:"permissions"`
+	// EffectivePermissions adalah hasil gabungan Permissions dengan bawaan
+	// role. Tidak disimpan di database — diisi lapisan HTTP sebelum dikirim,
+	// supaya antarmuka tidak perlu menyalin aturan hak akses sendiri lalu ikut
+	// melenceng ketika aturannya berubah.
+	EffectivePermissions []string   `db:"-" json:"effective_permissions"`
+	LastLoginAt          *time.Time `db:"last_login_at" json:"last_login_at"`
+	CreatedAt            time.Time  `db:"created_at"    json:"created_at"`
+	UpdatedAt            time.Time  `db:"updated_at"    json:"updated_at"`
 }
 
 // RefreshToken adalah sesi login yang masih berlaku.

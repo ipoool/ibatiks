@@ -20,6 +20,27 @@ func NewShipmentHandler(shipments *service.ShipmentService) *ShipmentHandler {
 	return &ShipmentHandler{shipments: shipments}
 }
 
+// DeliveryNote mengirimkan surat jalan sebagai PDF siap cetak.
+func (h *ShipmentHandler) DeliveryNote(w http.ResponseWriter, r *http.Request) {
+	orderID, err := request.UUIDParam(r, "id")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	content, name, err := h.shipments.DeliveryNote(r.Context(), orderID)
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	// inline supaya langsung tampil di tab browser dan bisa dicetak dari sana.
+	w.Header().Set("Content-Disposition", `inline; filename="`+name+`.pdf"`)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(content)
+}
+
 type packRequest struct {
 	Courier    string  `json:"courier"     validate:"omitempty,max=30"`
 	Service    string  `json:"service"     validate:"omitempty,max=20"`

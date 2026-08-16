@@ -207,7 +207,7 @@ export default function OrdersPage() {
                 {money(order.balance_due, order)}
               </TD>
               <TD>
-                <OrderStatusBadge status={order.status} />
+                <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
               </TD>
             </TR>
           ))}

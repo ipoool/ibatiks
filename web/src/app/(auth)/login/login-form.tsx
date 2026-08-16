@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,22 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Envelope, User } from "@/types/api";
 
+/**
+ * Membatasi tujuan setelah login pada rute di dalam aplikasi ini.
+ *
+ * Nilainya datang dari query string, jadi tanpa penyaringan siapa pun bisa
+ * mengirim tautan `/login?next=https://situs-lain` dan memakai halaman login
+ * yang tampak sah sebagai batu loncatan. Diawali "//" pun ditolak karena
+ * browser membacanya sebagai alamat host lain.
+ */
+function safeNextPath(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
+
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") ?? "/";
+  const nextPath = safeNextPath(searchParams.get("next"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,10 +51,15 @@ export function LoginForm() {
         return;
       }
 
-      // refresh() memastikan layout server mengambil ulang data pengguna
-      // sebelum halaman tujuan dirender.
-      router.replace(nextPath);
-      router.refresh();
+      /*
+       * Sengaja memuat ulang halaman penuh, bukan `router.replace()` +
+       * `router.refresh()`: pasangan itu membuat navigasi batal di tengah jalan
+       * — cookie sesi sudah tertulis, tapi browser tetap tertinggal di halaman
+       * login seolah-olah passwordnya salah. Login hanya terjadi sekali, jadi
+       * satu kali muat penuh tidak ada ruginya, sekaligus menjamin layout
+       * server membaca cookie yang baru.
+       */
+      window.location.replace(nextPath);
     } catch {
       setError("Tidak bisa menghubungi server. Cek koneksi lalu coba lagi.");
     } finally {
