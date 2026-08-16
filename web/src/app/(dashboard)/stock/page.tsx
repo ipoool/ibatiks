@@ -62,9 +62,17 @@ export default function StockPage() {
       <ErrorState error={error} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard label="Nilai stok (halaman ini)" value={formatIDR(totalValue)} />
-        <StatCard label="Jumlah unit" value={`${formatNumber(totalQty)} pcs`} />
-        <StatCard label="Jenis produk" value={formatNumber(data?.meta.total ?? 0)} />
+        <StatCard
+          label="Nilai stok (halaman ini)"
+          value={formatIDR(totalValue)}
+          isLoading={isLoading}
+        />
+        <StatCard label="Jumlah unit" value={`${formatNumber(totalQty)} pcs`} isLoading={isLoading} />
+        <StatCard
+          label="Jenis produk"
+          value={formatNumber(data?.meta.total ?? 0)}
+          isLoading={isLoading}
+        />
       </div>
 
       <Tabs defaultValue="posisi">

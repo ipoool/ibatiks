@@ -10,6 +10,15 @@ interface StatCardProps {
   icon?: LucideIcon;
   /** Warna nilai: dipakai menandai angka yang perlu perhatian. */
   tone?: "default" | "success" | "warning" | "danger";
+  /**
+   * Menahan angka selagi datanya belum tiba.
+   *
+   * Tanpa ini kartu menampilkan hasil hitungan dari data kosong — "Rp 0",
+   * "0 pcs" — yang selama sekejap terbaca sebagai kenyataan, bukan sebagai
+   * "belum dimuat". Untuk angka uang dan stok, salah baca sekejap itu cukup
+   * membuat orang mengira datanya hilang.
+   */
+  isLoading?: boolean;
   className?: string;
 }
 
@@ -20,16 +29,33 @@ const TONE_CLASS = {
   danger: "text-red-600",
 } as const;
 
-export function StatCard({ label, value, hint, icon: Icon, tone = "default", className }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone = "default",
+  isLoading = false,
+  className,
+}: StatCardProps) {
   return (
     <Card className={cn("p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-sm text-muted-foreground">{label}</p>
-          <p className={cn("tabular truncate text-2xl font-semibold tracking-tight", TONE_CLASS[tone])}>
-            {value}
-          </p>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+          {isLoading ? (
+            <p className="h-8 w-24 animate-pulse rounded bg-muted" aria-hidden />
+          ) : (
+            <p
+              className={cn(
+                "tabular truncate text-2xl font-semibold tracking-tight",
+                TONE_CLASS[tone],
+              )}
+            >
+              {value}
+            </p>
+          )}
+          {hint && !isLoading && <p className="text-xs text-muted-foreground">{hint}</p>}
         </div>
         {Icon && (
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">

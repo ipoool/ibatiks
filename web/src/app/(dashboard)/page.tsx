@@ -45,50 +45,57 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Trip aktif"
-          value={isLoading ? "…" : formatNumber(data?.active_trips)}
+          value={formatNumber(data?.active_trips)}
           hint="Sedang buka order atau dalam perjalanan"
           icon={Plane}
+          isLoading={isLoading}
         />
         <StatCard
           label="Order berjalan"
-          value={isLoading ? "…" : formatNumber(data?.open_orders)}
+          value={formatNumber(data?.open_orders)}
           hint={`${formatNumber(data?.orders_this_month)} order bulan ini`}
           icon={Receipt}
+          isLoading={isLoading}
         />
         <StatCard
           label="Siap dikirim"
-          value={isLoading ? "…" : formatNumber(data?.pending_shipment)}
+          value={formatNumber(data?.pending_shipment)}
           hint="Sudah lunas, menunggu resi"
           icon={Truck}
           tone={(data?.pending_shipment ?? 0) > 0 ? "warning" : "default"}
+          isLoading={isLoading}
         />
         <StatCard
           label="Piutang berjalan"
-          value={isLoading ? "…" : formatIDRCompact(data?.outstanding)}
+          value={formatIDRCompact(data?.outstanding)}
           hint="Total sisa tagihan customer"
           icon={AlertTriangle}
           tone={toNumber(data?.outstanding) > 0 ? "warning" : "default"}
+          isLoading={isLoading}
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label="Omzet bulan ini"
-          value={isLoading ? "…" : formatIDR(data?.revenue_this_month)}
+          value={formatIDR(data?.revenue_this_month)}
           icon={Wallet}
+          isLoading={isLoading}
         />
         <StatCard
           label="Laba kotor bulan ini"
-          value={isLoading ? "…" : formatIDR(data?.profit_this_month)}
+          value={formatIDR(data?.profit_this_month)}
           hint="Omzet dikurangi HPP barang yang sudah dibeli"
           icon={TrendingUp}
           tone={profit >= 0 ? "success" : "danger"}
+          isLoading={isLoading}
         />
         <StatCard
           label="Nilai stok"
-          value={isLoading ? "…" : formatIDR(data?.stock_value)}
+          value={formatIDR(data?.stock_value)}
           hint={`${formatNumber(data?.stock_qty)} unit siap dijual`}
           icon={Boxes}
+          isLoading={isLoading}
         />
       </div>
 
