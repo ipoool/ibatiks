@@ -105,6 +105,14 @@ export function QuickAddCatalogItemDialog({
       error={save.error}
       loading={save.isPending}
       submitLabel="Tambah ke katalog"
+      /*
+       * Produk dipilih lewat combobox, bukan input biasa, jadi validasi bawaan
+       * browser tidak bisa melihatnya. Tanpa penjagaan ini tombolnya tetap bisa
+       * ditekan selagi kosong, dan yang muncul justru gelembung berbahasa
+       * Inggris yang menunjuk kolom Harga modal — melewati kolom Produk yang
+       * sebenarnya belum diisi.
+       */
+      submitDisabled={!form.product_id || toNumber(form.cost_price) <= 0}
       onSubmit={handleSubmit}
     >
       <div className="grid gap-4 sm:grid-cols-2">
