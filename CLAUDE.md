@@ -21,6 +21,10 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 
 `scripts/smoke.sh` **merusak data demo** karena membuat trip dan order sendiri. Setelah menjalankannya, pulihkan dengan `make migrate-reset && make migrate-up && make seed-demo && ./scripts/demo-data.sh`.
 
+**Backend wajib direstart setelah `make migrate-reset`.** Skema dibuat ulang, tapi cache tipe pgx di kolam koneksi masih memegang OID lama — gejalanya seluruh permintaan membalas 500 dengan `cache lookup failed for type NNNNN`. `docker compose restart backend` lalu tunggu sekitar sepuluh detik.
+
+**Smoke test menuntut database yang benar-benar bersih.** Ia menghitung trip aktif dan mengandaikan miliknya satu-satunya, dan customernya memakai nomor WA tetap yang bentrok dengan sisa jalannya sendiri. Jalankan siklus penuh — reset, migrate, restart, seed, demo-data — baru `make smoke`. `demo-data.sh` menutup trip demo, dan itu memang yang diandaikan smoke.
+
 ## Aturan yang tidak boleh dilanggar
 
 **Uang.** `NUMERIC(18,2)` di database, `decimal.Decimal` di Go, **string** di JSON. Tidak ada `float64` untuk uang di mana pun. Di frontend, nominal dari API adalah string — lewatkan `toNumber()` sebelum berhitung.
@@ -33,7 +37,13 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 
 **Invoice memuat nilai order seutuhnya.** Baik invoice DP maupun pelunasan menuliskan subtotal, diskon, ongkir, dan total order yang sebenarnya; yang membedakan hanya apa yang ditagih (`dp_amount` untuk DP, sisa tagihan untuk pelunasan). Jangan kembali menyimpan nilai DP sebagai `total` — customer akan menerima dokumen yang seolah-olah menyatakan pesanannya cuma seharga uang muka.
 
+**Barang yang tidak dapat tidak ikut ditagih.** Begitu sebuah item dicocokkan sebagai `unavailable`, `partial`, atau `refunded`, yang ditagihkan adalah `qty_received × unit_price` — bukan jumlah yang dulu dipesan. Aturannya ada di `RecalculateTotals`, dan `ReceiveItems` wajib memanggilnya. Kolom `qty` sengaja dibiarkan apa adanya supaya tetap terbaca apa yang dipesan semula; yang berubah hanya apa yang ditagih. Tanpa ini invoice pelunasan memuat barang yang tidak akan pernah dikirim.
+
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
+
+**Dokumen historis tetap bisa dibuka walau master datanya dihapus.** Detail order memakai `GetByIDIncludingDeleted` untuk customernya: menghapus customer tidak menghapus ordernya, jadi menyaring `deleted_at IS NULL` di jalur itu membuat seluruh order lamanya mati dengan "customer tidak ditemukan" — padahal ordernya masih ada dan bisa jadi masih punya sisa tagihan. Daftar dan penyuntingan tetap menyaring yang sudah dihapus.
+
+**Pencarian customer menormalkan nomor.** Nomor disimpan sebagai `62812…`, sementara admin mengetiknya seperti yang tertera di WhatsApp customer (`0812…`). Kata kunci yang berbentuk nomor ikut dinormalkan sebelum dicocokkan; `domain.LooksLikePhone` sengaja ketat supaya kata kunci berhuruf tetap diperlakukan sebagai pencarian nama dan hasilnya tidak melebar.
 
 **Migrasi bersifat tambahan.** Jangan menyunting file migrasi yang sudah pernah dijalankan — buat migrasi baru. Setiap `.up.sql` wajib punya `.down.sql` yang benar-benar membalik; uji dengan `make migrate-down && make migrate-up`.
 
@@ -55,7 +65,17 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 
 **Middleware harus berada di `src/middleware.ts`.** Proyek ini memakai direktori `src/`; berkas `middleware.ts` di akar `web/` diabaikan Next tanpa peringatan apa pun. Pastikan `ƒ Proxy (Middleware)` muncul di keluaran `next build`.
 
-**Konstanta yang dibaca komponen server tidak boleh diekspor dari modul `"use client"`.** Nilai yang diimpor dari modul klien berubah jadi rujukan modul, dan pemakaiannya gagal diam-diam (`cookies().get(konstanta)` mengembalikan undefined). Simpan di modul biasa seperti `src/lib/sidebar.ts`.
+**Konstanta yang dibaca komponen server tidak boleh diekspor dari modul `"use client"`.** Nilai yang diimpor dari modul klien berubah jadi rujukan modul, dan pemakaiannya gagal diam-diam (`cookies().get(konstanta)` mengembalikan undefined). Simpan di modul biasa seperti `src/lib/sidebar.ts` dan `src/lib/route-permissions.ts`.
+
+**Penjagaan kiriman ganda memakai `useRef`, bukan `isPending`.** Baik atribut `disabled` maupun `mutation.isPending` baru berubah setelah React merender ulang, jadi dua kiriman di tick yang sama — klik ganda, tombol Enter yang ditahan — sama-sama membaca nilai lama dan lolos berdua. Di form catat order itu berarti dua order kembar untuk customer yang sama. Ref berubah saat itu juga; jangan lupa melepasnya kembali di `onError` supaya admin tetap bisa mencoba ulang.
+
+**Dialog tidak boleh menjalankan submit form halaman di baliknya.** Radix memindahkan isi dialog ke ujung body, tapi React merambatkan event lewat pohon komponen, bukan pohon DOM. `FormDialog` sudah menghentikan perambatan submit-nya; jangan menghapus baris itu. Tanpa itu, menekan Simpan di Tambah Customer pada halaman catat order ikut membuat ordernya.
+
+**Tombol simpan pada dialog berisi `Combobox` wajib memakai `submitDisabled`.** Radix Combobox bukan `<select>` bawaan, jadi validasi bawaan browser tidak melihatnya sama sekali: tombolnya tetap bisa ditekan selagi kosong, dan gelembung yang muncul justru menunjuk kolom lain yang kebetulan berupa input biasa.
+
+**Pesan validasi bawaan browser disetel sendiri.** Bahasanya mengikuti bahasa antarmuka browser, bukan `lang` halaman, jadi `<html lang="id">` tidak menolong. `Input` dan `Textarea` memasang pesan Indonesia lewat `src/lib/validasi-bawaan.ts` dan membuangnya lagi begitu isinya berubah — pembuangan itu wajib, sebab `customValidity` yang tertinggal membuat kolomnya dianggap tidak sah selamanya dan formulirnya tidak akan pernah mau dikirim.
+
+**Bar tab tidak menggulir.** `overflow-x-auto` memaksa `overflow-y` ikut jadi `auto`, dan tinggi yang terkunci membuat isi yang satu piksel lebih tinggi memunculkan scrollbar tegak kecil di ujung kanan. Tab membungkus ke baris berikutnya kalau tidak muat, dan tingginya mengikuti isi.
 
 ## Hak akses
 
@@ -65,6 +85,9 @@ Role (`owner`/`admin`/`tripper`) menentukan batas kasar; di dalamnya owner bisa 
 - Centang hanya bisa **mempersempit**; backend menyaring ulang permintaan supaya tripper tidak bisa diberi menu pengaturan.
 - Hak akses ikut dibawa di dalam access token, jadi mengubahnya mencabut sesi pengguna itu supaya pembatasannya berlaku saat itu juga.
 - Frontend memakai `effective_permissions` yang dihitung backend; jangan menyalin tabel bawaan role ke UI selain untuk menampilkan pilihan centang.
+- **Owner tidak bisa mencabut Pengaturan dan Pengguna dari dirinya sendiri** (`OwnerLockedPermissions`). Dua menu itu satu-satunya jalan mengembalikan hak akses siapa pun; sekali hilang, satu-satunya pemulihan adalah `UPDATE users SET permissions = NULL` langsung ke database. Karena dihitung dan bukan disimpan, baris yang terlanjur rusak ikut pulih sendiri.
+
+Menu yang tidak dimiliki pengguna juga **dijaga di tingkat rute**, bukan cuma disembunyikan dari sidebar. Petanya di `src/lib/route-permissions.ts` — modul biasa supaya bisa dibaca middleware tanpa menyeret ikon menu ke bundel edge — dan dipakai bersama oleh sidebar dan `src/middleware.ts`, jadi menu yang disembunyikan dan halaman yang ditolak tidak pernah berbeda pendapat. Ini bukan lapisan keamanan; backend tetap menolak endpoint-nya sendiri. Yang dijaga adalah supaya orang tidak mendarat di halaman yang datanya gagal dimuat lalu membaca "Belum ada customer" seolah tokonya kosong.
 
 ## Sesi dan autentikasi
 
