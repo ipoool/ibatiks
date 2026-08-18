@@ -39,9 +39,9 @@ const EMPTY_FORM: ProductPayload = {
   brand: "",
   store_name: "",
   base_currency: "IDR",
-  base_price: "0",
+  base_price: "",
   markup_type: "percent",
-  markup_value: "0",
+  markup_value: "",
   weight_gram: 0,
   notes: "",
   is_active: true,
@@ -110,6 +110,10 @@ export default function ProductsPage() {
     save.mutate(
       {
         ...form,
+        // Kolom angka dibiarkan kosong selagi diketik supaya angka 0 tidak
+        // menempel di depan ketikan; nilainya baru dijadikan "0" di sini.
+        base_price: form.base_price || "0",
+        markup_value: form.markup_value || "0",
         sku: form.sku || undefined,
         category_id: form.category_id || null,
         brand: form.brand || null,
@@ -353,7 +357,7 @@ export default function ProductsPage() {
               type="number"
               min="0"
               step="any"
-              value={form.base_price ?? "0"}
+              value={form.base_price ?? ""}
               onChange={(event) => setForm({ ...form, base_price: event.target.value })}
             />
           </Field>
@@ -375,8 +379,8 @@ export default function ProductsPage() {
               id="markup_value"
               type="number"
               min="0"
-              step={form.markup_type === "percent" ? "0.5" : "1000"}
-              value={form.markup_value ?? "0"}
+              step="any"
+              value={form.markup_value ?? ""}
               onChange={(event) => setForm({ ...form, markup_value: event.target.value })}
             />
           </Field>

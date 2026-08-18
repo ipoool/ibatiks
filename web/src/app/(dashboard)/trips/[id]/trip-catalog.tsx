@@ -30,9 +30,9 @@ import type { MarkupType, Trip, TripItem } from "@/types/api";
 
 const EMPTY_FORM: TripItemPayload = {
   product_id: "",
-  cost_price: "0",
+  cost_price: "",
   markup_type: "percent",
-  markup_value: "0",
+  markup_value: "",
   max_qty: null,
   is_active: true,
   notes: "",
@@ -123,6 +123,10 @@ export function TripCatalog({ trip }: { trip: Trip }) {
     save.mutate(
       {
         ...form,
+        // Kolom angka dibiarkan kosong selagi diketik supaya angka 0 tidak
+        // menempel di depan ketikan; nilainya baru dijadikan "0" di sini.
+        cost_price: form.cost_price || "0",
+        markup_value: form.markup_value || "0",
         max_qty: form.max_qty ? Number(form.max_qty) : null,
         notes: form.notes || null,
       },
@@ -326,7 +330,7 @@ export function TripCatalog({ trip }: { trip: Trip }) {
                 id="markup_value"
                 type="number"
                 min="0"
-                step={form.markup_type === "percent" ? "0.5" : "1000"}
+                step="any"
                 value={form.markup_value}
                 onChange={(event) => setForm({ ...form, markup_value: event.target.value })}
               />
