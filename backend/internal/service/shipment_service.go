@@ -232,6 +232,18 @@ func (s *ShipmentService) Ship(ctx context.Context, orderID uuid.UUID, in ShipIn
 		if order.Status == domain.OrderCancelled {
 			return domain.InvalidState("order sudah dibatalkan")
 		}
+		// Paket yang sudah diserahkan ke kurir tidak boleh dikirim ulang.
+		//
+		// Tanpa penjagaan ini nomor resinya tertimpa diam-diam sementara
+		// balasannya tetap 200, jadi admin mengira tidak terjadi apa-apa —
+		// padahal customer sudah terlanjur dikabari resi yang lama lewat
+		// WhatsApp, dan sejak saat itu aplikasi dan customer melacak nomor yang
+		// berbeda. Order yang sudah Selesai bahkan bisa terdorong balik ke
+		// Dikirim. Untuk resi yang keliru, perbaikannya lewat data pengiriman.
+		if order.Status == domain.OrderShipped || order.Status == domain.OrderCompleted {
+			return domain.InvalidState(
+				"order ini sudah diserahkan ke kurir — kalau nomor resinya keliru, perbaiki lewat data pengiriman, jangan kirim ulang")
+		}
 		if !in.AllowUnpaid && order.BalanceDue.GreaterThan(decimal.Zero) {
 			return domain.InvalidState(
 				"order belum lunas, sisa tagihan %s — catat pelunasan dulu atau kirim dengan penanda khusus",
