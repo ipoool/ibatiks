@@ -207,4 +207,16 @@
   .scrollbar-thin::-webkit-scrollbar-track {
     background-color: transparent;
   }
+
+  /* Batang gulir disembunyikan, isinya tetap bisa digulir.
+     Dipakai sidebar: daftar menunya perlu bisa digulir saat layarnya pendek,
+     tapi batang gulir bawaan sistem membelah sidebar dari atas ke bawah dan
+     jauh lebih menonjol daripada ikon menunya sendiri. */
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 }

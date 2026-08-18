@@ -66,7 +66,7 @@ function NavRail({
   onNavigate: () => void;
 }) {
   return (
-    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-4">
+    <nav className="scrollbar-hidden flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-4">
       {sections.map((section, index) => (
         <div key={section.title} className="flex flex-col gap-1">
           {index > 0 && <div className="my-1 border-t border-border" />}
@@ -129,7 +129,7 @@ function NavAccordion({
   const single = sections.filter((section) => section.items.length === 1);
 
   return (
-    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+    <nav className="scrollbar-hidden flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
       {/*
         Kelompok berisi satu menu tidak dilipat: membukanya hanya menambah satu
         klik tanpa menyembunyikan apa pun. Ditempatkan lebih dulu karena satu-
