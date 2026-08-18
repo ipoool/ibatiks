@@ -4,6 +4,7 @@ import { AlertCircle, Search } from "lucide-react";
 import * as React from "react";
 
 import { Input } from "@/components/ui/input";
+import { labelKolom } from "@/lib/label-kolom";
 import { ApiError } from "@/lib/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
@@ -65,11 +66,23 @@ export function ErrorState({ error, className }: { error: unknown; className?: s
       {error instanceof ApiError && error.fields && (
         <AlertDescription>
           <ul className="list-inside list-disc text-xs">
-            {Object.entries(error.fields).map(([field, hint]) => (
-              <li key={field}>
-                <span className="font-medium">{field}</span>: {hint}
-              </li>
-            ))}
+            {/*
+              Nama kolom diterjemahkan lebih dulu. Backend menyebutnya dengan
+              nama teknis (tracking_number, phone_wa), dan menampilkannya apa
+              adanya berarti tim toko membaca nama kolom database di tengah
+              formulir berbahasa Indonesia. Kolom yang belum ada padanannya
+              tampil sebagai pesannya saja — lebih baik kehilangan satu petunjuk
+              daripada memunculkan istilah yang tidak dikenali siapa pun.
+            */}
+            {Object.entries(error.fields).map(([field, hint]) => {
+              const label = labelKolom(field);
+              return (
+                <li key={field}>
+                  {label && <span className="font-medium">{label}: </span>}
+                  {hint}
+                </li>
+              );
+            })}
           </ul>
         </AlertDescription>
       )}
