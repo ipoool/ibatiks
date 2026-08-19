@@ -136,7 +136,7 @@ export default function OrdersPage() {
 
       <div>
         <DataTable
-          columns={9}
+          columns={8}
           isLoading={isLoading}
           isEmpty={!isLoading && (data?.items.length ?? 0) === 0}
           emptyTitle="Belum ada order"
@@ -155,7 +155,6 @@ export default function OrdersPage() {
               <TH className="hidden whitespace-nowrap sm:table-cell">Tanggal</TH>
               <TH className="hidden min-w-32 md:table-cell">Customer</TH>
               <TH className="hidden min-w-28 xl:table-cell">Trip</TH>
-              <TH className="hidden w-24 xl:table-cell">Channel</TH>
               <TH className="hidden w-16 text-right lg:table-cell">Pcs</TH>
               <TH className="w-28 text-right">Total</TH>
               <TH className="hidden w-28 text-right sm:table-cell">Sisa Bayar</TH>
@@ -177,6 +176,11 @@ export default function OrdersPage() {
                       Menyalinnya dengan blok manual gampang meleset satu digit,
                       dan nomor yang salah menuntun ke order orang lain. */}
                   <CopyButton value={order.order_number} label="Nomor order" />
+                  {/* Channel menempel pada nomor order, bukan berdiri sebagai
+                      kolom sendiri: isinya satu lencana pendek, dan sebagai
+                      kolom ia menyisakan ruang kosong selebar judulnya di
+                      sepanjang tabel. */}
+                  <OrderSourceBadge source={order.order_source} />
                 </div>
                 {/* Tanggal dan nama customer ikut di kolom order selama kolom
                     masing-masing disembunyikan; tanpa itu daftar order di ponsel
@@ -196,9 +200,6 @@ export default function OrdersPage() {
               <TD className="hidden text-sm xl:table-cell">
                 <p>{order.trip_code}</p>
                 <p className="max-w-40 truncate text-xs text-muted-foreground">{order.trip_title}</p>
-              </TD>
-              <TD className="hidden xl:table-cell">
-                <OrderSourceBadge source={order.order_source} />
               </TD>
               <TD className="tabular hidden text-right text-sm lg:table-cell">
                 {formatNumber(order.total_qty ?? 0)}
