@@ -94,7 +94,22 @@ export function FormDialog({
           }}
           className="flex min-h-0 flex-1 flex-col gap-4"
         >
-          <div className="scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
+          {/*
+            Tinggi isi mengikuti isinya sendiri, dibatasi 670px — lebih dari itu
+            barulah digulir.
+
+            Sengaja tanpa flex-1. Dengan flex-1, tingginya dibagi oleh flexbox
+            dan sering jatuh di setengah piksel: scrollHeight membulat ke atas
+            sementara clientHeight ke bawah, jadi scrollbar muncul untuk satu
+            piksel yang tidak ada isinya. Tanpa flex-1 tingginya sama persis
+            dengan isinya, dan scrollbar hanya muncul kalau memang ada yang
+            tidak muat.
+
+            Batas dvh pada DialogContent tetap berlaku; yang lebih kecil di
+            antara keduanya yang menang, sehingga di layar pendek dialognya tidak
+            pernah melebihi layar.
+          */}
+          <div className="scrollbar-thin max-h-[670px] min-h-0 space-y-4 overflow-y-auto px-1">
             <ErrorState error={error} />
             {children}
           </div>

@@ -112,7 +112,11 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 **Pesan validasi bawaan browser disetel sendiri.** Bahasanya mengikuti bahasa antarmuka browser, bukan `lang` halaman, jadi `<html lang="id">` tidak menolong. `Input` dan `Textarea` memasang pesan Indonesia lewat `src/lib/validasi-bawaan.ts` dan membuangnya lagi begitu isinya berubah — pembuangan itu wajib, sebab `customValidity` yang tertinggal membuat kolomnya dianggap tidak sah selamanya dan formulirnya tidak akan pernah mau dikirim.
 
-**Bar tab tidak menggulir.** `overflow-x-auto` memaksa `overflow-y` ikut jadi `auto`, dan tinggi yang terkunci membuat isi yang satu piksel lebih tinggi memunculkan scrollbar tegak kecil di ujung kanan. Tab membungkus ke baris berikutnya kalau tidak muat, dan tingginya mengikuti isi.
+**Bar tab menggulir mendatar di layar sempit, membungkus mulai `sm`.** Membungkus di ponsel membuat lima tab jadi dua baris yang mendorong isi halaman turun, dan barisan yang tingginya berubah-ubah antar halaman terbaca seperti tata letak yang goyah. `scrollbar-hidden` wajib menyertainya: `overflow-x-auto` memaksa `overflow-y` ikut jadi `auto`, dan isi yang satu piksel lebih tinggi memunculkan scrollbar tegak kecil di ujung kanan. Pemicunya juga wajib `shrink-0` — tanpa itu tab menyusut agar muat, barisannya tidak pernah meluap, dan tidak ada yang bisa digulir.
+
+**Tinggi isi dialog dibatasi 670px** (`FormDialog`), lebih dari itu digulir. Wadahnya sengaja tanpa `flex-1`: tinggi yang dibagi flexbox sering jatuh di setengah piksel, `scrollHeight` membulat ke atas sementara `clientHeight` ke bawah, dan scrollbar muncul untuk satu piksel yang tidak ada isinya.
+
+**Anak grid yang memakai `col-span-2` wajib memakai awalan `sm:`.** Tanpa awalan itu, span-nya membuat kolom kedua secara implisit bahkan saat induknya satu kolom — dan tidak ada `grid-cols-1` yang bisa menolongnya, karena kolomnya dibuat oleh span itu sendiri. Gejalanya: dua isian yang seharusnya menumpuk di ponsel malah berdesakan bersebelahan.
 
 ## Hak akses
 

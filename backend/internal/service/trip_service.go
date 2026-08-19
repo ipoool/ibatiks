@@ -551,8 +551,16 @@ func validateTripInput(in TripInput) error {
 	if in.ReturnDate.Before(in.DepartDate) {
 		fields["return_date"] = "tanggal pulang tidak boleh lebih awal dari tanggal berangkat"
 	}
-	if in.OrderDeadline != nil && in.OrderDeadline.After(in.ReturnDate) {
-		fields["order_deadline"] = "batas order tidak boleh melewati tanggal pulang"
+	// Order diterima selama trip berjalan: batasnya harus jatuh di antara
+	// berangkat dan pulang. Sebelum berangkat belum ada apa pun untuk
+	// dibelanjakan, dan setelah pulang tripper sudah tidak di negara itu lagi —
+	// order yang masuk di luar rentang itu tidak akan pernah bisa dipenuhi.
+	if in.OrderDeadline != nil {
+		if in.OrderDeadline.Before(in.DepartDate) {
+			fields["order_deadline"] = "batas order tidak boleh lebih awal dari tanggal berangkat"
+		} else if in.OrderDeadline.After(in.ReturnDate) {
+			fields["order_deadline"] = "batas order tidak boleh melewati tanggal pulang"
+		}
 	}
 
 	if len(fields) > 0 {

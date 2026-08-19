@@ -113,6 +113,10 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
       // ditekan selagi mata uang kosong, dan gelembung yang muncul justru
       // menunjuk kolom lain yang kebetulan berupa input biasa.
       submitDisabled={form.currency.trim().length !== 3}
+      // Lebih lebar dari bawaan sm:max-w-xl. Form ini memuat dua kolom isian
+      // ditambah blok kurs beserta tombol dan keterangan sumbernya; pada lebar
+      // bawaan, nama mata uang dan angka kurs sama-sama terpotong.
+      className="sm:max-w-2xl"
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Judul trip" htmlFor="title" required error={fieldError("title")} className="sm:col-span-2">
@@ -175,20 +179,32 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
           label="Batas terima order"
           htmlFor="order_deadline"
           error={fieldError("order_deadline")}
-          hint="Kosongkan kalau tidak dibatasi"
+          hint="Kosongkan kalau tidak dibatasi. Harus di antara tanggal berangkat dan pulang."
         >
           <Input
             id="order_deadline"
             type="date"
-            // Cerminan aturan backend: batas order tidak boleh melewati
-            // tanggal pulang.
+            /*
+             * Cerminan aturan backend: order diterima selama trip berjalan.
+             * Batasnya tidak boleh sebelum berangkat — belum ada apa pun untuk
+             * dibelanjakan — maupun setelah pulang, karena tripper sudah tidak
+             * di negara itu lagi.
+             */
+            min={form.depart_date || undefined}
             max={form.return_date || undefined}
             value={form.order_deadline ?? ""}
             onChange={(event) => setForm({ ...form, order_deadline: event.target.value })}
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/*
+          Satu baris penuh, bukan berbagi satu sel dengan kolom di sebelahnya.
+          Sebelumnya blok ini menempati separuh grid lalu dibagi dua lagi, jadi
+          mata uang dan kurs masing-masing hanya dapat seperempat lebar dialog —
+          "MYR — Ringgit Malaysia" terpotong jadi "MYR — Rir" dan angka kursnya
+          ikut terpangkas.
+        */}
+        <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
           <Field label="Mata uang" htmlFor="currency" required error={fieldError("currency")}>
             <CurrencySelect
               id="currency"
@@ -221,7 +237,14 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
             trip tersimpan, kursnya terkunci dan seluruh harga pada trip ini
             memakai angka itu sampai selesai.
           */}
-          <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/*
+            sm:col-span-2, bukan col-span-2. Tanpa awalan itu, blok ini memaksa
+            grid punya dua kolom bahkan di layar sempit — mata uang dan kurs
+            lalu berdesakan bersebelahan di lebar 390px, dan tidak ada
+            grid-cols-1 yang bisa menolongnya karena kolom keduanya dibuat
+            implisit oleh span ini sendiri.
+          */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:col-span-2">
             <Button
               type="button"
               variant="outline"
