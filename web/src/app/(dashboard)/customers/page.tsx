@@ -299,25 +299,27 @@ export default function CustomersPage() {
           {/* Kelurahan dan kecamatan dipisah dari alamat jalan: kurir memakai
               keduanya untuk menentukan gudang sortir, dan alamat yang menumpuk
               semuanya dalam satu baris sering terpotong di label paket. */}
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Kelurahan" htmlFor="subdistrict">
-              <Input
-                id="subdistrict"
-                value={form.subdistrict ?? ""}
-                onChange={(event) => setForm({ ...form, subdistrict: event.target.value })}
-                placeholder="Cilandak Barat"
-              />
-            </Field>
+          {/* Tiap isian alamat berdiri langsung di grid formnya, bukan dibungkus
+              grid dua kolom lagi. Grid dua kolom di dalam satu kolom grid dua kolom
+              menyisakan seperempat lebar untuk tiap isian — dan justru nama kelurahan
+              dan kecamatan yang paling panjang. */}
+          <Field label="Kelurahan" htmlFor="subdistrict">
+            <Input
+              id="subdistrict"
+              value={form.subdistrict ?? ""}
+              onChange={(event) => setForm({ ...form, subdistrict: event.target.value })}
+              placeholder="Cilandak Barat"
+            />
+          </Field>
 
-            <Field label="Kecamatan" htmlFor="district">
-              <Input
-                id="district"
-                value={form.district ?? ""}
-                onChange={(event) => setForm({ ...form, district: event.target.value })}
-                placeholder="Cilandak"
-              />
-            </Field>
-          </div>
+          <Field label="Kecamatan" htmlFor="district">
+            <Input
+              id="district"
+              value={form.district ?? ""}
+              onChange={(event) => setForm({ ...form, district: event.target.value })}
+              placeholder="Cilandak"
+            />
+          </Field>
 
           <Field label="Kota/Kabupaten" htmlFor="city">
             <Input
@@ -328,25 +330,23 @@ export default function CustomersPage() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Provinsi" htmlFor="province">
-              <Input
-                id="province"
-                value={form.province ?? ""}
-                onChange={(event) => setForm({ ...form, province: event.target.value })}
-                placeholder="DKI Jakarta"
-              />
-            </Field>
+          <Field label="Provinsi" htmlFor="province">
+            <Input
+              id="province"
+              value={form.province ?? ""}
+              onChange={(event) => setForm({ ...form, province: event.target.value })}
+              placeholder="DKI Jakarta"
+            />
+          </Field>
 
-            <Field label="Kode Pos" htmlFor="postal_code">
-              <Input
-                id="postal_code"
-                value={form.postal_code ?? ""}
-                onChange={(event) => setForm({ ...form, postal_code: event.target.value })}
-                placeholder="12140"
-              />
-            </Field>
-          </div>
+          <Field label="Kode Pos" htmlFor="postal_code">
+            <Input
+              id="postal_code"
+              value={form.postal_code ?? ""}
+              onChange={(event) => setForm({ ...form, postal_code: event.target.value })}
+              placeholder="12140"
+            />
+          </Field>
 
           <Field label="Catatan" htmlFor="notes" className="sm:col-span-2">
             <Textarea

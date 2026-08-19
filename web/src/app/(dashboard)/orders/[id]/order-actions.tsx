@@ -293,22 +293,24 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Kelurahan" htmlFor="edit_shipping_subdistrict">
-            <Input
-              id="edit_shipping_subdistrict"
-              value={form.shipping_subdistrict}
-              onChange={(event) => setForm({ ...form, shipping_subdistrict: event.target.value })}
-            />
-          </Field>
-          <Field label="Kecamatan" htmlFor="edit_shipping_district">
-            <Input
-              id="edit_shipping_district"
-              value={form.shipping_district}
-              onChange={(event) => setForm({ ...form, shipping_district: event.target.value })}
-            />
-          </Field>
-        </div>
+        {/* Tiap isian alamat berdiri langsung di grid formnya, bukan dibungkus
+            grid dua kolom lagi. Grid dua kolom di dalam satu kolom grid dua kolom
+            menyisakan seperempat lebar untuk tiap isian — dan justru nama kelurahan
+            dan kecamatan yang paling panjang. */}
+        <Field label="Kelurahan" htmlFor="edit_shipping_subdistrict">
+          <Input
+            id="edit_shipping_subdistrict"
+            value={form.shipping_subdistrict}
+            onChange={(event) => setForm({ ...form, shipping_subdistrict: event.target.value })}
+          />
+        </Field>
+        <Field label="Kecamatan" htmlFor="edit_shipping_district">
+          <Input
+            id="edit_shipping_district"
+            value={form.shipping_district}
+            onChange={(event) => setForm({ ...form, shipping_district: event.target.value })}
+          />
+        </Field>
 
         <Field
           label="Kota/Kabupaten"
@@ -324,22 +326,20 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Provinsi" htmlFor="edit_shipping_province">
-            <Input
-              id="edit_shipping_province"
-              value={form.shipping_province}
-              onChange={(event) => setForm({ ...form, shipping_province: event.target.value })}
-            />
-          </Field>
-          <Field label="Kode pos" htmlFor="edit_shipping_postal_code">
-            <Input
-              id="edit_shipping_postal_code"
-              value={form.shipping_postal_code}
-              onChange={(event) => setForm({ ...form, shipping_postal_code: event.target.value })}
-            />
-          </Field>
-        </div>
+        <Field label="Provinsi" htmlFor="edit_shipping_province">
+          <Input
+            id="edit_shipping_province"
+            value={form.shipping_province}
+            onChange={(event) => setForm({ ...form, shipping_province: event.target.value })}
+          />
+        </Field>
+        <Field label="Kode pos" htmlFor="edit_shipping_postal_code">
+          <Input
+            id="edit_shipping_postal_code"
+            value={form.shipping_postal_code}
+            onChange={(event) => setForm({ ...form, shipping_postal_code: event.target.value })}
+          />
+        </Field>
 
         <Field label="Catatan" htmlFor="edit_notes" className="sm:col-span-2">
           <Textarea

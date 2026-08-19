@@ -122,6 +122,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 **Tinggi isi dialog dibatasi 670px** (`FormDialog`), lebih dari itu digulir. Wadahnya sengaja tanpa `flex-1`: tinggi yang dibagi flexbox sering jatuh di setengah piksel, `scrollHeight` membulat ke atas sementara `clientHeight` ke bawah, dan scrollbar muncul untuk satu piksel yang tidak ada isinya.
 
+**Jangan membungkus isian form dengan grid dua kolom di dalam grid dua kolom.** Pembungkusnya menempati satu sel, jadi isian di dalamnya tinggal seperempat lebar form — dan pembungkus itu sendiri ikut menggeser urutan sel berikutnya. Taruh tiap `Field` langsung sebagai anak grid formnya; kalau memang harus melebar, pakai `sm:col-span-2`.
+
 **Anak grid yang memakai `col-span-2` wajib memakai awalan `sm:`.** Tanpa awalan itu, span-nya membuat kolom kedua secara implisit bahkan saat induknya satu kolom — dan tidak ada `grid-cols-1` yang bisa menolongnya, karena kolomnya dibuat oleh span itu sendiri. Gejalanya: dua isian yang seharusnya menumpuk di ponsel malah berdesakan bersebelahan.
 
 ## Hak akses

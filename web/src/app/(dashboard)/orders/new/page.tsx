@@ -556,26 +556,28 @@ function NewOrderForm() {
                       required
                     />
                   </Field>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Provinsi" htmlFor="shipping_province">
-                      <Input
-                        id="shipping_province"
-                        value={address.shipping_province}
-                        onChange={(event) =>
-                          setAddress({ ...address, shipping_province: event.target.value })
-                        }
-                      />
-                    </Field>
-                    <Field label="Kode pos" htmlFor="shipping_postal_code">
-                      <Input
-                        id="shipping_postal_code"
-                        value={address.shipping_postal_code}
-                        onChange={(event) =>
-                          setAddress({ ...address, shipping_postal_code: event.target.value })
-                        }
-                      />
-                    </Field>
-                  </div>
+                  {/* Tiap isian alamat berdiri langsung di grid formnya, bukan dibungkus
+                      grid dua kolom lagi. Grid dua kolom di dalam satu kolom grid dua kolom
+                      menyisakan seperempat lebar untuk tiap isian — dan justru nama kelurahan
+                      dan kecamatan yang paling panjang. */}
+                  <Field label="Provinsi" htmlFor="shipping_province">
+                    <Input
+                      id="shipping_province"
+                      value={address.shipping_province}
+                      onChange={(event) =>
+                        setAddress({ ...address, shipping_province: event.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Kode pos" htmlFor="shipping_postal_code">
+                    <Input
+                      id="shipping_postal_code"
+                      value={address.shipping_postal_code}
+                      onChange={(event) =>
+                        setAddress({ ...address, shipping_postal_code: event.target.value })
+                      }
+                    />
+                  </Field>
                 </div>
               ) : selectedCustomer ? (
                 <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
