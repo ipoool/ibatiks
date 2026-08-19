@@ -23,12 +23,17 @@ const (
 	labelContent = labelWidth - labelMargin*2
 )
 
-// LabelData adalah bahan label pengiriman: siapa mengirim, ke siapa, dan lewat
-// kurir mana.
+// LabelData adalah bahan label pengiriman: siapa mengirim dan ke siapa.
 //
 // Tanpa daftar barang dan tanpa nominal. Label ditempel di luar kardus dan
 // terbaca siapa pun yang memegang paket di jalan — isi belanjaan dan harganya
 // bukan urusan mereka.
+//
+// Tanpa nama kurir dan nomor resi juga. Keduanya dicetak kurir sendiri pada
+// label resminya yang ditempel berdampingan; menuliskannya lagi di sini berarti
+// dua nomor pada satu kardus, dan yang dari kami sudah kedaluwarsa begitu paket
+// dibatalkan lalu dikirim ulang lewat kurir lain. Data paket tetap dipakai untuk
+// berat dan catatan pengemasan di bagian bawah.
 type LabelData struct {
 	Order    *domain.Order
 	Shipment *domain.Shipment
@@ -39,7 +44,7 @@ type LabelData struct {
 //
 // Tidak disimpan ke disk seperti invoice: isinya seluruhnya bisa dibentuk ulang
 // dari order, jadi mencetak ulang selalu menghasilkan label yang sesuai keadaan
-// terkini — termasuk saat nomor resinya baru terisi setelah label pertama
+// terkini — termasuk saat alamatnya baru dibetulkan setelah label pertama
 // dicetak.
 func (r *Renderer) RenderLabel(data LabelData) ([]byte, error) {
 	pdf := fpdf.NewCustom(&fpdf.InitType{
@@ -52,7 +57,6 @@ func (r *Renderer) RenderLabel(data LabelData) ([]byte, error) {
 
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
 
-	labelHeader(pdf, tr, data)
 	labelPengirim(pdf, tr, pengirimDariSettings(data.Settings))
 	labelPenerima(pdf, tr, penerimaDariOrder(data.Order))
 	labelFooter(pdf, tr, data)
@@ -66,36 +70,6 @@ func (r *Renderer) RenderLabel(data LabelData) ([]byte, error) {
 		return nil, fmt.Errorf("tulis label: %w", err)
 	}
 	return buf.Bytes(), nil
-}
-
-// labelHeader memuat kurir dan nomor resi — dua hal yang dicari petugas kurir
-// lebih dulu, jadi ditaruh paling atas dan paling besar.
-func labelHeader(pdf *fpdf.Fpdf, tr func(string) string, data LabelData) {
-	kurir := "—"
-	resi := ""
-	if data.Shipment != nil {
-		kurir = strings.TrimSpace(data.Shipment.Courier + " " + data.Shipment.Service)
-		if data.Shipment.TrackingNumber != nil {
-			resi = strings.TrimSpace(*data.Shipment.TrackingNumber)
-		}
-	}
-
-	pdf.SetFont("Helvetica", "B", 20)
-	pdf.CellFormat(labelContent, 10, tr(kurir), "", 1, "L", false, 0, "")
-
-	pdf.SetFont("Helvetica", "B", 15)
-	if resi == "" {
-		// Label sering dicetak sebelum resi didapat, lalu ditempel dan
-		// nomornya ditulis tangan di konter. Ruangnya disediakan, bukan
-		// dihilangkan.
-		pdf.SetFont("Helvetica", "", 11)
-		pdf.CellFormat(labelContent, 8, tr("No. resi: ______________________"), "", 1, "L", false, 0, "")
-	} else {
-		pdf.CellFormat(labelContent, 8, tr(resi), "", 1, "L", false, 0, "")
-	}
-
-	pdf.Ln(1)
-	labelGaris(pdf)
 }
 
 type pihakLabel struct {
