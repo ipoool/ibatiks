@@ -25,6 +25,25 @@ function angka(nilai: string | null): string {
 }
 
 /**
+ * Batas `min`/`max` seperti dibacakan orang.
+ *
+ * Kolom tanggal menyimpan batasnya dalam bentuk ISO (2026-09-20). Menyalinnya
+ * apa adanya ke pesan galat memaksa admin membaca format yang tidak dipakai di
+ * mana pun lagi dalam aplikasi ini.
+ */
+function batas(el: Kolom, atribut: "min" | "max"): string {
+  const nilai = el.getAttribute(atribut);
+  if (!nilai) return "";
+  if (el.type === "date") {
+    const t = new Date(`${nilai}T00:00:00`);
+    if (!Number.isNaN(t.getTime())) {
+      return t.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    }
+  }
+  return angka(nilai);
+}
+
+/**
  * Pesan untuk keadaan kolom saat ini. Dipanggil setelah customValidity dibuang,
  * jadi yang terbaca murni hasil pemeriksaan browser.
  */
@@ -51,10 +70,10 @@ export function pesanValidasi(el: Kolom): string {
     return `${sebut}maksimal ${el.maxLength} karakter.`;
   }
   if (v.rangeUnderflow) {
-    return `${sebut}minimal ${angka(el.getAttribute("min"))}.`;
+    return `${sebut}minimal ${batas(el, "min")}.`;
   }
   if (v.rangeOverflow) {
-    return `${sebut}maksimal ${angka(el.getAttribute("max"))}.`;
+    return `${sebut}maksimal ${batas(el, "max")}.`;
   }
   if (v.stepMismatch) {
     return `${sebut}tidak boleh berkoma sebanyak itu.`;

@@ -152,6 +152,13 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
           <Input
             id="return_date"
             type="date"
+            /*
+             * Batasnya mengikuti tanggal berangkat supaya tanggal yang mundur
+             * ditolak saat dipilih, bukan setelah formnya dikirim. Backend
+             * tetap memeriksanya sendiri; ini hanya memindahkan penolakannya ke
+             * tempat admin masih ingat sedang mengisi apa.
+             */
+            min={form.depart_date || undefined}
             value={form.return_date}
             onChange={(event) => setForm({ ...form, return_date: event.target.value })}
             required
@@ -167,6 +174,9 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
           <Input
             id="order_deadline"
             type="date"
+            // Cerminan aturan backend: batas order tidak boleh melewati
+            // tanggal pulang.
+            max={form.return_date || undefined}
             value={form.order_deadline ?? ""}
             onChange={(event) => setForm({ ...form, order_deadline: event.target.value })}
           />
