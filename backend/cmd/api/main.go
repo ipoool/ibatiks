@@ -21,6 +21,7 @@ import (
 	"github.com/ipoool/jastipin/backend/internal/http/handler"
 	"github.com/ipoool/jastipin/backend/internal/pdf"
 	"github.com/ipoool/jastipin/backend/internal/pkg/logger"
+	"github.com/ipoool/jastipin/backend/internal/pkg/rajaongkir"
 	"github.com/ipoool/jastipin/backend/internal/pkg/token"
 	"github.com/ipoool/jastipin/backend/internal/repository"
 	"github.com/ipoool/jastipin/backend/internal/service"
@@ -173,6 +174,18 @@ func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 	invoiceService := service.NewInvoiceService(pool, invoiceRepo, orderRepo, customerRepo,
 		tripRepo, settingsRepo, auditRepo, renderer)
 	shippingService := service.NewShippingService(pool, shippingRepo, orderRepo, settingsRepo)
+
+	// Tarif diambil dari RajaOngkir kalau API key-nya diisi. Tanpa key,
+	// aplikasinya tetap jalan memakai tabel tarif yang dikelola sendiri —
+	// toko yang belum berlangganan tidak boleh terhalang.
+	rajaOngkir := rajaongkir.New(cfg.RajaOngkir.APIKey, cfg.RajaOngkir.BaseURL, cfg.RajaOngkir.Timeout)
+	if rajaOngkir.Enabled() {
+		shippingService.UseCostProvider(
+			service.NewRajaOngkirProvider(pool, rajaOngkir, shippingRepo, settingsRepo))
+		slog.Info("tarif kirim memakai RajaOngkir")
+	} else {
+		slog.Info("RAJAONGKIR_API_KEY kosong, tarif kirim memakai tabel tarif sendiri")
+	}
 	shipmentService := service.NewShipmentService(pool, shipmentRepo, orderRepo, customerRepo,
 		settingsRepo, shippingService, auditRepo, tripRepo, renderer)
 	reportService := service.NewReportService(pool, reportRepo, tripRepo, orderRepo)

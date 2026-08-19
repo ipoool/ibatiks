@@ -19,13 +19,18 @@ func NewShippingHandler(shipping *service.ShippingService) *ShippingHandler {
 }
 
 type estimateRequest struct {
-	Courier    string `json:"courier"     validate:"omitempty,max=30"`
-	Service    string `json:"service"     validate:"omitempty,max=20"`
-	City       string `json:"city"`
-	WeightGram int    `json:"weight_gram" validate:"gte=0"`
-	LengthCM   int    `json:"length_cm"   validate:"gte=0"`
-	WidthCM    int    `json:"width_cm"    validate:"gte=0"`
-	HeightCM   int    `json:"height_cm"   validate:"gte=0"`
+	Courier string `json:"courier"     validate:"omitempty,max=30"`
+	Service string `json:"service"     validate:"omitempty,max=20"`
+	City    string `json:"city"`
+	// Bagian alamat yang lebih rinci membuat layanan kurir menunjuk kecamatan
+	// yang tepat, bukan sekadar kotanya.
+	District    string `json:"district"    validate:"omitempty,max=100"`
+	Subdistrict string `json:"subdistrict" validate:"omitempty,max=100"`
+	PostalCode  string `json:"postal_code" validate:"omitempty,max=10"`
+	WeightGram  int    `json:"weight_gram" validate:"gte=0"`
+	LengthCM    int    `json:"length_cm"   validate:"gte=0"`
+	WidthCM     int    `json:"width_cm"    validate:"gte=0"`
+	HeightCM    int    `json:"height_cm"   validate:"gte=0"`
 }
 
 // Estimate menghitung perkiraan ongkir dari berat dan dimensi paket.
@@ -37,19 +42,43 @@ func (h *ShippingHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	estimate, err := h.shipping.Estimate(r.Context(), service.EstimateInput{
-		Courier:    req.Courier,
-		Service:    req.Service,
-		City:       req.City,
-		WeightGram: req.WeightGram,
-		LengthCM:   req.LengthCM,
-		WidthCM:    req.WidthCM,
-		HeightCM:   req.HeightCM,
+		Courier:     req.Courier,
+		Service:     req.Service,
+		City:        req.City,
+		District:    req.District,
+		Subdistrict: req.Subdistrict,
+		PostalCode:  req.PostalCode,
+		WeightGram:  req.WeightGram,
+		LengthCM:    req.LengthCM,
+		WidthCM:     req.WidthCM,
+		HeightCM:    req.HeightCM,
 	})
 	if err != nil {
 		response.Error(w, r, err)
 		return
 	}
 	response.OK(w, estimate)
+}
+
+// Provider menjelaskan layanan tarif yang sedang aktif kepada menu Pengaturan:
+// terhubung atau tidak, kota asalnya apa, dan kurir mana saja yang ditanyakan.
+func (h *ShippingHandler) Provider(w http.ResponseWriter, r *http.Request) {
+	info, err := h.shipping.ProviderInfo(r.Context())
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, info)
+}
+
+// SearchDestinations mencari kota asal di daftar tujuan milik layanan kurir.
+func (h *ShippingHandler) SearchDestinations(w http.ResponseWriter, r *http.Request) {
+	tujuan, err := h.shipping.SearchDestinations(r.Context(), r.URL.Query().Get("q"))
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, tujuan)
 }
 
 // EstimateForOrder memakai kota tujuan dari alamat order, sehingga admin tidak
@@ -68,13 +97,16 @@ func (h *ShippingHandler) EstimateForOrder(w http.ResponseWriter, r *http.Reques
 	}
 
 	estimate, err := h.shipping.EstimateForOrder(r.Context(), orderID, service.EstimateInput{
-		Courier:    req.Courier,
-		Service:    req.Service,
-		City:       req.City,
-		WeightGram: req.WeightGram,
-		LengthCM:   req.LengthCM,
-		WidthCM:    req.WidthCM,
-		HeightCM:   req.HeightCM,
+		Courier:     req.Courier,
+		Service:     req.Service,
+		City:        req.City,
+		District:    req.District,
+		Subdistrict: req.Subdistrict,
+		PostalCode:  req.PostalCode,
+		WeightGram:  req.WeightGram,
+		LengthCM:    req.LengthCM,
+		WidthCM:     req.WidthCM,
+		HeightCM:    req.HeightCM,
 	})
 	if err != nil {
 		response.Error(w, r, err)

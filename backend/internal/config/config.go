@@ -12,11 +12,12 @@ import (
 )
 
 type Config struct {
-	App      App
-	DB       DB
-	JWT      JWT
-	Storage  Storage
-	Business Business
+	App        App
+	DB         DB
+	JWT        JWT
+	Storage    Storage
+	Business   Business
+	RajaOngkir RajaOngkir
 }
 
 type App struct {
@@ -56,6 +57,20 @@ type Business struct {
 	DefaultDPPercent int // persentase DP default saat order dibuat
 }
 
+// RajaOngkir menampung kredensial layanan tarif kirim.
+//
+// APIKey sengaja boleh kosong: tanpa key, aplikasi tetap jalan dan ongkir
+// dihitung dari tabel tarif yang dikelola sendiri. Toko yang belum berlangganan
+// tidak boleh terhalang memakai aplikasinya.
+type RajaOngkir struct {
+	APIKey  string
+	BaseURL string
+	Timeout time.Duration
+}
+
+// Enabled benar bila kredensialnya lengkap sehingga tarif bisa diambil online.
+func (r RajaOngkir) Enabled() bool { return r.APIKey != "" }
+
 // Load membaca environment dan mengembalikan konfigurasi yang sudah tervalidasi.
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -87,6 +102,11 @@ func Load() (*Config, error) {
 		Business: Business{
 			DefaultDPPercent: envInt("DEFAULT_DP_PERCENT", 50),
 		},
+		RajaOngkir: RajaOngkir{
+			APIKey:  envString("RAJAONGKIR_API_KEY", ""),
+			BaseURL: strings.TrimRight(envString("RAJAONGKIR_BASE_URL", "https://rajaongkir.komerce.id/api/v1"), "/"),
+			Timeout: envDuration("RAJAONGKIR_TIMEOUT", 10*time.Second),
+		},
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -116,6 +136,11 @@ func (c *Config) validate() error {
 	}
 	if c.DB.MinConns > c.DB.MaxConns {
 		problems = append(problems, "DB_MIN_CONNS tidak boleh lebih besar dari DB_MAX_CONNS")
+	}
+	// Key boleh kosong, tapi kalau diisi alamatnya harus ikut masuk akal —
+	// key yang benar dengan base URL kosong gagal diam-diam saat request.
+	if c.RajaOngkir.APIKey != "" && c.RajaOngkir.BaseURL == "" {
+		problems = append(problems, "RAJAONGKIR_BASE_URL wajib diisi kalau RAJAONGKIR_API_KEY dipakai")
 	}
 
 	if len(problems) > 0 {

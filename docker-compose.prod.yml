@@ -77,6 +77,9 @@ services:
       UPLOAD_DIR: /data/uploads
       INVOICE_DIR: /data/invoices
       DEFAULT_DP_PERCENT: ${DEFAULT_DP_PERCENT:-50}
+      RAJAONGKIR_API_KEY: ${RAJAONGKIR_API_KEY:-}
+      RAJAONGKIR_BASE_URL: ${RAJAONGKIR_BASE_URL:-https://rajaongkir.komerce.id/api/v1}
+      RAJAONGKIR_TIMEOUT: ${RAJAONGKIR_TIMEOUT:-10s}
     volumes:
       - uploads:/data
 
