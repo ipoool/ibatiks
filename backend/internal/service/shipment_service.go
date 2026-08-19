@@ -105,6 +105,10 @@ type PackInput struct {
 	Courier    string
 	Service    string
 	WeightGram int
+	// ShippingFee adalah ongkir yang ditagihkan ke customer, diisi saat admin
+	// memilih layanan kurir. Nil berarti admin baru menyimpan ukuran paketnya
+	// dan belum menetapkan ongkir — nilai di order tidak disentuh.
+	ShippingFee *decimal.Decimal
 	// Dimensi kardus dalam sentimeter. Boleh dikosongkan; kalau diisi, ongkir
 	// dihitung memakai berat volumetrik bila hasilnya lebih besar dari berat asli.
 	LengthCM int
@@ -139,18 +143,27 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 			return domain.InvalidState("order sudah dibatalkan")
 		}
 
+		if in.ShippingFee != nil && in.ShippingFee.IsNegative() {
+			return domain.Validation("ongkir tidak valid", map[string]string{
+				"shipping_fee": "harus 0 atau lebih",
+			})
+		}
+
 		// Estimasi ongkir disimpan bersama data kemasan supaya admin punya
 		// pembanding saat memasukkan ongkir yang sebenarnya dibayar nanti.
 		// Kegagalan menghitung tidak boleh membatalkan proses packing.
 		estimated := decimal.Zero
 		if estimate, estErr := s.shipping.Estimate(ctx, EstimateInput{
-			Courier:    courier,
-			Service:    serviceName,
-			City:       order.ShippingCity,
-			WeightGram: in.WeightGram,
-			LengthCM:   in.LengthCM,
-			WidthCM:    in.WidthCM,
-			HeightCM:   in.HeightCM,
+			Courier:     courier,
+			Service:     serviceName,
+			City:        order.ShippingCity,
+			District:    derefString(order.ShippingDistrict),
+			Subdistrict: derefString(order.ShippingSubdistrict),
+			PostalCode:  derefString(order.ShippingPostalCode),
+			WeightGram:  in.WeightGram,
+			LengthCM:    in.LengthCM,
+			WidthCM:     in.WidthCM,
+			HeightCM:    in.HeightCM,
 		}); estErr == nil {
 			estimated = estimate.Cost
 		}
@@ -174,6 +187,22 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 		// Mengemas tidak mengubah status order. Kemajuannya sudah terbaca dari
 		// data kemasan ini sendiri — berat, dimensi, dan waktu dikemasnya —
 		// jadi status tersendiri hanya akan jadi salinan yang bisa berbeda.
+
+		// Ongkir baru diketahui di sini, setelah paketnya ditimbang dan
+		// layanan kurirnya dipilih. Menuliskannya ke order membuat totalnya
+		// naik, dan itulah angka yang nanti ditagihkan invoice pelunasan.
+		//
+		// dp_required sengaja tidak ikut dihitung ulang: DP sudah disepakati
+		// dan besar kemungkinan sudah dibayar, jadi menaikkannya belakangan
+		// berarti customer tiba-tiba dianggap kurang bayar.
+		if in.ShippingFee != nil && !in.ShippingFee.Equal(order.ShippingFee) {
+			if _, err := s.orders.SetShippingFee(ctx, tx, orderID, *in.ShippingFee); err != nil {
+				return err
+			}
+			if _, err := s.orders.RecalculateTotals(ctx, tx, orderID); err != nil {
+				return err
+			}
+		}
 
 		return s.audit.Record(ctx, tx, repository.AuditParams{
 			UserID:   nullableUUID(actorID),

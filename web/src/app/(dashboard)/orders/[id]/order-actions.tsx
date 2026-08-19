@@ -139,7 +139,6 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
     order_date: toDateInput(order.order_date),
     order_source: order.order_source,
     discount: order.discount,
-    shipping_fee: order.shipping_fee,
     dp_required: order.dp_required,
     recipient_name: order.recipient_name,
     recipient_phone: order.recipient_phone,
@@ -227,16 +226,10 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
           />
         </Field>
 
-        <Field label="Ongkir ditagihkan (Rp)" htmlFor="edit_shipping_fee">
-          <Input
-            id="edit_shipping_fee"
-            type="number"
-            min="0"
-            step="any"
-            value={form.shipping_fee}
-            onChange={(event) => setForm({ ...form, shipping_fee: event.target.value })}
-          />
-        </Field>
+        {/* Ongkir tidak diedit dari sini. Angkanya ditetapkan di menu
+            Pengiriman saat paket ditimbang dan layanan kurirnya dipilih —
+            mengetiknya ulang di sini hanya akan bertabrakan dengan yang
+            dihitung kurir. */}
 
         <Field
           label="Nama penerima"

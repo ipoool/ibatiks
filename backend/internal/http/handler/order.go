@@ -36,7 +36,6 @@ type createOrderRequest struct {
 	OrderSource string             `json:"order_source" validate:"omitempty,oneof=whatsapp instagram tiktok marketplace lainnya"`
 	Items       []orderItemRequest `json:"items"        validate:"required,min=1,dive"`
 	Discount    decimal.Decimal    `json:"discount"`
-	ShippingFee decimal.Decimal    `json:"shipping_fee"`
 	DPRequired  *decimal.Decimal   `json:"dp_required"`
 
 	RecipientName       *string `json:"recipient_name"`
@@ -74,7 +73,6 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		OrderSource:         req.OrderSource,
 		Items:               items,
 		Discount:            req.Discount,
-		ShippingFee:         req.ShippingFee,
 		DPRequired:          req.DPRequired,
 		RecipientName:       req.RecipientName,
 		RecipientPhone:      req.RecipientPhone,
@@ -141,7 +139,7 @@ type updateOrderRequest struct {
 	OrderDate   request.Date     `json:"order_date"`
 	OrderSource string           `json:"order_source" validate:"omitempty,oneof=whatsapp instagram tiktok marketplace lainnya"`
 	Discount    decimal.Decimal  `json:"discount"`
-	ShippingFee decimal.Decimal  `json:"shipping_fee"`
+	ShippingFee *decimal.Decimal `json:"shipping_fee"`
 	DPRequired  *decimal.Decimal `json:"dp_required"`
 
 	RecipientName       string  `json:"recipient_name"   validate:"required"`
@@ -172,7 +170,6 @@ func (h *OrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 		OrderDate:           req.OrderDate.OrNow(),
 		OrderSource:         req.OrderSource,
 		Discount:            req.Discount,
-		ShippingFee:         req.ShippingFee,
 		DPRequired:          req.DPRequired,
 		RecipientName:       req.RecipientName,
 		RecipientPhone:      req.RecipientPhone,

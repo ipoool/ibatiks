@@ -42,13 +42,16 @@ func (h *ShipmentHandler) DeliveryNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type packRequest struct {
-	Courier    string  `json:"courier"     validate:"omitempty,max=30"`
-	Service    string  `json:"service"     validate:"omitempty,max=20"`
-	WeightGram int     `json:"weight_gram" validate:"gte=0"`
-	LengthCM   int     `json:"length_cm"   validate:"gte=0"`
-	WidthCM    int     `json:"width_cm"    validate:"gte=0"`
-	HeightCM   int     `json:"height_cm"   validate:"gte=0"`
-	Notes      *string `json:"notes"`
+	Courier    string `json:"courier"     validate:"omitempty,max=30"`
+	Service    string `json:"service"     validate:"omitempty,max=20"`
+	WeightGram int    `json:"weight_gram" validate:"gte=0"`
+	LengthCM   int    `json:"length_cm"   validate:"gte=0"`
+	WidthCM    int    `json:"width_cm"    validate:"gte=0"`
+	HeightCM   int    `json:"height_cm"   validate:"gte=0"`
+	// ShippingFee diisi saat admin memilih layanan kurir. Dikosongkan berarti
+	// ukuran paketnya saja yang disimpan, ongkir di order tidak disentuh.
+	ShippingFee *decimal.Decimal `json:"shipping_fee"`
+	Notes       *string          `json:"notes"`
 }
 
 // Pack menandai order sudah dikemas atas nama customer.
@@ -66,13 +69,14 @@ func (h *ShipmentHandler) Pack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shipment, err := h.shipments.Pack(r.Context(), orderID, service.PackInput{
-		Courier:    req.Courier,
-		Service:    req.Service,
-		WeightGram: req.WeightGram,
-		LengthCM:   req.LengthCM,
-		WidthCM:    req.WidthCM,
-		HeightCM:   req.HeightCM,
-		Notes:      req.Notes,
+		Courier:     req.Courier,
+		Service:     req.Service,
+		WeightGram:  req.WeightGram,
+		LengthCM:    req.LengthCM,
+		WidthCM:     req.WidthCM,
+		HeightCM:    req.HeightCM,
+		ShippingFee: req.ShippingFee,
+		Notes:       req.Notes,
 	}, middleware.UserIDFrom(r.Context()))
 	if err != nil {
 		response.Error(w, r, err)

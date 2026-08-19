@@ -77,7 +77,6 @@ export type CreateOrderPayload = {
   order_source?: OrderSource;
   items: OrderItemPayload[];
   discount?: string;
-  shipping_fee?: string;
   dp_required?: string;
   recipient_name?: string | null;
   recipient_phone?: string | null;
@@ -103,7 +102,11 @@ export type UpdateOrderPayload = {
   order_date?: string;
   order_source?: OrderSource;
   discount?: string;
-  shipping_fee?: string;
+  /*
+   * Ongkir tidak dikirim dari form order. Angkanya ditetapkan di menu
+   * Pengiriman saat layanan kurir dipilih; backend membiarkannya apa adanya
+   * kalau kolomnya tidak ikut dikirim.
+   */
   dp_required?: string;
   recipient_name: string;
   recipient_phone: string;

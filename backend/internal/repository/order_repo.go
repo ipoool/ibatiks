@@ -218,6 +218,17 @@ func (r *OrderRepo) Delete(ctx context.Context, q db.Querier, id uuid.UUID) erro
 	return execExpectOne(ctx, q, "order", `DELETE FROM orders WHERE id = $1`, id)
 }
 
+// SetShippingFee menuliskan ongkir yang ditagihkan ke customer.
+//
+// Sengaja tidak lewat Update: ongkir ditetapkan belakangan, saat paket dikemas
+// dan layanan kurirnya dipilih, sementara Update menulis ulang seluruh kolom
+// order termasuk DP dan alamat. Satu kolom yang berubah tidak boleh membawa
+// serta belasan kolom lain yang kebetulan ikut terkirim.
+func (r *OrderRepo) SetShippingFee(ctx context.Context, q db.Querier, id uuid.UUID, fee decimal.Decimal) (*domain.Order, error) {
+	return collectOne[domain.Order](ctx, q, "order",
+		`UPDATE orders SET shipping_fee = $2 WHERE id = $1 RETURNING `+orderColumns, id, fee)
+}
+
 // RecalculateTotals menghitung ulang subtotal dan total dari baris pesanan.
 // Selalu dipanggil setelah item ditambah, diubah, atau dihapus, dan setelah
 // barang datang dicocokkan, di dalam transaksi yang sama, sehingga angka order

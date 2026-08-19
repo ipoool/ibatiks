@@ -66,7 +66,6 @@ type CreateOrderInput struct {
 	OrderSource string
 	Items       []OrderItemInput
 	Discount    decimal.Decimal
-	ShippingFee decimal.Decimal
 	// DPRequired opsional: kalau nil, dipakai persentase DP default.
 	DPRequired *decimal.Decimal
 	// Alamat pengiriman opsional: kalau kosong, disalin dari data customer.
@@ -136,9 +135,10 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput, actorID 
 			// Order yang baru dicatat langsung menunggu DP. Admin mencatatnya
 			// setelah customer benar-benar memesan, jadi tahap draft hanya
 			// menambah satu klik tanpa memberi manfaat.
-			Status:              domain.OrderAwaitingDP,
-			Discount:            in.Discount,
-			ShippingFee:         in.ShippingFee,
+			Status:   domain.OrderAwaitingDP,
+			Discount: in.Discount,
+			// Ongkir baru diketahui setelah paket ditimbang di menu Pengiriman.
+			ShippingFee:         decimal.Zero,
 			DPRequired:          decimal.Zero, // diisi setelah total diketahui
 			RecipientName:       shipping.Name,
 			RecipientPhone:      shipping.Phone,
@@ -248,10 +248,13 @@ func (s *OrderService) List(ctx context.Context, p pagination.Params, f reposito
 }
 
 type UpdateOrderInput struct {
-	OrderDate           time.Time
-	OrderSource         string
-	Discount            decimal.Decimal
-	ShippingFee         decimal.Decimal
+	OrderDate   time.Time
+	OrderSource string
+	Discount    decimal.Decimal
+	// ShippingFee nil berarti ongkirnya tidak ikut diubah. Angkanya ditetapkan
+	// di menu Pengiriman saat layanan kurir dipilih, jadi form edit order yang
+	// tidak mengirimkannya tidak boleh diam-diam mengembalikannya ke nol.
+	ShippingFee         *decimal.Decimal
 	DPRequired          *decimal.Decimal
 	RecipientName       string
 	RecipientPhone      string
@@ -296,11 +299,16 @@ func (s *OrderService) Update(ctx context.Context, id uuid.UUID, in UpdateOrderI
 			})
 		}
 
+		ongkirBaru := order.ShippingFee
+		if in.ShippingFee != nil {
+			ongkirBaru = *in.ShippingFee
+		}
+
 		updated, err := s.orders.Update(ctx, tx, id, repository.UpdateOrderParams{
 			OrderDate:           in.OrderDate,
 			OrderSource:         source,
 			Discount:            in.Discount,
-			ShippingFee:         in.ShippingFee,
+			ShippingFee:         ongkirBaru,
 			DPRequired:          order.DPRequired,
 			RecipientName:       shipping.Name,
 			RecipientPhone:      shipping.Phone,
@@ -339,7 +347,7 @@ func (s *OrderService) Update(ctx context.Context, id uuid.UUID, in UpdateOrderI
 			Action:   domain.AuditUpdate,
 			Changes: map[string]any{
 				"discount_from": order.Discount.String(), "discount_to": in.Discount.String(),
-				"shipping_from": order.ShippingFee.String(), "shipping_to": in.ShippingFee.String(),
+				"shipping_from": order.ShippingFee.String(), "shipping_to": ongkirBaru.String(),
 			},
 		})
 	})

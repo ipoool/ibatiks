@@ -55,7 +55,6 @@ function NewOrderForm() {
   const [orderSource, setOrderSource] = useState<OrderSource>("whatsapp");
   const [items, setItems] = useState<DraftItem[]>([]);
   const [discount, setDiscount] = useState("0");
-  const [shippingFee, setShippingFee] = useState("0");
   const [dpRequired, setDpRequired] = useState("");
   const [notes, setNotes] = useState("");
   const [overrideAddress, setOverrideAddress] = useState(false);
@@ -130,8 +129,14 @@ function NewOrderForm() {
     () => items.reduce((sum, item) => sum + item.qty * toNumber(item.unit_price), 0),
     [items],
   );
-  const total = Math.max(subtotal - toNumber(discount) + toNumber(shippingFee), 0);
+  /*
+   * Ongkir belum ada di tahap ini. Beratnya baru diketahui setelah barangnya
+   * datang dan paketnya ditimbang, jadi ongkir ditetapkan belakangan di menu
+   * Pengiriman dan total order ikut naik saat itu.
+   */
+  const total = Math.max(subtotal - toNumber(discount), 0);
   const suggestedDP = Math.round(total / 2);
+  const dpDiTawar = dpRequired !== "" && toNumber(dpRequired) < suggestedDP;
 
   function addItem(productId: string) {
     const catalogItem = catalog?.find((item) => item.product_id === productId);
@@ -214,7 +219,6 @@ function NewOrderForm() {
           unit_price: item.unit_price,
         })),
         discount,
-        shipping_fee: shippingFee,
         dp_required: dpRequired || undefined,
         notes: notes || null,
         ...(overrideAddress ? address : {}),
@@ -597,9 +601,8 @@ function NewOrderForm() {
               <div className="divide-y divide-border">
                 <DetailRow label="Subtotal" value={formatIDR(subtotal)} />
                 <DetailRow label="Diskon" value={`−${formatIDR(discount)}`} />
-                <DetailRow label="Ongkir" value={formatIDR(shippingFee)} />
                 <DetailRow
-                  label="Total"
+                  label="Total barang"
                   value={<span className="text-base font-semibold">{formatIDR(total)}</span>}
                 />
               </div>
@@ -612,17 +615,6 @@ function NewOrderForm() {
                   step="any"
                   value={discount}
                   onChange={(event) => setDiscount(event.target.value)}
-                />
-              </Field>
-
-              <Field label="Ongkir ditagihkan (Rp)" htmlFor="shipping_fee">
-                <Input
-                  id="shipping_fee"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={shippingFee}
-                  onChange={(event) => setShippingFee(event.target.value)}
                 />
               </Field>
 
@@ -640,6 +632,15 @@ function NewOrderForm() {
                   onChange={(event) => setDpRequired(event.target.value)}
                   placeholder={String(suggestedDP)}
                 />
+                {/* Peringatan, bukan penolakan. Setengah harga barang adalah
+                    patokan yang menutup modal belanja; menurunkannya untuk
+                    customer lama tetap boleh, asal disadari. */}
+                {dpDiTawar && (
+                  <p className="text-xs text-amber-600">
+                    Di bawah setengah nilai barang ({formatIDR(suggestedDP)}). Modal belanja
+                    sebagian ditalangi toko sampai pelunasan masuk.
+                  </p>
+                )}
               </Field>
 
               <Field label="Catatan" htmlFor="order_notes">
