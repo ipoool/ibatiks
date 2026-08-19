@@ -8,33 +8,36 @@ import (
 )
 
 // Status order, mengikuti perjalanan satu pesanan dari dicatat sampai selesai.
+//
+// Sengaja sedikit. Sebuah status hanya boleh ada kalau ia menjawab pertanyaan
+// yang datanya tidak tercatat di tempat lain. Mengemas, menerbitkan invoice,
+// dan berbelanja semuanya meninggalkan jejaknya sendiri — data kemasan, baris
+// invoice, data pembelian — sehingga tidak perlu status tersendiri untuk
+// menandainya.
 const (
-	OrderDraft      = "draft"       // masih disusun admin, belum ditagihkan
-	OrderAwaitingDP = "awaiting_dp" // sudah dikonfirmasi, menunggu DP masuk
-	OrderDPPaid     = "dp_paid"     // DP diterima, pesanan terkunci
-	OrderPacked     = "packed"      // sudah dikemas atas nama customer
-	OrderInvoiced   = "invoiced"    // invoice pelunasan sudah dikirim
-	OrderPaid       = "paid"        // lunas, siap kirim
-	OrderShipped    = "shipped"     // sudah diserahkan ke kurir, resi terisi
-	OrderCompleted  = "completed"   // diterima customer
-	OrderCancelled  = "cancelled"
+	OrderAwaitingDP = "awaiting_dp" // baru dicatat, menunggu DP masuk
+	// OrderDPPaid adalah "Diproses": DP sudah diterima dan pesanan terkunci.
+	// Belanja, penerimaan barang, pengemasan, penetapan ongkir, sampai invoice
+	// pelunasan terbit semuanya terjadi di dalam status ini.
+	OrderDPPaid    = "dp_paid"
+	OrderPaid      = "paid"      // pelunasan diterima, siap diserahkan ke kurir
+	OrderShipped   = "shipped"   // sudah diserahkan ke kurir, resi terisi
+	OrderCompleted = "completed" // diterima customer
+	OrderCancelled = "cancelled"
 )
 
 // orderTransitions adalah satu-satunya sumber kebenaran alur status order.
 // Handler tidak boleh mengubah status di luar peta ini.
 var orderTransitions = map[string][]string{
-	OrderDraft:      {OrderAwaitingDP, OrderCancelled},
-	OrderAwaitingDP: {OrderDPPaid, OrderDraft, OrderCancelled},
-	// Membeli barang, menerimanya, dan mencocokkannya semuanya terjadi selagi
-	// order berstatus Diproses. Yang menandai kemajuannya adalah data
-	// pembelian dan penerimaan per item, bukan status ordernya.
-	OrderDPPaid: {OrderPacked, OrderCancelled},
-	// Dari packed boleh langsung ke paid: pelanggan lama sering melunasi
-	// begitu diberi tahu barangnya sudah sampai, tanpa menunggu invoice resmi
-	// diterbitkan. Sebelumnya jalur ini hanya disebut di komentar tapi tidak
-	// ada di peta, sehingga pelunasan penuh tidak mengubah status apa pun.
-	OrderPacked:    {OrderInvoiced, OrderPaid, OrderCancelled},
-	OrderInvoiced:  {OrderPaid, OrderPacked, OrderCancelled},
+	OrderAwaitingDP: {OrderDPPaid, OrderCancelled},
+	// Membeli barang, menerimanya, mengemasnya, menetapkan ongkir, dan
+	// menerbitkan invoice pelunasan semuanya terjadi selagi order berstatus
+	// Diproses. Yang menandai kemajuannya adalah data pembelian, penerimaan,
+	// kemasan, dan baris invoice — bukan status ordernya.
+	OrderDPPaid: {OrderPaid, OrderCancelled},
+	// Barang berangkat setelah lunas. Order yang sudah lunas tidak lagi bisa
+	// dibatalkan lewat jalur biasa: uangnya sudah diterima penuh, jadi
+	// pembatalannya urusan pengembalian dana, bukan sekadar ganti status.
 	OrderPaid:      {OrderShipped},
 	OrderShipped:   {OrderCompleted},
 	OrderCompleted: {},
@@ -80,7 +83,7 @@ func OrderIsEditable(status string) bool {
 // menalangi pembelian dengan uang toko.
 func OrderIsConfirmed(status string) bool {
 	switch status {
-	case OrderDraft, OrderAwaitingDP, OrderCancelled:
+	case OrderAwaitingDP, OrderCancelled:
 		return false
 	default:
 		return true
@@ -88,9 +91,10 @@ func OrderIsConfirmed(status string) bool {
 }
 
 // OrderCountsAsRevenue menentukan apakah order ikut dihitung sebagai omzet
-// pada laporan. Order yang dibatalkan dan yang masih draft tidak dihitung.
+// pada laporan. Hanya order yang dibatalkan yang tidak dihitung — sisanya
+// sudah punya kesepakatan harga dengan customer.
 func OrderCountsAsRevenue(status string) bool {
-	return status != OrderCancelled && status != OrderDraft
+	return status != OrderCancelled
 }
 
 // Asal order. Dipakai untuk rekap penjualan per channel, karena biaya promosi

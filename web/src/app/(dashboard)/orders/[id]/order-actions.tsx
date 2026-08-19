@@ -114,13 +114,13 @@ export function OrderEditButton({ order }: { order: OrderDetail }) {
  * Tombol mencocokkan barang datang, ditempatkan pada kartu Item pesanan.
  *
  * Yang dicocokkan adalah item pesanan satu per satu, jadi tombolnya berada di
- * kartu yang memuat daftarnya. Tetap tersedia setelah dikemas karena barang
- * susulan sering datang belakangan.
+ * kartu yang memuat daftarnya. Tersedia sepanjang order Diproses — termasuk
+ * setelah paketnya dikemas, karena barang susulan sering datang belakangan.
  */
 export function OrderReceiveButton({ order }: { order: OrderDetail }) {
   const [open, setOpen] = useState(false);
 
-  if (!["dp_paid", "packed"].includes(order.status)) return null;
+  if (order.status !== "dp_paid") return null;
 
   return (
     <>

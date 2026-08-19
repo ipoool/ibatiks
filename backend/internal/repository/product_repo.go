@@ -209,7 +209,7 @@ func (r *ProductRepo) PriceHistory(ctx context.Context, q db.Querier, productID 
 			JOIN orders o ON o.id = oi.order_id
 			WHERE o.trip_id = t.id
 			  AND oi.product_id = $1
-			  AND o.status NOT IN ('cancelled', 'draft')
+			  AND o.status <> 'cancelled'
 		) so ON TRUE
 		-- Trip yang sama sekali tidak menyentuh produk ini tidak perlu muncul.
 		WHERE ti.id IS NOT NULL OR COALESCE(pu.qty, 0) > 0

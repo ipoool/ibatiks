@@ -250,7 +250,7 @@ func (r *PurchaseRepo) ListPendingOrderItems(ctx context.Context, q db.Querier, 
 		) alloc ON TRUE
 		WHERE o.trip_id = $1
 		  AND oi.product_id = $2
-		  AND o.status NOT IN ('cancelled', 'draft')
+		  AND o.status <> 'cancelled'
 		  AND oi.fulfillment_status NOT IN ('unavailable', 'refunded')
 		  AND oi.qty > COALESCE(alloc.qty, 0)
 		ORDER BY o.order_date ASC, o.created_at ASC`, tripID, productID)
@@ -296,7 +296,7 @@ func (r *PurchaseRepo) ShoppingList(ctx context.Context, q db.Querier, tripID uu
 		LEFT JOIN product_categories c ON c.id = p.category_id
 		LEFT JOIN trip_items ti ON ti.trip_id = o.trip_id AND ti.product_id = oi.product_id
 		WHERE o.trip_id = $1
-		  AND o.status NOT IN ('cancelled', 'draft')
+		  AND o.status <> 'cancelled'
 		  AND oi.fulfillment_status <> 'refunded'
 		GROUP BY p.id, p.name, p.sku, p.brand, p.store_name, p.image_url, c.name
 		ORDER BY p.name ASC`, tripID)

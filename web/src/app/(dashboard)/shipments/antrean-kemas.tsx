@@ -29,8 +29,6 @@ import type { OrderStatus } from "@/types/api";
    petugas adalah "hari ini saya kerjakan apa", bukan status formalnya. */
 const QUEUE_OPTIONS = [
   { value: "dp_paid", label: "Siap dikemas" },
-  { value: "packed", label: "Sedang dikemas" },
-  { value: "invoiced", label: "Menunggu pelunasan" },
   { value: "paid", label: "Siap dikirim" },
 ] as const satisfies ReadonlyArray<{ value: OrderStatus; label: string }>;
 
@@ -44,9 +42,7 @@ type AntreanStatus = (typeof QUEUE_OPTIONS)[number]["value"];
  * menyisakan baris kosong di bawah kolom saring.
  */
 const STATUS_HINT: Record<AntreanStatus, string> = {
-  dp_paid: "Barang sudah dicocokkan, siap dikemas atas nama customer.",
-  packed: "Sudah dikemas — terbitkan invoice pelunasan.",
-  invoiced: "Invoice terkirim, menunggu pelunasan masuk.",
+  dp_paid: "Barang sudah dicocokkan, siap dikemas dan dihitung ongkirnya.",
   paid: "Sudah lunas, tinggal input nomor resi.",
 };
 

@@ -46,7 +46,7 @@ func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID uu
 			-- Order draft dan batal tidak dihitung sebagai omzet.
 			SELECT id, customer_id, total, shipping_fee, discount, paid_amount, balance_due
 			FROM orders
-			WHERE trip_id = $1 AND status NOT IN ('cancelled', 'draft')
+			WHERE trip_id = $1 AND status <> 'cancelled'
 		),
 		order_totals AS (
 			SELECT
@@ -116,7 +116,7 @@ func (r *ReportRepo) ExpenseBreakdown(ctx context.Context, q db.Querier, tripID 
 // akan tampil dengan cogs 0, yang justru berguna sebagai penanda bahwa
 // pembelian untuk order itu belum diinput.
 func (r *ReportRepo) OrderProfits(ctx context.Context, q db.Querier, p pagination.Params, tripID *uuid.UUID) ([]domain.OrderProfit, int64, error) {
-	conditions := []string{"o.status NOT IN ('cancelled', 'draft')"}
+	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
 	if tripID != nil {
@@ -173,7 +173,7 @@ func (r *ReportRepo) OrderProfits(ctx context.Context, q db.Querier, p paginatio
 // Receivables mendaftar order yang masih punya sisa tagihan, diurutkan dari
 // yang paling lama menunggak.
 func (r *ReportRepo) Receivables(ctx context.Context, q db.Querier, p pagination.Params) ([]domain.Receivable, int64, error) {
-	conditions := []string{"o.balance_due > 0", "o.status NOT IN ('cancelled', 'draft')"}
+	conditions := []string{"o.balance_due > 0", "o.status <> 'cancelled'"}
 	args := []any{}
 
 	if p.Search != "" {
@@ -219,7 +219,7 @@ func (r *ReportRepo) Receivables(ctx context.Context, q db.Querier, p pagination
 
 // ProductSales merangkum performa tiap produk pada rentang tanggal tertentu.
 func (r *ReportRepo) ProductSales(ctx context.Context, q db.Querier, limit int, tripID *uuid.UUID, from, to *time.Time) ([]domain.ProductSales, error) {
-	conditions := []string{"o.status NOT IN ('cancelled', 'draft')"}
+	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
 	if tripID != nil {
@@ -268,7 +268,7 @@ func (r *ReportRepo) ProductSales(ctx context.Context, q db.Querier, limit int, 
 // pembelian yang nyata, sama seperti laporan lainnya, supaya angka profitnya
 // konsisten di seluruh aplikasi.
 func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p pagination.Params, tripID *uuid.UUID) ([]domain.CustomerSales, int64, error) {
-	conditions := []string{"o.status NOT IN ('cancelled', 'draft')"}
+	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
 	if tripID != nil {
@@ -339,7 +339,7 @@ func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p paginati
 // ChannelSales merangkum penjualan per asal order. Jumlah barisnya selalu
 // sedikit (satu per kanal), jadi tidak perlu dihalaman.
 func (r *ReportRepo) ChannelSales(ctx context.Context, q db.Querier, tripID *uuid.UUID, from, to *time.Time) ([]domain.ChannelSales, error) {
-	conditions := []string{"o.status NOT IN ('cancelled', 'draft')"}
+	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
 	if tripID != nil {
@@ -403,7 +403,7 @@ func (r *ReportRepo) DashboardCounters(ctx context.Context, q db.Querier) (*Dash
 		WITH month_orders AS (
 			SELECT id, total
 			FROM orders
-			WHERE status NOT IN ('cancelled', 'draft')
+			WHERE status <> 'cancelled'
 			  AND order_date >= date_trunc('month', CURRENT_DATE)
 		)
 		SELECT
@@ -414,7 +414,7 @@ func (r *ReportRepo) DashboardCounters(ctx context.Context, q db.Querier) (*Dash
 			 WHERE status NOT IN ('completed', 'cancelled'))::int AS open_orders,
 			(SELECT count(*) FROM orders WHERE status = 'paid')::int AS pending_shipment,
 			(SELECT COALESCE(sum(balance_due), 0) FROM orders
-			 WHERE balance_due > 0 AND status NOT IN ('cancelled', 'draft')) AS outstanding,
+			 WHERE balance_due > 0 AND status <> 'cancelled') AS outstanding,
 			(SELECT COALESCE(sum(total), 0) FROM month_orders) AS revenue_this_month,
 			(SELECT COALESCE(sum(pa.qty * pa.unit_cost_idr), 0)
 			 FROM purchase_allocations pa

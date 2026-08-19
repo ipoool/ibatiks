@@ -1077,9 +1077,11 @@ func (s *OrderService) advanceStatusAfterPayment(ctx context.Context, tx pgx.Tx,
 // tersembunyi di balik status "paid".
 func (s *OrderService) reconcileStatusAfterAmountChange(ctx context.Context, tx pgx.Tx, order *domain.Order) error {
 	switch {
-	// Sudah ditandai lunas, tapi ternyata masih ada sisa: kembali ke penagihan.
+	// Sudah ditandai lunas, tapi ternyata masih ada sisa: kembali ke Diproses.
+	// Biasanya karena ongkir baru ditetapkan setelah pelunasan dicatat, atau
+	// pembayaran yang salah catat dihapus.
 	case order.Status == domain.OrderPaid && order.BalanceDue.GreaterThan(decimal.Zero):
-		_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderInvoiced)
+		_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderDPPaid)
 		return err
 
 	// DP-nya ternyata tidak lagi tertutup — biasanya karena pembayaran yang

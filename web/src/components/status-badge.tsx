@@ -29,13 +29,11 @@ type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["variant"]>;
  */
 
 const ORDER_STATUS: Record<OrderStatus, { label: string; tone: BadgeTone }> = {
-  draft: { label: "Draft", tone: "neutral" },
   awaiting_dp: { label: "Menunggu DP", tone: "warning" },
-  // PRD memakai istilah "Diproses" untuk order yang DP-nya sudah diverifikasi;
-  // status inilah yang masuk hitungan daftar belanja tripper.
+  // "Diproses" memuat seluruh pekerjaan di tengah: belanja, penerimaan barang,
+  // pengemasan, penetapan ongkir, sampai invoice pelunasan terbit. Status
+  // inilah yang masuk hitungan daftar belanja tripper.
   dp_paid: { label: "Diproses", tone: "info" },
-  packed: { label: "Sedang Dikemas", tone: "progress" },
-  invoiced: { label: "Penagihan", tone: "warning" },
   paid: { label: "Pembayaran Lunas", tone: "success" },
   shipped: { label: "Dikirim", tone: "info" },
   completed: { label: "Selesai", tone: "success" },

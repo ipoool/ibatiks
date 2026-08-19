@@ -114,12 +114,10 @@ func (s *InvoiceService) Create(ctx context.Context, orderID uuid.UUID, in Creat
 			return err
 		}
 
-		// Invoice pelunasan menandai order sudah ditagihkan.
-		if in.Type == domain.InvoiceFinal && domain.CanTransitionOrder(order.Status, domain.OrderInvoiced) {
-			if _, err := s.orders.UpdateStatus(ctx, tx, orderID, domain.OrderInvoiced); err != nil {
-				return err
-			}
-		}
+		// Menerbitkan invoice tidak mengubah status order. Yang memindahkan
+		// order ke Pembayaran Lunas adalah uang yang benar-benar masuk, bukan
+		// dokumen yang dikirimkan — invoice terkirim yang tak kunjung dibayar
+		// tidak boleh terlihat seperti kemajuan.
 
 		return s.audit.Record(ctx, tx, repository.AuditParams{
 			UserID:   nullableUUID(actorID),

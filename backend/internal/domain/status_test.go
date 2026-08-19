@@ -11,44 +11,42 @@ func TestCanTransitionOrder(t *testing.T) {
 		from, to string
 		want     bool
 	}{
-		// Alur normal satu pesanan dari awal sampai selesai.
-		{domain.OrderDraft, domain.OrderAwaitingDP, true},
+		// Alur normal satu pesanan dari awal sampai selesai. Hanya empat
+		// perpindahan: DP masuk, pelunasan masuk, diserahkan ke kurir, tiba.
 		{domain.OrderAwaitingDP, domain.OrderDPPaid, true},
-		// Belanja dan penerimaan barang terjadi selagi order Diproses, jadi
-		// tahap berikutnya langsung Sedang Dikemas.
-		{domain.OrderDPPaid, domain.OrderPacked, true},
-		{domain.OrderPacked, domain.OrderInvoiced, true},
-		{domain.OrderInvoiced, domain.OrderPaid, true},
-
-		// Pelanggan lama sering melunasi begitu diberi tahu barangnya sudah
-		// sampai, sebelum invoice resmi diterbitkan.
-		{domain.OrderPacked, domain.OrderPaid, true},
+		{domain.OrderDPPaid, domain.OrderPaid, true},
 		{domain.OrderPaid, domain.OrderShipped, true},
 		{domain.OrderShipped, domain.OrderCompleted, true},
 
 		// Lompatan yang melewati tahap penting harus ditolak.
-		{domain.OrderDraft, domain.OrderPaid, false},
-		{domain.OrderDraft, domain.OrderShipped, false},
+		{domain.OrderAwaitingDP, domain.OrderPaid, false},
 		{domain.OrderAwaitingDP, domain.OrderShipped, false},
-		{domain.OrderDPPaid, domain.OrderPaid, false},
 		{domain.OrderDPPaid, domain.OrderShipped, false},
+		{domain.OrderDPPaid, domain.OrderCompleted, false},
 
 		// Status akhir tidak bisa berpindah ke mana pun.
 		{domain.OrderCompleted, domain.OrderShipped, false},
 		{domain.OrderCompleted, domain.OrderCancelled, false},
-		{domain.OrderCancelled, domain.OrderDraft, false},
+		{domain.OrderCancelled, domain.OrderAwaitingDP, false},
 
 		// Order yang sudah dikirim tidak bisa dibatalkan.
 		{domain.OrderShipped, domain.OrderCancelled, false},
+		// Begitu juga yang sudah lunas: uangnya sudah diterima penuh, jadi
+		// pembatalannya urusan pengembalian dana, bukan ganti status.
+		{domain.OrderPaid, domain.OrderCancelled, false},
 
-		// Pembatalan diizinkan selama barang belum diserahkan ke kurir.
-		{domain.OrderDraft, domain.OrderCancelled, true},
+		// Pembatalan diizinkan selama customer belum melunasi.
+		{domain.OrderAwaitingDP, domain.OrderCancelled, true},
 		{domain.OrderDPPaid, domain.OrderCancelled, true},
-		{domain.OrderPacked, domain.OrderCancelled, true},
 
-		// Status tak dikenal tidak boleh membuka jalur apa pun.
+		// Status yang sudah dihapus tidak boleh membuka jalur apa pun.
+		{"draft", domain.OrderAwaitingDP, false},
+		{"packed", domain.OrderPaid, false},
+		{domain.OrderDPPaid, "invoiced", false},
+
+		// Status tak dikenal juga.
 		{"entah", domain.OrderPaid, false},
-		{domain.OrderDraft, "entah", false},
+		{domain.OrderAwaitingDP, "entah", false},
 	}
 
 	for _, tt := range tests {
@@ -62,8 +60,7 @@ func TestCanTransitionOrder(t *testing.T) {
 
 func TestOrderIsEditable(t *testing.T) {
 	editable := []string{
-		domain.OrderDraft, domain.OrderAwaitingDP, domain.OrderDPPaid,
-		domain.OrderPacked, domain.OrderInvoiced, domain.OrderPaid,
+		domain.OrderAwaitingDP, domain.OrderDPPaid, domain.OrderPaid,
 	}
 	for _, status := range editable {
 		if !domain.OrderIsEditable(status) {
@@ -81,11 +78,8 @@ func TestOrderIsEditable(t *testing.T) {
 }
 
 func TestOrderCountsAsRevenue(t *testing.T) {
-	// Draft belum disepakati customer dan batal tidak jadi uang; keduanya
-	// tidak boleh mengembungkan angka omzet pada laporan.
-	if domain.OrderCountsAsRevenue(domain.OrderDraft) {
-		t.Error("order draft tidak boleh dihitung sebagai omzet")
-	}
+	// Order batal tidak jadi uang, jadi tidak boleh mengembungkan angka omzet
+	// pada laporan. Sisanya sudah punya kesepakatan harga dengan customer.
 	if domain.OrderCountsAsRevenue(domain.OrderCancelled) {
 		t.Error("order batal tidak boleh dihitung sebagai omzet")
 	}
@@ -135,13 +129,13 @@ func TestTripAcceptsOrder(t *testing.T) {
 func TestNextOrderStatusesTidakBisaDimutasi(t *testing.T) {
 	// Pemanggil menerima salinan, sehingga peta transisi internal tidak bisa
 	// dirusak dari luar package.
-	first := domain.NextOrderStatuses(domain.OrderDraft)
+	first := domain.NextOrderStatuses(domain.OrderAwaitingDP)
 	if len(first) == 0 {
-		t.Fatal("order draft seharusnya punya status lanjutan")
+		t.Fatal("order yang menunggu DP seharusnya punya status lanjutan")
 	}
 	first[0] = "dirusak"
 
-	if domain.NextOrderStatuses(domain.OrderDraft)[0] == "dirusak" {
+	if domain.NextOrderStatuses(domain.OrderAwaitingDP)[0] == "dirusak" {
 		t.Error("peta transisi internal ikut berubah saat hasilnya dimodifikasi")
 	}
 }

@@ -171,11 +171,9 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 			return err
 		}
 
-		if domain.CanTransitionOrder(order.Status, domain.OrderPacked) {
-			if _, err := s.orders.UpdateStatus(ctx, tx, orderID, domain.OrderPacked); err != nil {
-				return err
-			}
-		}
+		// Mengemas tidak mengubah status order. Kemajuannya sudah terbaca dari
+		// data kemasan ini sendiri — berat, dimensi, dan waktu dikemasnya —
+		// jadi status tersendiri hanya akan jadi salinan yang bisa berbeda.
 
 		return s.audit.Record(ctx, tx, repository.AuditParams{
 			UserID:   nullableUUID(actorID),

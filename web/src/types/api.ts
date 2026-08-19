@@ -232,12 +232,16 @@ export interface TripExpense {
 /** Asal order, dipakai untuk rekap penjualan per channel. */
 export type OrderSource = "whatsapp" | "instagram" | "tiktok" | "marketplace" | "lainnya";
 
+/**
+ * Lima tahap perjalanan order ditambah Batal.
+ *
+ * Mengemas, menetapkan ongkir, dan menerbitkan invoice pelunasan semuanya
+ * terjadi di dalam "dp_paid" — kemajuannya dibaca dari data kemasan dan baris
+ * invoice, bukan dari status.
+ */
 export type OrderStatus =
-  | "draft"
   | "awaiting_dp"
   | "dp_paid"
-  | "packed"
-  | "invoiced"
   | "paid"
   | "shipped"
   | "completed"
