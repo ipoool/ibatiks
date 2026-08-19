@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, PageHeader } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
+import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -129,9 +130,15 @@ function ReceivablesReport() {
           {data?.items.map((item) => (
             <TR key={item.order_id}>
               <TD>
-                <Link href={`/orders/${item.order_id}`} className="font-medium hover:underline">
-                  {item.order_number}
-                </Link>
+                <div className="flex items-center gap-0.5">
+                  <Link
+                    href={`/orders/${item.order_id}`}
+                    className="font-medium whitespace-nowrap hover:underline"
+                  >
+                    {item.order_number}
+                  </Link>
+                  <CopyButton value={item.order_number} label="Nomor order" />
+                </div>
                 <div className="mt-1">
                   <OrderStatusBadge status={item.status} />
                 </div>
@@ -253,9 +260,15 @@ function OrderProfitReport() {
             return (
               <TR key={item.order_id}>
                 <TD>
-                  <Link href={`/orders/${item.order_id}`} className="font-medium hover:underline">
-                    {item.order_number}
-                  </Link>
+                  <div className="flex items-center gap-0.5">
+                    <Link
+                      href={`/orders/${item.order_id}`}
+                      className="font-medium whitespace-nowrap hover:underline"
+                    >
+                      {item.order_number}
+                    </Link>
+                    <CopyButton value={item.order_number} label="Nomor order" />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {item.trip_code} · {formatDate(item.order_date)}
                   </p>

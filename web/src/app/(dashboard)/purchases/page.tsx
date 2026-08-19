@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/form-dialog";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
+import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useDeletePurchase, usePurchaseAllocations, usePurchases } from "@/hooks/use-operations";
@@ -217,7 +218,7 @@ function PurchaseRow({
                     key={allocation.id}
                     className="flex items-center justify-between rounded-md bg-card px-3 py-2 text-sm"
                   >
-                    <span>
+                    <span className="flex items-center gap-0.5">
                       {allocation.order_number ? (
                         <>
                           {/* Ditautkan ke ordernya: daftar ini yang menjawab
@@ -233,7 +234,8 @@ function PurchaseRow({
                           ) : (
                             <span className="font-medium">{allocation.order_number}</span>
                           )}
-                          <span className="text-muted-foreground"> — {allocation.customer_name}</span>
+                          <CopyButton value={allocation.order_number} label="Nomor order" />
+                          <span className="text-muted-foreground">— {allocation.customer_name}</span>
                         </>
                       ) : (
                         <span className="text-amber-700">Masuk stok (tidak dipesan siapa pun)</span>
