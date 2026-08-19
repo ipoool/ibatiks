@@ -22,6 +22,7 @@ import {
   useSaveCustomer,
   type CustomerPayload,
 } from "@/hooks/use-master";
+import { usePencarianURL } from "@/hooks/use-pencarian-url";
 import { ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { SocialFields, labelPlatform } from "@/components/social-fields";
@@ -43,7 +44,7 @@ const EMPTY_FORM: CustomerPayload = {
 
 export default function CustomersPage() {
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = usePencarianURL();
   const debouncedSearch = useDebounced(search);
 
   const [editing, setEditing] = useState<Customer | null>(null);
