@@ -19,7 +19,7 @@ func NewCustomerHandler(customers *service.CustomerService) *CustomerHandler {
 }
 
 type socialRequest struct {
-	Platform string `json:"platform" validate:"required,oneof=instagram tiktok facebook lainnya"`
+	Platform string `json:"platform" validate:"required,oneof=instagram tiktok facebook"`
 	Handle   string `json:"handle"`
 }
 

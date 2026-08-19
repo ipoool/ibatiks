@@ -22,7 +22,7 @@ type Social struct {
 // salah ketik satu huruf pada nama platform membuat ikon dan tautannya meleset,
 // dan tulisannya tetap terlihat wajar sekilas.
 var SocialPlatforms = []string{
-	"instagram", "tiktok", "facebook", "lainnya",
+	"instagram", "tiktok", "facebook",
 }
 
 func IsValidSocialPlatform(p string) bool {

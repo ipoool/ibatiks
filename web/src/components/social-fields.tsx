@@ -14,15 +14,13 @@ import type { Social, SocialPlatform } from "@/types/api";
  * membuat labelnya meleset sementara tulisannya tetap terlihat wajar sekilas —
  * persis alasan mata uang trip juga dipilih dari daftar.
  */
-export const SOCIAL_PLATFORMS: ReadonlyArray<{
-  value: SocialPlatform;
-  label: string;
-  contoh: string;
-}> = [
+export const SOCIAL_PLATFORMS: readonly [
+  { value: SocialPlatform; label: string; contoh: string },
+  ...Array<{ value: SocialPlatform; label: string; contoh: string }>,
+] = [
   { value: "instagram", label: "Instagram", contoh: "@username" },
   { value: "tiktok", label: "TikTok", contoh: "@username" },
   { value: "facebook", label: "Facebook", contoh: "nama profil atau tautan" },
-  { value: "lainnya", label: "Lainnya", contoh: "tulis nama platform dan akunnya" },
 ];
 
 export const SOCIAL_PLATFORM_OPTIONS = SOCIAL_PLATFORMS.map(({ value, label }) => ({
@@ -37,7 +35,7 @@ export function labelPlatform(platform: string): string {
 /** Platform yang belum terpakai, supaya baris baru tidak langsung kembar. */
 function platformBerikutnya(terpakai: readonly Social[]): SocialPlatform {
   const adaYangPakai = (value: SocialPlatform) => terpakai.some((s) => s.platform === value);
-  return SOCIAL_PLATFORMS.find((p) => !adaYangPakai(p.value))?.value ?? "lainnya";
+  return SOCIAL_PLATFORMS.find((p) => !adaYangPakai(p.value))?.value ?? SOCIAL_PLATFORMS[0].value;
 }
 
 /**

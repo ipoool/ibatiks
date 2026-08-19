@@ -74,7 +74,7 @@ export interface Session {
 // --- Customer --------------------------------------------------------------
 
 /** Platform media sosial yang bisa disimpan untuk seorang customer. */
-export type SocialPlatform = "instagram" | "tiktok" | "facebook" | "lainnya";
+export type SocialPlatform = "instagram" | "tiktok" | "facebook";
 
 export interface Social {
   platform: SocialPlatform;
