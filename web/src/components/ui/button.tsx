@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react"
 import { Slot } from "radix-ui"
 import * as React from "react"
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
@@ -57,6 +58,17 @@ export interface ButtonProps
    * bisa ditekan dua kali.
    */
   loading?: boolean
+  /**
+   * Keterangan yang muncul saat kursor berhenti di atas tombol.
+   *
+   * Perluasan di luar shadcn. Tombol beriskon di dalam tabel tidak punya teks
+   * sama sekali, dan ikon yang mirip — pensil dan pena, keranjang dan silang —
+   * baru bisa dibedakan setelah diklik. Menyediakan tooltip di tombolnya
+   * sendiri membuat tiap pemanggil tidak perlu merangkai Tooltip, TooltipTrigger,
+   * dan TooltipContent berulang kali; yang dirangkai manual cepat atau lambat
+   * ada yang terlewat.
+   */
+  tooltip?: React.ReactNode
 }
 
 function Button({
@@ -67,11 +79,12 @@ function Button({
   loading = false,
   disabled,
   children,
+  tooltip,
   ...props
 }: ButtonProps) {
   const Comp = asChild ? Slot.Root : "button"
 
-  return (
+  const tombol = (
     <Comp
       data-slot="button"
       data-variant={variant}
@@ -94,6 +107,15 @@ function Button({
         children
       )}
     </Comp>
+  )
+
+  if (!tooltip) return tombol
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{tombol}</TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   )
 }
 

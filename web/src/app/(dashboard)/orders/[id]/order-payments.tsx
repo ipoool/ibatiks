@@ -242,6 +242,7 @@ export function OrderPayments({ order }: { order: OrderDetail }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    tooltip="Hapus"
                     className="text-destructive hover:text-destructive"
                     onClick={() => setDeleting(payment)}
                   >

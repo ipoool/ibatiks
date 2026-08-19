@@ -468,10 +468,12 @@ function NewOrderForm() {
                           type="button"
                           variant="ghost"
                           size="icon-sm"
+                          tooltip="Hapus dari pesanan"
                           className="text-destructive hover:text-destructive"
                           onClick={() => removeItem(item.product_id)}
                         >
                           <Trash2 />
+                          <span className="sr-only">Hapus dari pesanan</span>
                         </Button>
                       </TD>
                     </TR>

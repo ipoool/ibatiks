@@ -390,6 +390,7 @@ export interface PurchaseAllocation {
   order_item_id: string | null;
   qty: number;
   unit_cost_idr: Money;
+  order_id: string | null;
   order_number: string | null;
   customer_name: string | null;
   product_name: string;

@@ -4,6 +4,7 @@ import { ExternalLink, MessageCircle, Package, Printer, Truck } from "lucide-rea
 import Link from "next/link";
 import { useState } from "react";
 
+import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { FilterSelect } from "@/components/filter-select";
 import { OrderStatusBadge } from "@/components/status-badge";
@@ -164,9 +165,15 @@ function BarisPengiriman({
   return (
     <TR>
       <TD>
-        <Link href={`/orders/${item.order_id}`} className="font-medium hover:underline">
-          {item.order_number}
-        </Link>
+        <div className="flex items-center gap-0.5">
+          <Link
+            href={`/orders/${item.order_id}`}
+            className="font-medium whitespace-nowrap hover:underline"
+          >
+            {item.order_number}
+          </Link>
+          <CopyButton value={item.order_number} label="Nomor order" />
+        </div>
         {/* Isian kolom yang sedang disembunyikan dilipat ke sini, bukan hilang:
             di meja kemas, nama penerima dan kotanya yang dipakai mencocokkan
             paket dengan barisnya. */}

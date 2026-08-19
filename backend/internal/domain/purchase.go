@@ -51,9 +51,13 @@ type PurchaseAllocation struct {
 
 type PurchaseAllocationDetail struct {
 	PurchaseAllocation
-	OrderNumber  *string `db:"order_number"  json:"order_number"`
-	CustomerName *string `db:"customer_name" json:"customer_name"`
-	ProductName  string  `db:"product_name"  json:"product_name"`
+	// OrderID menyertai nomornya supaya daftar alokasi bisa menautkan langsung
+	// ke detail ordernya; tanpa ini nomor order di layar cuma teks yang harus
+	// disalin lalu dicari sendiri di menu Order.
+	OrderID      *uuid.UUID `db:"order_id"      json:"order_id"`
+	OrderNumber  *string    `db:"order_number"  json:"order_number"`
+	CustomerName *string    `db:"customer_name" json:"customer_name"`
+	ProductName  string     `db:"product_name"  json:"product_name"`
 }
 
 // ShoppingListEntry adalah satu baris daftar belanja yang dibawa tripper.

@@ -292,13 +292,14 @@ export function TripCatalog({ trip }: { trip: Trip }) {
             </TD>
             <TD>
               <div className="flex justify-end gap-1">
-                <Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)}>
+                <Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)} tooltip="Ubah">
                   <Pencil />
                   <span className="sr-only">Ubah</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  tooltip="Hapus"
                   className="text-destructive hover:text-destructive"
                   onClick={() => setDeleting(item)}
                 >

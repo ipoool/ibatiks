@@ -236,6 +236,7 @@ export default function CustomersPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    tooltip="Hapus"
                     className="text-destructive hover:text-destructive"
                     onClick={() => setDeleting(customer)}
                   >

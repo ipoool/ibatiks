@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -145,7 +146,7 @@ function PurchaseRow({
     <>
       <TR>
         <TD>
-          <Button variant="ghost" size="icon-sm" onClick={onToggle}>
+          <Button variant="ghost" size="icon-sm" onClick={onToggle} tooltip="Lihat alokasi">
             {expanded ? <ChevronDown /> : <ChevronRight />}
             <span className="sr-only">Lihat alokasi</span>
           </Button>
@@ -190,6 +191,7 @@ function PurchaseRow({
             <Button
               variant="ghost"
               size="icon-sm"
+              tooltip="Hapus"
               className="text-destructive hover:text-destructive"
               onClick={onDelete}
             >
@@ -218,7 +220,19 @@ function PurchaseRow({
                     <span>
                       {allocation.order_number ? (
                         <>
-                          <span className="font-medium">{allocation.order_number}</span>
+                          {/* Ditautkan ke ordernya: daftar ini yang menjawab
+                              "unit ini buat siapa", dan pertanyaan berikutnya
+                              hampir selalu soal isi ordernya. */}
+                          {allocation.order_id ? (
+                            <Link
+                              href={`/orders/${allocation.order_id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {allocation.order_number}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{allocation.order_number}</span>
+                          )}
                           <span className="text-muted-foreground"> — {allocation.customer_name}</span>
                         </>
                       ) : (

@@ -122,11 +122,23 @@ export function CategoryManager({
                     className="h-8"
                     autoFocus
                   />
-                  <Button size="icon-sm" onClick={handleUpdate} loading={update.isPending}>
+                  <Button
+                    size="icon-sm"
+                    tooltip="Simpan nama"
+                    onClick={handleUpdate}
+                    loading={update.isPending}
+                  >
                     <Check />
+                    <span className="sr-only">Simpan nama</span>
                   </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setEditingId(null)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tooltip="Batal"
+                    onClick={() => setEditingId(null)}
+                  >
                     <X />
+                    <span className="sr-only">Batal</span>
                   </Button>
                 </>
               ) : (
@@ -135,20 +147,24 @@ export function CategoryManager({
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    tooltip="Ubah nama"
                     onClick={() => {
                       setEditingId(category.id);
                       setEditingName(category.name);
                     }}
                   >
                     <Pencil />
+                    <span className="sr-only">Ubah nama</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    tooltip="Hapus kategori"
                     className="text-destructive hover:text-destructive"
                     onClick={() => handleDelete(category.id)}
                   >
                     <Trash2 />
+                    <span className="sr-only">Hapus kategori</span>
                   </Button>
                 </>
               )}

@@ -153,7 +153,7 @@ export default function StockPage() {
                         <span className="hidden sm:inline">Jual</span>
                         <span className="sr-only sm:hidden">Jual {item.product_name}</span>
                       </Button>
-                      <Button variant="ghost" size="icon-sm" onClick={() => setAdjusting(item)}>
+                      <Button variant="ghost" size="icon-sm" onClick={() => setAdjusting(item)} tooltip="Sesuaikan">
                         <SlidersHorizontal />
                         <span className="sr-only">Sesuaikan</span>
                       </Button>

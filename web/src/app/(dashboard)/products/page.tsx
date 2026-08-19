@@ -269,6 +269,7 @@ export default function ProductsPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    tooltip="Nonaktifkan"
                     className="text-destructive hover:text-destructive"
                     onClick={() => setDeleting(product)}
                   >

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
+import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { WAMessageDialog } from "@/components/wa-message-dialog";
 import { useDebounced } from "@/hooks/use-debounced";
@@ -150,7 +151,10 @@ export default function InvoicesPage() {
             return (
               <TR key={invoice.id}>
                 <TD className="whitespace-normal">
-                  <p className="font-medium">{invoice.invoice_number}</p>
+                  <div className="flex items-center gap-0.5">
+                    <span className="font-medium whitespace-nowrap">{invoice.invoice_number}</span>
+                    <CopyButton value={invoice.invoice_number} label="Nomor invoice" />
+                  </div>
                   {/* Jenis, tanggal terbit, customer, dan status dilipat ke sini
                       selama kolom masing-masing disembunyikan; tanpa itu daftar
                       invoice di ponsel tinggal deretan nomor tanpa penanda. */}
@@ -198,7 +202,7 @@ export default function InvoicesPage() {
                 </TD>
                 <TD>
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon-sm" asChild>
+                    <Button variant="ghost" size="icon-sm" asChild tooltip="PDF">
                       <a href={invoicePDFUrl(invoice.id)} target="_blank" rel="noopener noreferrer">
                         <FileText />
                         <span className="sr-only">PDF</span>
@@ -208,6 +212,7 @@ export default function InvoicesPage() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        tooltip="Kirim"
                         className="text-emerald-600 hover:text-emerald-700"
                         onClick={() => setMessageId(invoice.id)}
                       >
@@ -222,6 +227,7 @@ export default function InvoicesPage() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        tooltip="Catat pembayaran"
                         className="text-emerald-600 hover:text-emerald-700"
                         onClick={() => setLunasTarget(invoice)}
                       >
@@ -234,6 +240,7 @@ export default function InvoicesPage() {
                       <ConfirmButton
                         variant="ghost"
                         size="icon-sm"
+                        tooltip="Batalkan invoice"
                         className="text-destructive hover:text-destructive"
                         title={`Batalkan invoice ${invoice.invoice_number}?`}
                         description="Invoice ditandai batal dan tidak berlaku lagi sebagai tagihan. Dokumen PDF-nya tetap bisa dibuka sebagai jejak. Status order tidak ikut berubah, jadi invoice pengganti bisa langsung diterbitkan setelah ini."

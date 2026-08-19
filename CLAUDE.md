@@ -100,6 +100,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 **Radix Select memantul balik kalau nilainya disetel ke opsi yang baru muncul di render yang sama.** Ia memanggil `onValueChange("")` dan pilihannya langsung terlepas — gejalanya: produk yang baru dibuat lewat quick-add tampak tersimpan tapi kolomnya kembali ke placeholder. Untuk kolom yang isinya bisa bertambah dari dalam form itu sendiri, pakai `Combobox`: labelnya dibaca dari daftar biasa, jadi tidak punya perilaku itu.
 
+**Tombol beriskon memakai prop `tooltip` milik `Button`**, bukan merangkai `Tooltip`/`TooltipTrigger`/`TooltipContent` sendiri. Ikon tanpa teks baru bisa dibedakan setelah diklik, dan yang dirangkai manual cepat atau lambat ada yang terlewat. Sertakan juga `<span className="sr-only">` — tooltip tidak muncul untuk navigasi papan ketik di semua pembaca layar.
+
 **Dropdown yang isinya bisa panjang** (customer, katalog produk) memakai `Combobox`, dengan `keywords` untuk hal yang dicari orang tapi bukan judul: nomor WA, SKU.
 
 **Mata uang dipilih dari daftar, bukan diketik.** Daftarnya di `src/lib/mata-uang.ts` dan dipakai bersama form trip dan form produk lewat `CurrencySelect`, supaya keduanya tidak pernah menawarkan pilihan yang berbeda. Urutannya ASEAN dulu, baru tujuan lain — yang paling sering dipakai paling sedikit digulir. Salah ketik satu huruf ("IRD" alih-alih "IDR") dulu membuat kurs gagal diambil dan seluruh harga jual trip meleset, sementara tulisannya tetap terlihat wajar sekilas. Kode di luar daftar tetap ditampilkan sebagai pilihan tambahan supaya membuka trip lama tidak diam-diam mengganti mata uangnya.

@@ -158,6 +158,7 @@ func (r *PurchaseRepo) CreateAllocation(ctx context.Context, q db.Querier, purch
 func (r *PurchaseRepo) ListAllocations(ctx context.Context, q db.Querier, purchaseID uuid.UUID) ([]domain.PurchaseAllocationDetail, error) {
 	return collectRows[domain.PurchaseAllocationDetail](ctx, q, `
 		SELECT pa.id, pa.purchase_id, pa.order_item_id, pa.qty, pa.unit_cost_idr, pa.created_at,
+			o.id           AS order_id,
 			o.order_number AS order_number,
 			c.name         AS customer_name,
 			pr.name        AS product_name

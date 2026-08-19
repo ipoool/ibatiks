@@ -140,6 +140,7 @@ export function AppShell({
               </span>
               <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen(false)}>
                 <X />
+                <span className="sr-only">Tutup menu</span>
               </Button>
             </div>
             {nav}

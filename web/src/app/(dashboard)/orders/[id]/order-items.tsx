@@ -202,13 +202,14 @@ export function OrderItems({ order }: { order: OrderDetail }) {
                       <>
                         <Button
                           size="icon-sm"
+                          tooltip="Simpan"
                           onClick={() => saveEdit(item)}
                           loading={updateItem.isPending}
                         >
                           <Check />
                           <span className="sr-only">Simpan</span>
                         </Button>
-                        <Button variant="ghost" size="icon-sm" onClick={() => setEditingId(null)}>
+                        <Button variant="ghost" size="icon-sm" onClick={() => setEditingId(null)} tooltip="Batal">
                           <X />
                           <span className="sr-only">Batal</span>
                         </Button>
@@ -216,13 +217,14 @@ export function OrderItems({ order }: { order: OrderDetail }) {
                     ) : (
                       order.editable && (
                         <>
-                          <Button variant="ghost" size="icon-sm" onClick={() => startEdit(item)}>
+                          <Button variant="ghost" size="icon-sm" onClick={() => startEdit(item)} tooltip="Ubah">
                             <Pencil />
                             <span className="sr-only">Ubah</span>
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon-sm"
+                            tooltip="Hapus"
                             className="text-destructive hover:text-destructive"
                             onClick={() => setDeleting(item)}
                           >
