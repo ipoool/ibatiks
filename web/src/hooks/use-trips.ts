@@ -9,6 +9,7 @@ import type {
   MarkupType,
   ShoppingListEntry,
   Trip,
+  TripDeletionImpact,
   TripExpense,
   TripItem,
   TripStatus,
@@ -97,13 +98,37 @@ export function useChangeTripStatus(id: string) {
   });
 }
 
+/**
+ * Apa yang ikut terhapus bersama sebuah trip.
+ *
+ * Diambil saat dialog konfirmasi dibuka, bukan disimpan bersama data trip:
+ * angkanya harus mencerminkan keadaan pada detik tombolnya ditekan, bukan saat
+ * halaman dimuat.
+ */
+export function useTripDeletionImpact(tripId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [...tripKeys.all, "deletion-impact", tripId ?? ""],
+    queryFn: () => api.get<TripDeletionImpact>(`/trips/${tripId}/deletion-impact`),
+    enabled: Boolean(tripId) && enabled,
+    staleTime: 0,
+  });
+}
+
 export function useDeleteTrip() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => api.delete(`/trips/${id}`),
     onSuccess: () => {
+      // Menghapus trip ikut membuang order, invoice, pembayaran, pengiriman,
+      // dan pembelian di dalamnya, jadi seluruh daftar yang memuatnya perlu
+      // diambil ulang — bukan hanya daftar trip.
       queryClient.invalidateQueries({ queryKey: tripKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
 }

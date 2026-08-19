@@ -535,6 +535,38 @@ export interface ShippingRate {
   updated_at: string;
 }
 
+/** Sisa barang surplus sebuah trip yang masih tersimpan di gudang. */
+export interface TripStockOnHand {
+  product_name: string;
+  sku: string;
+  qty: number;
+}
+
+/**
+ * Apa yang ikut terhapus bersama sebuah trip, dan apa yang menghalanginya.
+ *
+ * Diambil sebelum tombol hapus ditekan supaya angkanya terlihat lebih dulu —
+ * menghapus trip membuang order, invoice yang sudah terkirim, dan catatan uang
+ * yang sudah diterima.
+ */
+export interface TripDeletionImpact {
+  trip_id: string;
+  trip_code: string;
+  orders: number;
+  invoices: number;
+  /** Uang yang sudah benar-benar diterima pada trip ini. */
+  payments_total: Money;
+  purchases: number;
+  purchases_cost: Money;
+  expenses: number;
+  catalog_items: number;
+  shipments: number;
+  /** Order yang sudah diserahkan ke kurir — menghalangi penghapusan. */
+  shipped_orders: string[] | null;
+  /** Surplus yang masih ada di stok — menghalangi penghapusan. */
+  stock_on_hand: TripStockOnHand[];
+}
+
 /** Order yang siap ditagih pelunasannya, untuk dialog Buat Invoice. */
 export interface InvoiceCandidate {
   order_id: string;

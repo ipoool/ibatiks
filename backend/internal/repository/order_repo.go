@@ -310,6 +310,20 @@ func (r *OrderRepo) ListForShipping(
 	return items, total, nil
 }
 
+// DeleteByTrip menghapus seluruh order milik sebuah trip.
+//
+// Item, pembayaran, invoice, dan pengiriman ikut terhapus lewat cascade dari
+// order. Kolom orders.trip_id sengaja tetap ON DELETE RESTRICT supaya trip
+// tidak bisa dihapus diam-diam dari jalur lain — hanya pemanggil yang memang
+// sudah memeriksa penghalangnya yang boleh memakai fungsi ini.
+func (r *OrderRepo) DeleteByTrip(ctx context.Context, q db.Querier, tripID uuid.UUID) error {
+	_, err := q.Exec(ctx, `DELETE FROM orders WHERE trip_id = $1`, tripID)
+	if err != nil {
+		return wrapPgError(err)
+	}
+	return nil
+}
+
 // SetShippingFee menuliskan ongkir yang ditagihkan ke customer.
 //
 // Sengaja tidak lewat Update: ongkir ditetapkan belakangan, saat paket dikemas

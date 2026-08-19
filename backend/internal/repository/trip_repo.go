@@ -153,6 +153,80 @@ func (r *TripRepo) CountOrders(ctx context.Context, q db.Querier, tripID uuid.UU
 	return count, nil
 }
 
+// DeletionImpact menghitung apa yang ikut terhapus bersama sebuah trip.
+//
+// Satu perjalanan ke database, bukan sederet hitungan terpisah: angkanya
+// ditampilkan berbarengan pada satu dialog, jadi tidak boleh berasal dari
+// beberapa potret yang diambil pada saat yang berbeda.
+func (r *TripRepo) DeletionImpact(ctx context.Context, q db.Querier, tripID uuid.UUID) (*domain.TripDeletionImpact, error) {
+	impact := domain.TripDeletionImpact{TripID: tripID}
+
+	err := q.QueryRow(ctx, `
+		SELECT
+			t.code,
+			(SELECT count(*) FROM orders o WHERE o.trip_id = t.id),
+			(SELECT count(*) FROM invoices i JOIN orders o ON o.id = i.order_id WHERE o.trip_id = t.id),
+			(SELECT COALESCE(sum(p.amount), 0) FROM payments p
+			   JOIN orders o ON o.id = p.order_id
+			  WHERE o.trip_id = t.id AND p.type <> 'refund'),
+			(SELECT count(*) FROM purchases pu WHERE pu.trip_id = t.id),
+			(SELECT COALESCE(sum(pu.total_cost_idr), 0) FROM purchases pu WHERE pu.trip_id = t.id),
+			(SELECT count(*) FROM trip_expenses e WHERE e.trip_id = t.id),
+			(SELECT count(*) FROM trip_items ti WHERE ti.trip_id = t.id),
+			(SELECT count(*) FROM shipments s JOIN orders o ON o.id = s.order_id WHERE o.trip_id = t.id)
+		FROM trips t WHERE t.id = $1`, tripID).Scan(
+		&impact.TripCode, &impact.Orders, &impact.Invoices, &impact.PaymentsTotal,
+		&impact.Purchases, &impact.PurchasesCost, &impact.Expenses,
+		&impact.CatalogItems, &impact.Shipments,
+	)
+	if err != nil {
+		return nil, wrapPgError(err)
+	}
+
+	// Order yang sudah diserahkan ke kurir adalah penjualan yang sudah jadi.
+	shipped, err := collectRows[struct {
+		OrderNumber string `db:"order_number"`
+	}](ctx, q, `
+		SELECT order_number FROM orders
+		WHERE trip_id = $1 AND status IN ('shipped', 'completed')
+		ORDER BY order_number`, tripID)
+	if err != nil {
+		return nil, err
+	}
+	for _, o := range shipped {
+		impact.ShippedOrders = append(impact.ShippedOrders, o.OrderNumber)
+	}
+
+	// Surplus yang masih tersimpan di gudang.
+	//
+	// Stok bersifat fungible — tidak ada cara tahu unit mana yang berasal dari
+	// trip mana. Yang dipakai karenanya yang lebih kecil antara surplus dari
+	// trip ini dan sisa stok sekarang: kalau semuanya sudah terjual, tidak ada
+	// lagi yang terhalang.
+	onHand, err := collectRows[domain.TripStockOnHand](ctx, q, `
+		SELECT
+			pr.name AS product_name,
+			pr.sku  AS sku,
+			LEAST(surplus.qty, COALESCE(si.qty_on_hand, 0))::int AS qty
+		FROM (
+			SELECT pu.product_id, sum(pa.qty)::int AS qty
+			FROM purchase_allocations pa
+			JOIN purchases pu ON pu.id = pa.purchase_id
+			WHERE pu.trip_id = $1 AND pa.order_item_id IS NULL
+			GROUP BY pu.product_id
+		) surplus
+		JOIN products pr        ON pr.id = surplus.product_id
+		LEFT JOIN stock_items si ON si.product_id = surplus.product_id
+		WHERE LEAST(surplus.qty, COALESCE(si.qty_on_hand, 0)) > 0
+		ORDER BY pr.name`, tripID)
+	if err != nil {
+		return nil, err
+	}
+	impact.StockOnHand = onHand
+
+	return &impact, nil
+}
+
 // --- Katalog trip ----------------------------------------------------------
 
 const tripItemColumns = `id, trip_id, product_id, cost_price, cost_price_idr, markup_type,

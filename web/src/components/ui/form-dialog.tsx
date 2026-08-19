@@ -30,6 +30,8 @@ interface FormDialogProps {
    * membuat orang mengira ada yang rusak, bukan ada yang kurang diisi.
    */
   submitDisabled?: boolean;
+  /** Mewarnai tombol simpan merah untuk aksi yang menghapus atau tidak bisa diurungkan. */
+  destructive?: boolean;
   onSubmit: (event: React.FormEvent) => void;
   className?: string;
   children: React.ReactNode;
@@ -48,6 +50,7 @@ export function FormDialog({
   cancelLabel = "Batal",
   loading = false,
   submitDisabled = false,
+  destructive = false,
   onSubmit,
   className,
   children,
@@ -102,7 +105,12 @@ export function FormDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 {cancelLabel}
               </Button>
-              <Button type="submit" loading={loading} disabled={submitDisabled}>
+              <Button
+                type="submit"
+                variant={destructive ? "destructive" : "default"}
+                loading={loading}
+                disabled={submitDisabled}
+              >
                 {submitLabel}
               </Button>
             </div>

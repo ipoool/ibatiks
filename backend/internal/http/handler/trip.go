@@ -136,6 +136,23 @@ func (h *TripHandler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, trip)
 }
 
+// DeletionImpact melaporkan apa yang ikut terhapus bersama trip ini, dipakai
+// dialog konfirmasi sebelum tombol hapus ditekan.
+func (h *TripHandler) DeletionImpact(w http.ResponseWriter, r *http.Request) {
+	id, err := request.UUIDParam(r, "id")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	impact, err := h.trips.DeletionImpact(r.Context(), id)
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, impact)
+}
+
 func (h *TripHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := request.UUIDParam(r, "id")
 	if err != nil {
@@ -143,7 +160,7 @@ func (h *TripHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.trips.Delete(r.Context(), id); err != nil {
+	if err := h.trips.Delete(r.Context(), id, middleware.UserIDFrom(r.Context())); err != nil {
 		response.Error(w, r, err)
 		return
 	}

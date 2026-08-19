@@ -472,6 +472,26 @@ AFTER_FEE="$(api GET "/orders/$ORDER_B_ID")"
 expect "$(jq -r '.data.status' <<<"$AFTER_FEE")" "dp_paid" "order B kembali ke Diproses saat ongkir menambah tagihan"
 expect "$(money "$(jq -r '.data.balance_due' <<<"$AFTER_FEE")")" "35000" "sisa tagihan order B sebesar ongkirnya"
 
+# --- Menghapus trip ----------------------------------------------------------
+# Trip yang ordernya sudah diserahkan ke kurir tidak boleh dihapus: penjualannya
+# sudah jadi, dan menghapus catatannya tidak membatalkan apa pun.
+IMPACT="$(api GET "/trips/$TRIP/deletion-impact")"
+expect "$(jq -r '.data.shipped_orders | length' <<<"$IMPACT")" "1" "order terkirim tercatat sebagai penghalang hapus trip"
+expect "$(jq -r '.data.stock_on_hand | length > 0' <<<"$IMPACT")" "true" "surplus stok tercatat sebagai penghalang hapus trip"
+# Order A lunas Rp395.000 dan order B lunas Rp260.000 — keduanya ikut hilang
+# dari pembukuan kalau tripnya dihapus, dan itulah angka yang wajib ditampilkan
+# dialog konfirmasi.
+expect "$(money "$(jq -r '.data.payments_total' <<<"$IMPACT")")" "655000" "uang diterima yang akan hilang kalau trip dihapus"
+
+DEL_BLOCKED="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/trips/$TRIP" -H "Authorization: Bearer $TOKEN")"
+expect "$DEL_BLOCKED" "409" "hapus trip berisi order terkirim ditolak"
+
+# Trip kosong boleh dihapus tanpa syarat.
+EMPTY_TRIP="$(api POST /trips '{"title":"Trip Kosong Uji","country":"Korea","depart_date":"2026-12-01","return_date":"2026-12-07","currency":"KRW","exchange_rate":"12"}' | jq -r '.data.id')"
+DEL_EMPTY="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/trips/$EMPTY_TRIP" -H "Authorization: Bearer $TOKEN")"
+expect "$DEL_EMPTY" "204" "hapus trip kosong diterima"
+expect "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$API/trips/$EMPTY_TRIP")" "404" "trip yang dihapus tidak bisa dibuka lagi"
+
 # Endpoint tanpa token harus ditolak.
 NOAUTH_STATUS="$(curl -s -o /dev/null -w '%{http_code}' "$API/orders")"
 expect "$NOAUTH_STATUS" "401" "akses tanpa token ditolak"

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -249,15 +250,87 @@ func (s *TripService) ChangeStatus(ctx context.Context, id uuid.UUID, newStatus 
 }
 
 // Delete hanya diizinkan untuk trip yang belum punya order sama sekali.
-func (s *TripService) Delete(ctx context.Context, id uuid.UUID) error {
-	count, err := s.trips.CountOrders(ctx, s.pool, id)
+// DeletionImpact melaporkan apa yang ikut terhapus bersama sebuah trip, dipakai
+// dialog konfirmasi sebelum tombol hapus ditekan.
+func (s *TripService) DeletionImpact(ctx context.Context, id uuid.UUID) (*domain.TripDeletionImpact, error) {
+	return s.trips.DeletionImpact(ctx, s.pool, id)
+}
+
+// Delete menghapus trip beserta seluruh riwayat yang menempel padanya: katalog,
+// order, invoice, pembayaran, pengiriman, pembelian, dan biaya perjalanan.
+//
+// Dua hal menghalanginya, dan keduanya bukan soal kerapian data melainkan soal
+// kenyataan di luar aplikasi:
+//
+//   - Order yang sudah diserahkan ke kurir. Barangnya sudah di jalan atau sudah
+//     di tangan customer; penjualannya sudah terjadi, dan menghapus catatannya
+//     tidak membatalkan apa pun selain ingatan toko sendiri.
+//   - Barang surplus yang masih tersimpan di gudang. Barangnya nyata dan masih
+//     bisa dijual; membuang catatan asalnya hanya menyisakan stok tanpa
+//     asal-usul dan tanpa harga modal yang bisa dipertanggungjawabkan.
+//
+// Yang tidak menghalangi tapi tetap hilang: uang yang sudah diterima. Itulah
+// sebabnya nominalnya ikut dicatat ke audit log sebelum barisnya dihapus —
+// setelah ini, jejak itu satu-satunya yang tersisa.
+func (s *TripService) Delete(ctx context.Context, id uuid.UUID, actorID uuid.UUID) error {
+	impact, err := s.trips.DeletionImpact(ctx, s.pool, id)
 	if err != nil {
 		return err
 	}
-	if count > 0 {
-		return domain.Conflict("trip sudah punya %d order, batalkan trip alih-alih menghapusnya", count)
+
+	if len(impact.ShippedOrders) > 0 {
+		return domain.InvalidState(
+			"trip %s punya %d order yang sudah diserahkan ke kurir (%s) — penjualan yang sudah jadi tidak bisa dihapus",
+			impact.TripCode, len(impact.ShippedOrders), strings.Join(impact.ShippedOrders, ", "))
 	}
-	return s.trips.Delete(ctx, s.pool, id)
+	if len(impact.StockOnHand) > 0 {
+		return domain.InvalidState(
+			"barang surplus dari trip %s masih ada di stok (%s) — habiskan atau sesuaikan stoknya dulu",
+			impact.TripCode, ringkasStok(impact.StockOnHand))
+	}
+
+	return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		// Audit dicatat lebih dulu, selagi datanya masih ada. Setelah baris
+		// tripnya hilang, tidak ada lagi tempat untuk menghitungnya.
+		if err := s.audit.Record(ctx, tx, repository.AuditParams{
+			UserID:   nullableUUID(actorID),
+			Entity:   "trip",
+			EntityID: &id,
+			Action:   domain.AuditDelete,
+			Changes: map[string]any{
+				"trip_code":      impact.TripCode,
+				"orders":         impact.Orders,
+				"invoices":       impact.Invoices,
+				"payments_total": impact.PaymentsTotal.String(),
+				"purchases":      impact.Purchases,
+				"purchases_cost": impact.PurchasesCost.String(),
+				"expenses":       impact.Expenses,
+				"catalog_items":  impact.CatalogItems,
+				"shipments":      impact.Shipments,
+			},
+		}); err != nil {
+			return err
+		}
+
+		// Order dihapus sendiri, bukan lewat cascade dari trips: kolom
+		// orders.trip_id sengaja ON DELETE RESTRICT supaya tidak ada jalur lain
+		// di aplikasi ini yang bisa membuang order tanpa melewati penjagaan di
+		// atas. Item, pembayaran, invoice, dan pengiriman ikut lewat cascade
+		// dari order.
+		if err := s.orders.DeleteByTrip(ctx, tx, id); err != nil {
+			return err
+		}
+		return s.trips.Delete(ctx, tx, id)
+	})
+}
+
+// ringkasStok merangkai sisa stok jadi satu kalimat untuk pesan penolakan.
+func ringkasStok(items []domain.TripStockOnHand) string {
+	bagian := make([]string, 0, len(items))
+	for _, it := range items {
+		bagian = append(bagian, fmt.Sprintf("%s %d pcs", it.ProductName, it.Qty))
+	}
+	return strings.Join(bagian, ", ")
 }
 
 // --- Katalog trip ----------------------------------------------------------

@@ -146,3 +146,54 @@ type TripExpense struct {
 	CreatedAt   time.Time       `db:"created_at"  json:"created_at"`
 	UpdatedAt   time.Time       `db:"updated_at"  json:"updated_at"`
 }
+
+// TripDeletionImpact merangkum apa yang ikut terhapus bersama sebuah trip, dan
+// apa yang justru menghalanginya.
+//
+// Dihitung lebih dulu lalu ditampilkan sebelum tombol hapus ditekan. Menghapus
+// trip berarti membuang order, invoice yang sudah terkirim, dan catatan uang
+// yang sudah diterima — angka-angkanya harus terlihat dulu, bukan disimpulkan
+// sendiri oleh admin dari ingatan.
+type TripDeletionImpact struct {
+	TripID   uuid.UUID `json:"trip_id"`
+	TripCode string    `json:"trip_code"`
+
+	Orders   int `json:"orders"`
+	Invoices int `json:"invoices"`
+	// PaymentsTotal adalah uang yang sudah benar-benar diterima pada trip ini.
+	// Ini angka yang paling perlu dilihat: menghapus trip membuatnya lenyap
+	// dari pembukuan sementara uangnya tetap ada di rekening.
+	PaymentsTotal decimal.Decimal `json:"payments_total"`
+	Purchases     int             `json:"purchases"`
+	PurchasesCost decimal.Decimal `json:"purchases_cost"`
+	Expenses      int             `json:"expenses"`
+	CatalogItems  int             `json:"catalog_items"`
+	Shipments     int             `json:"shipments"`
+
+	// ShippedOrders menghalangi penghapusan: barangnya sudah di tangan
+	// customer, jadi penjualannya sudah jadi dan bukan lagi sesuatu yang bisa
+	// dibatalkan dengan menghapus catatannya.
+	ShippedOrders []string `json:"shipped_orders"`
+	// StockOnHand menghalangi penghapusan: barang surplus dari trip ini masih
+	// tersimpan di gudang. Barangnya nyata, jadi membuang catatan asalnya
+	// hanya akan menyisakan stok tanpa asal-usul.
+	StockOnHand []TripStockOnHand `json:"stock_on_hand"`
+}
+
+// TripStockOnHand adalah sisa barang surplus dari sebuah trip yang masih ada.
+type TripStockOnHand struct {
+	ProductName string `db:"product_name" json:"product_name"`
+	SKU         string `db:"sku"          json:"sku"`
+	Qty         int    `db:"qty"          json:"qty"`
+}
+
+// Deletable benar bila tidak ada yang menghalangi trip ini dihapus.
+func (i TripDeletionImpact) Deletable() bool {
+	return len(i.ShippedOrders) == 0 && len(i.StockOnHand) == 0
+}
+
+// Empty benar bila trip belum menyimpan apa pun yang berarti, sehingga
+// menghapusnya tidak perlu peringatan berat.
+func (i TripDeletionImpact) Empty() bool {
+	return i.Orders == 0 && i.Purchases == 0 && i.Expenses == 0
+}

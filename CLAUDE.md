@@ -52,6 +52,15 @@ Kolom `shipping_fee` pada permintaan edit order bertipe penunjuk. Kalau bertipe 
 
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
 
+**Menghapus trip membuang seluruh riwayat di dalamnya**, dan dua hal menghalanginya — keduanya soal kenyataan di luar aplikasi, bukan kerapian data:
+
+- **Order yang sudah diserahkan ke kurir.** Barangnya sudah di jalan atau sudah diterima; penjualannya sudah terjadi, dan menghapus catatannya tidak membatalkan apa pun selain ingatan toko sendiri.
+- **Barang surplus yang masih ada di stok.** Barangnya nyata dan masih bisa dijual; membuang catatan asalnya hanya menyisakan stok tanpa asal-usul dan tanpa harga modal yang bisa dipertanggungjawabkan. Stok bersifat fungible, jadi yang dihitung adalah yang lebih kecil antara surplus dari trip itu dan sisa stok sekarang.
+
+Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena itu nominalnya dicatat ke `audit_logs` sebelum barisnya dihapus — setelah itu jejak tersebut satu-satunya yang tersisa, dan dialog konfirmasinya wajib menyebutkan angkanya.
+
+`orders.trip_id` sengaja tetap `ON DELETE RESTRICT`. Order dihapus lewat `OrderRepo.DeleteByTrip` di dalam transaksi yang sama, supaya tidak ada jalur lain di aplikasi ini yang bisa membuang order tanpa melewati penjagaan di atas.
+
 **Label pengiriman, bukan surat jalan.** Yang dicetak dan ditempel di kardus adalah label pengirim–penerima ukuran 100 × 150 mm (`internal/pdf/label.go`), mengikuti kertas thermal yang dipakai kurir. Tanpa daftar barang dan tanpa nominal: label terbaca siapa pun yang memegang paket di jalan, dan isi belanjaan customer bukan urusan mereka. Blok penerima sengaja jauh lebih besar dari yang lain — itu satu-satunya bagian yang benar-benar dibaca orang.
 
 **Dokumen historis tetap bisa dibuka walau master datanya dihapus.** Detail order memakai `GetByIDIncludingDeleted` untuk customernya: menghapus customer tidak menghapus ordernya, jadi menyaring `deleted_at IS NULL` di jalur itu membuat seluruh order lamanya mati dengan "customer tidak ditemukan" — padahal ordernya masih ada dan bisa jadi masih punya sisa tagihan. Daftar dan penyuntingan tetap menyaring yang sudah dihapus.

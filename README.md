@@ -183,6 +183,25 @@ Invoice DP                     Invoice pelunasan
 Dulu invoice DP menuliskan nilai uang muka sebagai subtotal dan totalnya, sehingga customer
 menerima dokumen yang terbaca seolah-olah harga pesanannya hanya sebesar DP.
 
+### Menghapus trip
+
+Trip bisa dihapus dari halaman detailnya, dan yang terhapus bukan cuma barisnya: katalog, order,
+item pesanan, pembayaran, invoice, pengiriman, pembelian, dan biaya perjalanan ikut terbawa.
+
+Dialog konfirmasinya menghitung dulu apa saja yang akan hilang dan menampilkan angkanya — berapa
+order, berapa invoice sudah terbit, dan **berapa rupiah pembayaran yang sudah diterima**. Yang
+terakhir itu yang paling mudah terlewat: nominalnya lenyap dari pembukuan dan laporan, sementara
+uangnya tetap ada di rekening. Trip yang sudah berisi order menuntut kode tripnya diketik ulang
+sebelum tombol hapusnya hidup.
+
+Dua hal menghalangi penghapusan, dan keduanya soal kenyataan di luar aplikasi:
+
+- **Order yang sudah diserahkan ke kurir.** Penjualan yang sudah jadi tidak bisa dihapus.
+- **Barang surplus yang masih ada di stok.** Barangnya nyata; habiskan atau sesuaikan stoknya dulu.
+
+Sebelum barisnya dihapus, rangkuman lengkapnya dicatat ke jejak audit. Setelah itu, jejak tersebut
+satu-satunya yang tersisa.
+
 ### Label pengiriman
 
 Order punya label siap cetak (tombol printer di menu **Pengiriman**) berukuran **100 × 150 mm**,

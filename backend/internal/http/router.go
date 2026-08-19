@@ -163,6 +163,11 @@ func NewRouter(d RouterDeps) http.Handler {
 				trips.With(canAccess(domain.PermTrips)).Get("/{id}", d.Handlers.Trips.Get)
 				trips.With(canAccess(domain.PermTrips)).Get("/{id}/items", d.Handlers.Trips.ListItems)
 				trips.With(canAccess(domain.PermTrips)).Get("/{id}/expenses", d.Handlers.Trips.ListExpenses)
+				// Dampak penghapusan memuat nominal pembayaran yang sudah
+				// diterima, jadi penjagaannya disamakan dengan tombol hapusnya
+				// sendiri — bukan sekadar hak baca trip.
+				trips.With(staffOnly, canAccess(domain.PermTrips)).
+					Get("/{id}/deletion-impact", d.Handlers.Trips.DeletionImpact)
 
 				// Daftar belanja dan input pembelian adalah pekerjaan tripper,
 				// jadi sengaja tidak dibatasi staffOnly.

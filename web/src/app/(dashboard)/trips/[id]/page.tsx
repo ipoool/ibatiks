@@ -14,6 +14,7 @@ import { formatDate, formatNumber } from "@/lib/utils";
 
 import { TripFormDialog } from "../trip-form";
 import { TripCatalog } from "./trip-catalog";
+import { TripDeleteButton } from "./trip-delete-button";
 import { TripExpenses } from "./trip-expenses";
 import { TripOrders } from "./trip-orders";
 import { TripProfit } from "./trip-profit";
@@ -92,6 +93,8 @@ export default function TripDetailPage() {
               Ubah
             </Button>
             <TripStatusActions trip={trip} />
+            {/* Hapus duduk paling kanan, terpisah dari aksi sehari-hari. */}
+            <TripDeleteButton trip={trip} />
           </div>
         </div>
       </div>
