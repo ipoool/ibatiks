@@ -33,13 +33,26 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 
 **Aturan bisnis tinggal di service**, bukan di handler maupun di UI. Peta transisi status order dan trip ada di satu tempat: `internal/domain`.
 
-**Status sengaja sedikit.** Trip hanya `open`/`closed`; order hanya sembilan: `draft`, `awaiting_dp`, `dp_paid`, `packed`, `invoiced`, `paid`, `shipped`, `completed`, `cancelled`. Belanja dan penerimaan barang terjadi *di dalam* tahap `dp_paid` — kemajuannya dibaca dari data pembelian dan penerimaan per item, bukan dari status order. Jangan menambah status baru untuk menandai kejadian yang datanya sudah tercatat di tempat lain.
+**Status sengaja sedikit.** Trip hanya `open`/`closed`; order hanya enam: `awaiting_dp`, `dp_paid`, `paid`, `shipped`, `completed`, `cancelled`. Sebuah status hanya boleh ada kalau ia menjawab pertanyaan yang datanya tidak tercatat di tempat lain. Belanja, penerimaan barang, pengemasan, penetapan ongkir, dan penerbitan invoice pelunasan semuanya terjadi *di dalam* `dp_paid` — masing-masing sudah meninggalkan jejaknya sendiri (data pembelian, data penerimaan, data kemasan, baris invoice), jadi status tersendiri hanya akan jadi salinan yang bisa berbeda dari data aslinya. Jangan menambah status baru untuk menandai kejadian yang datanya sudah tercatat di tempat lain.
+
+**Ongkir ditetapkan saat mengemas, bukan saat order dicatat.** Waktu order masuk, barangnya belum ada dan beratnya belum diketahui; angka yang diisi di situ cuma tebakan. `ShipmentService.Pack` yang menuliskannya ke `orders.shipping_fee` lalu memanggil `RecalculateTotals`. Dua hal yang wajib menyertainya:
+
+- **`dp_required` tidak ikut dihitung ulang.** DP sudah disepakati dan besar kemungkinan sudah dibayar; menaikkannya belakangan berarti customer yang sudah menyetor tiba-tiba dianggap kurang bayar.
+- **Status ikut direkonsiliasi** lewat `reconcileOrderStatus`. Customer yang terlanjur melunasi sebelum paketnya ditimbang kembali punya sisa tagihan sebesar ongkirnya; tanpa ini ordernya tetap berlabel Pembayaran Lunas, ikut masuk antrean siap kirim, dan barangnya berangkat sementara ongkirnya tidak pernah tertagih.
+
+Kolom `shipping_fee` pada permintaan edit order bertipe penunjuk. Kalau bertipe nilai biasa, form yang tidak mengirimkannya akan mengirim nol dan menghapus diam-diam ongkir yang baru dihitung kurir.
+
+**Invoice pelunasan menagih seluruh sisa pesanan termasuk ongkir**, jadi ia ditolak selama order masih `awaiting_dp` atau ongkirnya masih nol. Menerbitkannya lebih awal berarti mengirim tagihan yang nilainya masih akan berubah — customer membayar, lalu ditagih lagi, dan dokumen yang sudah ia pegang tidak cocok dengan yang tercatat. Invoice DP diterbitkan dari detail order; invoice pelunasan dari menu Invoice, yang hanya menawarkan order yang benar-benar sudah siap.
+
+**Menandai invoice lunas berarti mencatat pembayarannya**, bukan mengubah label barisnya. Saldo order, status order, dan laporan piutang semuanya dihitung dari tabel `payments`.
 
 **Invoice memuat nilai order seutuhnya.** Baik invoice DP maupun pelunasan menuliskan subtotal, diskon, ongkir, dan total order yang sebenarnya; yang membedakan hanya apa yang ditagih (`dp_amount` untuk DP, sisa tagihan untuk pelunasan). Jangan kembali menyimpan nilai DP sebagai `total` — customer akan menerima dokumen yang seolah-olah menyatakan pesanannya cuma seharga uang muka.
 
 **Barang yang tidak dapat tidak ikut ditagih.** Begitu sebuah item dicocokkan sebagai `unavailable`, `partial`, atau `refunded`, yang ditagihkan adalah `qty_received × unit_price` — bukan jumlah yang dulu dipesan. Aturannya ada di `RecalculateTotals`, dan `ReceiveItems` wajib memanggilnya. Kolom `qty` sengaja dibiarkan apa adanya supaya tetap terbaca apa yang dipesan semula; yang berubah hanya apa yang ditagih. Tanpa ini invoice pelunasan memuat barang yang tidak akan pernah dikirim.
 
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
+
+**Label pengiriman, bukan surat jalan.** Yang dicetak dan ditempel di kardus adalah label pengirim–penerima ukuran 100 × 150 mm (`internal/pdf/label.go`), mengikuti kertas thermal yang dipakai kurir. Tanpa daftar barang dan tanpa nominal: label terbaca siapa pun yang memegang paket di jalan, dan isi belanjaan customer bukan urusan mereka. Blok penerima sengaja jauh lebih besar dari yang lain — itu satu-satunya bagian yang benar-benar dibaca orang.
 
 **Dokumen historis tetap bisa dibuka walau master datanya dihapus.** Detail order memakai `GetByIDIncludingDeleted` untuk customernya: menghapus customer tidak menghapus ordernya, jadi menyaring `deleted_at IS NULL` di jalur itu membuat seluruh order lamanya mati dengan "customer tidak ditemukan" — padahal ordernya masih ada dan bisa jadi masih punya sisa tagihan. Daftar dan penyuntingan tetap menyaring yang sudah dihapus.
 

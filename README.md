@@ -7,13 +7,14 @@ Aplikasi ini dipakai **internal oleh tim toko**, bukan customer. Customer tetap 
 ```
 Trip dibuat (tanggal, negara, kurs)
   └─ Katalog produk + markup harga
-      └─ Order masuk dicatat admin (+ channel asalnya) → minta DP
-          → DP diverifikasi lewat bukti transfer → order jadi "Diproses"
-          └─ Daftar belanja otomatis untuk tripper (hanya order ber-DP)
-              └─ Tripper belanja (boleh lebih → sisanya jadi stok)
-                  └─ Barang tiba → dicocokkan → dikemas + hitung ongkir
-                      └─ Invoice pelunasan → WhatsApp
-                          └─ Lunas → kirim JNE + resi → customer dikabari
+      └─ Order masuk dicatat admin (+ channel asalnya), tanpa ongkir
+          └─ Invoice DP (≥50% nilai barang) → WhatsApp
+              → DP diverifikasi lewat bukti transfer → order jadi "Diproses"
+              └─ Daftar belanja otomatis untuk tripper (hanya order ber-DP)
+                  └─ Tripper belanja (boleh lebih → sisanya jadi stok)
+                      └─ Barang tiba → dicocokkan → dikemas, ongkir ditetapkan
+                          └─ Invoice pelunasan (sudah termasuk ongkir) → WhatsApp
+                              └─ Lunas → kirim + resi + label → customer dikabari
                               └─ Laporan: omzet, HPP riil, biaya trip, laba,
                                  rekap per customer dan per channel
 ```
@@ -182,15 +183,22 @@ Invoice DP                     Invoice pelunasan
 Dulu invoice DP menuliskan nilai uang muka sebagai subtotal dan totalnya, sehingga customer
 menerima dokumen yang terbaca seolah-olah harga pesanannya hanya sebesar DP.
 
-### Surat jalan
+### Label pengiriman
 
-Order punya surat jalan siap cetak (tombol **Surat Jalan** di detail order dan di kedua tab menu
-**Pengiriman**). Isinya pengirim, penerima dengan alamat lengkap sampai kelurahan dan
-kecamatan, data kurir dan resi, daftar barang, serta kolom tanda tangan serah terima.
+Order punya label siap cetak (tombol printer di menu **Pengiriman**) berukuran **100 × 150 mm**,
+mengikuti kertas thermal yang dipakai kurir dalam negeri. Isinya kurir dan nomor resi, blok
+pengirim dari `app_settings`, blok penerima dengan alamat lengkap sampai kelurahan, kecamatan,
+dan kode pos, lalu nomor order beserta berat dan dimensi paketnya.
+
+Tanpa daftar barang dan tanpa nominal. Label ditempel di luar kardus dan terbaca siapa pun yang
+memegang paket di jalan; isi belanjaan customer dan harganya bukan urusan mereka. Blok penerima
+sengaja jauh lebih besar dari bagian lain dan diberi bingkai — itu satu-satunya bagian yang
+benar-benar dibaca orang, dan dibacanya sambil berdiri memegang tumpukan paket.
 
 Dokumennya tidak disimpan ke disk seperti invoice: isinya seluruhnya berasal dari order, jadi
-mencetak ulang selalu menghasilkan lembar yang sesuai keadaan terkini — termasuk ketika dicetak
-lebih dulu sebagai pendamping saat mengemas, dengan kolom resi yang masih kosong.
+mencetak ulang selalu menghasilkan label yang sesuai keadaan terkini — termasuk ketika dicetak
+lebih dulu saat mengemas, dengan bagian resi yang masih disediakan kosong untuk ditulis tangan
+di konter.
 
 ### Status trip dan status order
 
@@ -209,15 +217,21 @@ Status order mengikuti perjalanan satu pesanan:
 
 | Status | Artinya |
 |---|---|
-| **Draft** | Masih disusun admin, belum ditagihkan |
-| **Menunggu DP** | Sudah dikonfirmasi, menunggu uang muka masuk |
-| **Diproses** | DP diterima. Belanja, penerimaan, dan pencocokan barang terjadi di tahap ini |
-| **Sedang Dikemas** | Sudah dikemas atas nama customer |
-| **Penagihan** | Invoice pelunasan sudah dikirim |
-| **Pembayaran Lunas** | Lunas, siap diserahkan ke kurir |
+| **Menunggu DP** | Baru dicatat, menunggu uang muka masuk |
+| **Diproses** | DP diterima. Belanja, penerimaan barang, pengemasan, penetapan ongkir, dan penerbitan invoice pelunasan semuanya terjadi di tahap ini |
+| **Pembayaran Lunas** | Sisa tagihan sudah masuk, siap diserahkan ke kurir |
 | **Dikirim** | Sudah diserahkan ke kurir dan resinya terisi |
 | **Selesai** | Diterima customer |
 | **Batal** | Dibatalkan |
+
+Hanya lima tahap perjalanan ditambah Batal, dan hanya empat perpindahan: DP masuk, pelunasan
+masuk, diserahkan ke kurir, tiba di tangan customer. Sebuah status hanya ada kalau ia menjawab
+pertanyaan yang datanya tidak tercatat di tempat lain — mengemas, menetapkan ongkir, dan
+menerbitkan invoice masing-masing sudah meninggalkan jejaknya sendiri, jadi tidak perlu status
+tersendiri untuk menandainya.
+
+Membatalkan order tertutup begitu customer melunasi: uangnya sudah diterima penuh, jadi
+pembatalannya urusan pengembalian dana, bukan sekadar ganti status.
 
 Order yang sudah lunas tapi barangnya belum siap **tidak** dilompatkan ke Pembayaran Lunas —
 kalau dilompatkan, ia muncul di antrean siap kirim padahal barangnya belum ada. Yang muncul
@@ -286,7 +300,18 @@ diam-diam mengirim nilai sentinel ke server.
 
 Ekspedisi menagih mana yang lebih besar antara berat asli dan **berat volume**, yaitu `(P × L × T dalam cm) ÷ pembagi` — pembagi 6000 untuk JNE. Hasilnya dibulatkan **ke atas** ke kilogram penuh, karena kurir tidak menjual pecahan kilo. Kardus 40 × 30 × 25 cm berisi 800 gram tetap ditagih 5 kg.
 
-Angkanya diambil dari dua sumber, berurutan.
+Ongkir **tidak diisi saat order dicatat**. Waktu itu barangnya belum ada dan beratnya belum
+diketahui, jadi angka apa pun yang diketik admin cuma tebakan. Yang menetapkannya adalah langkah
+mengemas di menu **Pengiriman**: berat dan dimensi diisi, daftar layanan kurir beserta harganya
+muncul, admin memilih satu, dan ongkirnya tersimpan ke order sehingga totalnya naik. Itulah angka
+yang kemudian ditagihkan invoice pelunasan.
+
+DP tidak ikut dihitung ulang saat ongkir masuk — DP sudah disepakati dan mungkin sudah dibayar.
+Kalau customer terlanjur melunasi sebelum paketnya ditimbang, ordernya ditarik kembali ke
+Diproses dengan sisa tagihan sebesar ongkirnya, supaya barangnya tidak berangkat sementara
+ongkirnya tidak pernah tertagih.
+
+Angkanya sendiri diambil dari dua sumber, berurutan.
 
 **RajaOngkir** dipakai lebih dulu kalau `RAJAONGKIR_API_KEY` terisi. Layanannya mengembalikan ongkos **utuh** untuk berat paket, bukan tarif per kilogram — kurir menagih berjenjang, jadi memaksanya jadi angka per kilo akan meleset pada berat yang bukan kelipatan bulat. Kota asal dan daftar kurir dipilih di menu Pengaturan → Ongkir dan tersimpan di `app_settings` (`shipping_origin_id`, `shipping_origin_label`, `shipping_couriers`; pemisah kurirnya titik dua, `jne:jnt:sicepat`, karena itu bentuk yang diminta API-nya). Alamat order diterjemahkan ke ID tujuan RajaOngkir dari yang paling spesifik ke yang paling umum — kode pos, lalu kelurahan + kota, kecamatan + kota, baru kotanya saja — dan pemetaan yang ketemu disimpan di `shipping_destinations` supaya alamat yang sama tidak memakan kuota dua kali.
 
@@ -297,6 +322,16 @@ Sumber yang benar-benar dipakai selalu disebutkan pada hasil hitungnya (`source`
 Keduanya berada di balik interface: `service.RateProvider` untuk tarif per kilogram dan `service.CostProvider` untuk ongkos utuh. Mengganti vendor berarti menambah satu tipe yang memenuhi salah satunya, tanpa menyentuh handler maupun frontend.
 
 ### Invoice dan WhatsApp
+
+Ada dua invoice per order, dan keduanya terbit dari tempat berbeda karena menjawab pertanyaan
+berbeda. **Invoice DP** diterbitkan dari detail order, dikirim begitu customer setuju dengan isi
+pesanannya; nominalnya bawaannya setengah nilai barang. **Invoice pelunasan** diterbitkan dari
+menu Invoice, dan hanya untuk order yang DP-nya sudah masuk dan ongkirnya sudah ditetapkan —
+menerbitkannya lebih awal berarti mengirim tagihan yang nilainya masih akan berubah.
+
+Menandai invoice sudah dibayar berarti **mencatat pembayarannya pada order**, bukan mengubah
+label barisnya. Saldo order, status order, dan laporan piutang semuanya dihitung dari tabel
+pembayaran; menandai dokumennya lunas tanpa mencatat uangnya akan membuat ketiganya berbohong.
 
 Invoice dirender menjadi PDF dengan seluruh nominal **disalin saat diterbitkan**, sehingga dokumen yang sudah dilihat customer tidak berubah kalau order diedit setelahnya.
 

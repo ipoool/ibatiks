@@ -292,15 +292,41 @@ expect "$ESTIMATED_COST" "60000" "ongkir 5 kg ke Jakarta Selatan (5 x Rp12.000)"
 SMALL="$(api POST "/orders/$ORDER_A_ID/shipping-estimate" '{"weight_gram":2300,"length_cm":10,"width_cm":10,"height_cm":10}')"
 expect "$(jq -r '.data.chargeable_weight_gram' <<<"$SMALL")" "3000" "berat 2,3 kg dibulatkan ke 3 kg"
 
-PACKED="$(api POST "/orders/$ORDER_A_ID/pack" '{"courier":"JNE","service":"REG","weight_gram":900,"length_cm":40,"width_cm":30,"height_cm":25}')"
+# Invoice pelunasan menagih seluruh sisa pesanan termasuk ongkir, jadi ia tidak
+# boleh terbit sebelum paketnya ditimbang — customer akan menerima tagihan yang
+# nilainya masih berubah.
+TOO_EARLY="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/orders/$ORDER_A_ID/invoices" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"type":"final"}')"
+expect "$TOO_EARLY" "409" "invoice pelunasan ditolak sebelum ongkir ditetapkan"
+
+# Ongkir ditetapkan bersama data kemasan, memakai angka hasil estimasi di atas.
+PACKED="$(api POST "/orders/$ORDER_A_ID/pack" '{"courier":"JNE","service":"REG","weight_gram":900,"length_cm":40,"width_cm":30,"height_cm":25,"shipping_fee":"60000"}')"
 expect "$(jq -r '.data.status' <<<"$PACKED")" "ready" "status paket setelah dikemas"
 expect "$(jq -r '.data.length_cm' <<<"$PACKED")" "40" "dimensi paket tersimpan"
 expect "$(money "$(jq -r '.data.estimated_cost' <<<"$PACKED")")" "60000" "estimasi ongkir ikut tersimpan saat dikemas"
 
+# Mengemas tidak menggeser status order, tapi ongkirnya masuk ke total.
+AFTER_PACK="$(api GET "/orders/$ORDER_A_ID")"
+expect "$(jq -r '.data.status' <<<"$AFTER_PACK")" "dp_paid" "status order A tetap Diproses setelah dikemas"
+expect "$(money "$(jq -r '.data.shipping_fee' <<<"$AFTER_PACK")")" "60000" "ongkir tersimpan ke order"
+expect "$(money "$(jq -r '.data.total' <<<"$AFTER_PACK")")" "395000" "total order naik sebesar ongkir"
+expect "$(money "$(jq -r '.data.dp_required' <<<"$AFTER_PACK")")" "167500" "DP tidak ikut dihitung ulang saat ongkir masuk"
+
+# Order kini muncul sebagai kandidat invoice pelunasan.
+CANDIDATES="$(api GET "/invoices/candidates")"
+expect "$(jq -r --arg id "$ORDER_A_ID" '[.data[] | select(.order_id==$id)] | length' <<<"$CANDIDATES")" "1" "order A siap ditagih pelunasan"
+
 INVOICE="$(api POST "/orders/$ORDER_A_ID/invoices" '{"type":"final"}')"
 INVOICE_ID="$(jq -r '.data.id' <<<"$INVOICE")"
-expect "$(money "$(jq -r '.data.total' <<<"$INVOICE")")" "335000" "total invoice order A"
-expect "$(money "$(jq -r '.data.amount_due' <<<"$INVOICE")")" "167500" "sisa pelunasan pada invoice"
+expect "$(money "$(jq -r '.data.total' <<<"$INVOICE")")" "395000" "total invoice order A sudah termasuk ongkir"
+expect "$(money "$(jq -r '.data.shipping_fee' <<<"$INVOICE")")" "60000" "ongkir tertulis di invoice"
+expect "$(money "$(jq -r '.data.amount_due' <<<"$INVOICE")")" "227500" "sisa pelunasan pada invoice"
+
+# Menerbitkan invoice tidak menggeser status order; yang menggesernya uang masuk.
+expect "$(jq -r '.data.status' <<<"$(api GET "/orders/$ORDER_A_ID")")" "dp_paid" "status order A tetap Diproses setelah invoice terbit"
+
+# Sudah punya invoice pelunasan yang berlaku, jadi hilang dari daftar kandidat.
+expect "$(jq -r --arg id "$ORDER_A_ID" '[.data[] | select(.order_id==$id)] | length' <<<"$(api GET "/invoices/candidates")")" "0" "order A hilang dari kandidat setelah invoice terbit"
 
 PDF_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$API/invoices/$INVOICE_ID/pdf")"
 expect "$PDF_STATUS" "200" "unduh PDF invoice"
@@ -312,13 +338,25 @@ ok "invoice ditandai sudah dikirim via WA"
 
 # ---------------------------------------------------------------------------
 step "Catat pelunasan lalu kirim dengan resi JNE"
-PAID="$(api POST "/orders/$ORDER_A_ID/payments" '{"type":"settlement","amount":"167500","method":"transfer"}')"
+PAID="$(api POST "/orders/$ORDER_A_ID/payments" '{"type":"settlement","amount":"227500","method":"transfer"}')"
 expect "$(jq -r '.data.status' <<<"$PAID")" "paid" "status order A setelah lunas"
 expect "$(money "$(jq -r '.data.balance_due' <<<"$PAID")")" "0" "sisa tagihan order A"
 
 SHIPPED="$(api POST "/orders/$ORDER_A_ID/ship" '{"tracking_number":"JNE0012345678","shipping_cost":"22000"}')"
 expect "$(jq -r '.data.status' <<<"$SHIPPED")" "shipped" "status paket setelah diserahkan ke kurir"
 expect "$(jq -r '.data.tracking_number' <<<"$SHIPPED")" "JNE0012345678" "nomor resi tersimpan"
+
+# Antrean pengiriman menyaring menurut tahap kerja, bukan status tersimpan.
+expect "$(jq -r --arg id "$ORDER_A_ID" '[.data[] | select(.order_id==$id)] | length' <<<"$(api GET "/shipments?stage=terkirim")")" "1" "order A masuk tahap sudah dikirim"
+expect "$(jq -r --arg id "$ORDER_A_ID" '[.data[] | select(.order_id==$id)] | length' <<<"$(api GET "/shipments?stage=perlu_kemas")")" "0" "order A tidak lagi di tahap perlu dikemas"
+
+# Label pengiriman 100 x 150 mm menggantikan surat jalan.
+LABEL_STATUS="$(curl -s -o /tmp/smoke-label.pdf -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$API/orders/$ORDER_A_ID/label")"
+expect "$LABEL_STATUS" "200" "unduh label pengiriman"
+expect "$(head -c 4 /tmp/smoke-label.pdf)" "%PDF" "label berbentuk PDF"
+# MediaBox 283.46 x 425.20 pt = 100 x 150 mm, ukuran kertas thermal kurir.
+expect "$(grep -a -o '/MediaBox \[0 0 283.46 425.20\]' /tmp/smoke-label.pdf | head -1)" "/MediaBox [0 0 283.46 425.20]" "ukuran label 100 x 150 mm"
+rm -f /tmp/smoke-label.pdf
 
 SHIP_MSG="$(api GET "/orders/$ORDER_A_ID/shipment-message")"
 expect "$(jq -r '.data.text | contains("JNE0012345678")' <<<"$SHIP_MSG")" "true" "pesan pengiriman memuat nomor resi"
@@ -336,11 +374,14 @@ REPORT="$(api GET "/reports/trips/$TRIP/profit")"
 #          (order A: 2 unit A + 1 unit B, order B: 2 unit A)
 # Kotor  = 595.000 - 450.000                               = 145.000
 # Bersih = 145.000 - 1.000.000 biaya trip                  = -855.000
-expect "$(money "$(jq -r '.data.revenue' <<<"$REPORT")")" "595000" "omzet trip"
+# Omzet ikut memuat ongkir yang ditagihkan ke customer (Rp60.000 pada order A),
+# sementara ongkir yang benar-benar dibayar ke kurir dicatat terpisah pada
+# pengiriman — selisih keduanya memang keuntungan atau tombokan toko.
+expect "$(money "$(jq -r '.data.revenue' <<<"$REPORT")")" "655000" "omzet trip"
 expect "$(money "$(jq -r '.data.cogs' <<<"$REPORT")")" "450000" "HPP riil trip"
-expect "$(money "$(jq -r '.data.gross_profit' <<<"$REPORT")")" "145000" "laba kotor trip"
+expect "$(money "$(jq -r '.data.gross_profit' <<<"$REPORT")")" "205000" "laba kotor trip"
 expect "$(money "$(jq -r '.data.trip_expenses' <<<"$REPORT")")" "1000000" "biaya perjalanan"
-expect "$(money "$(jq -r '.data.net_profit' <<<"$REPORT")")" "-855000" "laba bersih trip"
+expect "$(money "$(jq -r '.data.net_profit' <<<"$REPORT")")" "-795000" "laba bersih trip"
 
 # Surplus 4 unit produk A senilai Rp400.000 tidak boleh dibebankan sebagai HPP;
 # nilainya tetap dipegang sebagai aset stok.
@@ -372,11 +413,11 @@ expect "$CSV_STATUS" "200" "ekspor CSV piutang"
 step "Cek rekap penjualan per customer dan per channel"
 CUSTOMERS="$(api GET "/reports/customers?trip_id=$TRIP")"
 expect "$(jq -r --arg id "$CUSTOMER_A" '.data[] | select(.customer_id==$id) | .order_count' <<<"$CUSTOMERS")" "1" "jumlah order customer A"
-expect "$(money "$(jq -r --arg id "$CUSTOMER_A" '.data[] | select(.customer_id==$id) | .revenue' <<<"$CUSTOMERS")")" "335000" "omzet customer A"
+expect "$(money "$(jq -r --arg id "$CUSTOMER_A" '.data[] | select(.customer_id==$id) | .revenue' <<<"$CUSTOMERS")")" "395000" "omzet customer A"
 expect "$(money "$(jq -r --arg id "$CUSTOMER_B" '.data[] | select(.customer_id==$id) | .outstanding' <<<"$CUSTOMERS")")" "65000" "piutang customer B"
 
 CHANNELS="$(api GET "/reports/channels?trip_id=$TRIP")"
-expect "$(money "$(jq -r '.data[] | select(.order_source=="instagram") | .revenue' <<<"$CHANNELS")")" "335000" "omzet channel Instagram"
+expect "$(money "$(jq -r '.data[] | select(.order_source=="instagram") | .revenue' <<<"$CHANNELS")")" "395000" "omzet channel Instagram"
 expect "$(money "$(jq -r '.data[] | select(.order_source=="whatsapp") | .revenue' <<<"$CHANNELS")")" "260000" "omzet channel WhatsApp"
 # Porsi omzet seluruh channel harus menjumlah 100%.
 expect "$(jq -r '[.data[].revenue_share | tonumber] | add | round' <<<"$CHANNELS")" "100" "porsi omzet seluruh channel"
@@ -418,6 +459,18 @@ UNPAID_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/orders/$OR
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"tracking_number":"JNE0099999999","shipping_cost":"20000"}')"
 expect "$UNPAID_STATUS" "409" "kirim order yang belum lunas ditolak"
+
+# Ongkir yang ditetapkan setelah customer terlanjur melunasi harus menarik
+# ordernya kembali ke Diproses. Tanpa itu ia tetap berlabel Pembayaran Lunas,
+# ikut masuk antrean siap kirim, dan barangnya berangkat sementara ongkirnya
+# tidak pernah tertagih.
+LUNAS_DULU="$(api POST "/orders/$ORDER_B_ID/payments" "{\"type\":\"settlement\",\"amount\":\"$(money "$(jq -r '.data.balance_due' <<<"$(api GET "/orders/$ORDER_B_ID")")")\",\"method\":\"transfer\"}")"
+expect "$(jq -r '.data.status' <<<"$LUNAS_DULU")" "paid" "order B lunas sebelum paketnya ditimbang"
+
+api POST "/orders/$ORDER_B_ID/pack" '{"courier":"JNE","service":"REG","weight_gram":1000,"shipping_fee":"35000"}' >/dev/null
+AFTER_FEE="$(api GET "/orders/$ORDER_B_ID")"
+expect "$(jq -r '.data.status' <<<"$AFTER_FEE")" "dp_paid" "order B kembali ke Diproses saat ongkir menambah tagihan"
+expect "$(money "$(jq -r '.data.balance_due' <<<"$AFTER_FEE")")" "35000" "sisa tagihan order B sebesar ongkirnya"
 
 # Endpoint tanpa token harus ditolak.
 NOAUTH_STATUS="$(curl -s -o /dev/null -w '%{http_code}' "$API/orders")"

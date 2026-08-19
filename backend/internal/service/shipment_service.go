@@ -187,7 +187,16 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 			if _, err := s.orders.SetShippingFee(ctx, tx, orderID, *in.ShippingFee); err != nil {
 				return err
 			}
-			if _, err := s.orders.RecalculateTotals(ctx, tx, orderID); err != nil {
+			diperbarui, err := s.orders.RecalculateTotals(ctx, tx, orderID)
+			if err != nil {
+				return err
+			}
+			// Customer yang sudah membayar lunas sebelum paketnya ditimbang
+			// kini kembali punya sisa tagihan sebesar ongkirnya. Tanpa langkah
+			// ini ordernya tetap berlabel Pembayaran Lunas, ikut masuk antrean
+			// siap kirim, dan barangnya berangkat sementara ongkirnya tidak
+			// pernah tertagih.
+			if err := reconcileOrderStatus(ctx, tx, s.orders, diperbarui); err != nil {
 				return err
 			}
 		}

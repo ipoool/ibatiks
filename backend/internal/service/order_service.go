@@ -1084,12 +1084,19 @@ func (s *OrderService) advanceStatusAfterPayment(ctx context.Context, tx pgx.Tx,
 // tapi totalnya bertambah setelah diedit, supaya sisa tagihan yang baru tidak
 // tersembunyi di balik status "paid".
 func (s *OrderService) reconcileStatusAfterAmountChange(ctx context.Context, tx pgx.Tx, order *domain.Order) error {
+	return reconcileOrderStatus(ctx, tx, s.orders, order)
+}
+
+// reconcileOrderStatus dipisah sebagai fungsi package supaya layanan lain yang
+// ikut mengubah nilai order — misalnya penetapan ongkir saat paket dikemas —
+// memakai aturan yang sama persis, bukan salinannya.
+func reconcileOrderStatus(ctx context.Context, tx pgx.Tx, orders *repository.OrderRepo, order *domain.Order) error {
 	switch {
 	// Sudah ditandai lunas, tapi ternyata masih ada sisa: kembali ke Diproses.
 	// Biasanya karena ongkir baru ditetapkan setelah pelunasan dicatat, atau
 	// pembayaran yang salah catat dihapus.
 	case order.Status == domain.OrderPaid && order.BalanceDue.GreaterThan(decimal.Zero):
-		_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderDPPaid)
+		_, err := orders.UpdateStatus(ctx, tx, order.ID, domain.OrderDPPaid)
 		return err
 
 	// DP-nya ternyata tidak lagi tertutup — biasanya karena pembayaran yang
@@ -1099,7 +1106,7 @@ func (s *OrderService) reconcileStatusAfterAmountChange(ctx context.Context, tx 
 	case order.Status == domain.OrderDPPaid &&
 		order.DPRequired.GreaterThan(decimal.Zero) &&
 		order.PaidAmount.LessThan(order.DPRequired):
-		_, err := s.orders.UpdateStatus(ctx, tx, order.ID, domain.OrderAwaitingDP)
+		_, err := orders.UpdateStatus(ctx, tx, order.ID, domain.OrderAwaitingDP)
 		return err
 	}
 	return nil
