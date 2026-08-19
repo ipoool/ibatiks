@@ -4,6 +4,13 @@ import { Ban, PackageSearch, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  InputDP,
+  dpDariRupiah,
+  dpKeRupiah,
+  keteranganDP,
+  type NilaiDP,
+} from "@/components/input-dp";
 import { OptionSelect } from "@/components/filter-select";
 import { ORDER_SOURCE_OPTIONS } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCancelOrder, useReceiveOrder, useUpdateOrder } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
-import { formatNumber, toDateInput } from "@/lib/utils";
+import { formatIDR, formatNumber, toDateInput, toNumber } from "@/lib/utils";
 import type { FulfillmentStatus, OrderDetail } from "@/types/api";
 
 /**
@@ -139,7 +146,6 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
     order_date: toDateInput(order.order_date),
     order_source: order.order_source,
     discount: order.discount,
-    dp_required: order.dp_required,
     recipient_name: order.recipient_name,
     recipient_phone: order.recipient_phone,
     shipping_address: order.shipping_address,
@@ -150,6 +156,15 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
     shipping_postal_code: order.shipping_postal_code ?? "",
     notes: order.notes ?? "",
   });
+  const [dp, setDp] = useState<NilaiDP>(dpDariRupiah(order.dp_required));
+
+  // Dasar hitungan persen adalah nilai barang, bukan total. Total sudah memuat
+  // ongkir begitu paketnya ditimbang, dan DP memang tidak ikut dihitung ulang
+  // saat itu — memakai total di sini akan membuat "50%" berarti dua angka yang
+  // berbeda sebelum dan sesudah pengemasan.
+  const nilaiBarang = Math.max(toNumber(order.subtotal) - toNumber(form.discount), 0);
+  const dpRupiah = dpKeRupiah(dp, nilaiBarang);
+  const dpDiTawar = dpRupiah !== "" && toNumber(dpRupiah) < Math.round(nilaiBarang / 2);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -157,6 +172,7 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
     update.mutate(
       {
         ...form,
+        dp_required: dpRupiah,
         shipping_district: form.shipping_district || null,
         shipping_subdistrict: form.shipping_subdistrict || null,
         shipping_province: form.shipping_province || null,
@@ -204,15 +220,18 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
           />
         </Field>
 
-        <Field label="DP diminta (Rp)" htmlFor="dp_required">
-          <Input
-            id="dp_required"
-            type="number"
-            min="0"
-            step="any"
-            value={form.dp_required}
-            onChange={(event) => setForm({ ...form, dp_required: event.target.value })}
-          />
+        <Field
+          label="DP diminta"
+          htmlFor="dp_required"
+          hint={keteranganDP(dp, nilaiBarang) ?? undefined}
+          error={fieldError("dp_required")}
+        >
+          <InputDP id="dp_required" value={dp} onChange={setDp} nilaiBarang={nilaiBarang} />
+          {dpDiTawar && (
+            <p className="text-xs text-amber-600">
+              Di bawah setengah nilai barang ({formatIDR(Math.round(nilaiBarang / 2))}).
+            </p>
+          )}
         </Field>
 
         <Field label="Diskon (Rp)" htmlFor="edit_discount" error={fieldError("discount")}>

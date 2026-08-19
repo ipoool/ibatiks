@@ -6,6 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  DP_KOSONG,
+  InputDP,
+  keteranganDP,
+  dpKeRupiah,
+  type NilaiDP,
+} from "@/components/input-dp";
+
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { OptionSelect } from "@/components/filter-select";
@@ -55,7 +63,7 @@ function NewOrderForm() {
   const [orderSource, setOrderSource] = useState<OrderSource>("whatsapp");
   const [items, setItems] = useState<DraftItem[]>([]);
   const [discount, setDiscount] = useState("0");
-  const [dpRequired, setDpRequired] = useState("");
+  const [dp, setDp] = useState<NilaiDP>(DP_KOSONG);
   const [notes, setNotes] = useState("");
   const [overrideAddress, setOverrideAddress] = useState(false);
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -136,7 +144,10 @@ function NewOrderForm() {
    */
   const total = Math.max(subtotal - toNumber(discount), 0);
   const suggestedDP = Math.round(total / 2);
-  const dpDiTawar = dpRequired !== "" && toNumber(dpRequired) < suggestedDP;
+  // Selalu rupiah, apa pun satuan yang sedang dipakai admin — nilai inilah yang
+  // dikirim ke API dan yang dibandingkan dengan patokan setengah.
+  const dpRupiah = dpKeRupiah(dp, total);
+  const dpDiTawar = dpRupiah !== "" && toNumber(dpRupiah) < suggestedDP;
 
   function addItem(productId: string) {
     const catalogItem = catalog?.find((item) => item.product_id === productId);
@@ -219,7 +230,7 @@ function NewOrderForm() {
           unit_price: item.unit_price,
         })),
         discount,
-        dp_required: dpRequired || undefined,
+        dp_required: dpRupiah || undefined,
         notes: notes || null,
         ...(overrideAddress ? address : {}),
       },
@@ -619,18 +630,19 @@ function NewOrderForm() {
               </Field>
 
               <Field
-                label="DP diminta (Rp)"
+                label="DP diminta"
                 htmlFor="dp_required"
-                hint={`Kosongkan untuk 50% otomatis (${formatIDR(suggestedDP)})`}
+                hint={
+                  keteranganDP(dp, total) ??
+                  `Kosongkan untuk 50% otomatis (${formatIDR(suggestedDP)})`
+                }
               >
-                <Input
+                <InputDP
                   id="dp_required"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={dpRequired}
-                  onChange={(event) => setDpRequired(event.target.value)}
-                  placeholder={String(suggestedDP)}
+                  value={dp}
+                  onChange={setDp}
+                  nilaiBarang={total}
+                  placeholder={dp.satuan === "persen" ? "50" : String(suggestedDP)}
                 />
                 {/* Peringatan, bukan penolakan. Setengah harga barang adalah
                     patokan yang menutup modal belanja; menurunkannya untuk

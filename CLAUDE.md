@@ -92,6 +92,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 **Select tidak boleh punya item bernilai string kosong** (batasan Radix). Pakai `FilterSelect` yang sudah menangani sentinel `__all__`, atau `OptionSelect` bila memang tanpa opsi "semua".
 
+**DP bisa diketik sebagai rupiah atau persen** lewat `InputDP` (`src/components/input-dp.tsx`), tapi yang dikirim ke API selalu rupiah. Satuannya disimpan di state pemanggil, bukan di dalam komponen: dalam mode persen nominalnya dihitung ulang tiap render, sehingga menambah item membuat DP ikut menyesuaikan — dan menyimpan state itu di dalam komponen akan menuntut efek yang menyetel state, yang dilarang aturan lint di bawah. Dasar hitungannya nilai barang (subtotal − diskon), bukan total, sebab total sudah memuat ongkir begitu paket ditimbang sementara DP memang tidak ikut dihitung ulang saat itu.
+
 **Input uang memakai `step="any"`.** `step="1000"` membuat nominal seperti Rp348.400 ditolak browser — termasuk DP 50% yang dihitung sistem sendiri dan transfer berkode unik.
 
 **Tabel harus menyusut, bukan menggeser halaman.** Kartu dan kolom grid yang memuat tabel wajib `min-w-0` — anak grid/flex bawaannya tidak boleh lebih sempit dari isinya, sehingga tabel lebar mendorong seluruh halaman ke samping dan `overflow-x-auto` di dalamnya tidak pernah terpakai. Kolom sekunder disembunyikan bertahap (`hidden sm:table-cell` lalu `hidden lg:table-cell`/`xl:table-cell`), dan isian yang ikut hilang dilipat ke kolom utama sebagai baris kecil `sm:hidden`. Sel bawaan shadcn memakai `whitespace-nowrap`; kolom berisi nama panjang perlu `whitespace-normal` supaya boleh turun baris.
