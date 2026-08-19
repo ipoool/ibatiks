@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { canOpenPath } from "@/lib/route-permissions";
+import { canOpenPath, firstAllowedPath } from "@/lib/route-permissions";
 
 const ACCESS_TOKEN_COOKIE = "jastipin_at";
 const REFRESH_TOKEN_COOKIE = "jastipin_rt";
@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (refreshed.status === "berhasil" && isLoginPage) {
-      const response = NextResponse.redirect(new URL("/", request.url));
+      const response = NextResponse.redirect(new URL(landingPath(request), request.url));
       for (const cookie of refreshed.setCookies) response.headers.append("set-cookie", cookie);
       return response;
     }
@@ -79,7 +79,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (hasSession && isLoginPage) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL(landingPath(request), request.url));
   }
 
   /*
@@ -95,7 +95,17 @@ export async function middleware(request: NextRequest) {
    */
   const granted = grantedPermissions(request);
   if (hasSession && granted && !canOpenPath(pathname, granted)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const tujuan = firstAllowedPath(granted);
+    /*
+     * Kalau tujuannya halaman ini sendiri, jangan dialihkan. Itu terjadi pada
+     * pengguna yang tidak punya hak apa pun: tujuannya jatuh ke "/", dan
+     * mengalihkan "/" ke "/" adalah putaran yang tidak pernah selesai.
+     * Halamannya dibiarkan terbuka supaya ia membaca penjelasan, bukan galat
+     * peramban.
+     */
+    if (tujuan !== pathname) {
+      return NextResponse.redirect(new URL(tujuan, request.url));
+    }
   }
 
   return NextResponse.next();
@@ -123,6 +133,19 @@ function grantedPermissions(request: NextRequest): string[] | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Halaman pertama yang boleh dibuka pengguna ini, dipakai sesudah login.
+ *
+ * Tidak semua orang boleh membuka Dashboard — tripper misalnya tidak punya hak
+ * Laporan, dan seluruh isi Dashboard datang dari sana. Mengarahkan semua orang
+ * ke "/" berarti tripper mendarat di halaman berisi angka nol dan peringatan
+ * merah tiap kali ia masuk.
+ */
+function landingPath(request: NextRequest): string {
+  const granted = grantedPermissions(request);
+  return granted ? firstAllowedPath(granted) : "/";
 }
 
 /** Halaman login beserta tujuan awal, supaya setelah masuk kembali ke sana. */

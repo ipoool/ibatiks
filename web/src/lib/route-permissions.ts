@@ -9,10 +9,18 @@ import type { Permission } from "@/types/api";
  * seluruh ikon menu ke bundel edge, dan konstanta yang diimpor dari sana gagal
  * diam-diam saat dibaca kode server.
  *
- * Rute yang tidak terdaftar di sini terbuka untuk siapa pun yang sudah login —
- * seperti Dashboard, yang isinya sudah menyesuaikan hak masing-masing.
+ * Rute yang tidak terdaftar di sini terbuka untuk siapa pun yang sudah login.
  */
 export const ROUTE_PERMISSIONS: ReadonlyArray<{ prefix: string; permission: Permission }> = [
+  /*
+   * Dashboard butuh hak Laporan karena seluruh isinya datang dari satu endpoint
+   * laporan. Tanpa hak itu, halamannya tetap terbuka tapi datanya ditolak, dan
+   * yang terbaca adalah deretan angka nol lengkap dengan "Belum ada order" —
+   * seolah tokonya kosong, padahal orangnya cuma tidak berhak melihat.
+   *
+   * Kena persis pada tripper, yang hak bawaannya memang tanpa Laporan.
+   */
+  { prefix: "/", permission: "reports" },
   { prefix: "/trips", permission: "trips" },
   { prefix: "/shopping-list", permission: "shopping_list" },
   { prefix: "/purchases", permission: "purchases" },
@@ -51,4 +59,37 @@ export function permissionForPath(pathname: string): Permission | undefined {
 export function canOpenPath(pathname: string, granted: readonly string[]): boolean {
   const needed = permissionForPath(pathname);
   return !needed || granted.includes(needed);
+}
+
+/**
+ * Urutan halaman yang dicoba sebagai tempat mendarat, mengikuti urutan sidebar.
+ *
+ * Dipakai saat seseorang membuka alamat yang bukan haknya, dan sesudah login.
+ * Dulu keduanya diarahkan ke "/" begitu saja; sejak Dashboard punya syarat hak
+ * sendiri, itu berarti melempar orang ke halaman yang juga akan menolaknya.
+ */
+const LANDING_PATHS: readonly string[] = [
+  "/",
+  "/trips",
+  "/shopping-list",
+  "/purchases",
+  "/orders",
+  "/shipments",
+  "/invoices",
+  "/customers",
+  "/products",
+  "/stock",
+  "/reports",
+  "/settings",
+];
+
+/**
+ * Halaman pertama yang boleh dibuka pengguna ini.
+ *
+ * Mengembalikan "/" kalau tidak ada satu pun yang cocok — termasuk saat hak
+ * aksesnya benar-benar kosong. Dashboard yang menjelaskan keadaannya; menahan
+ * orang tanpa halaman tujuan hanya menghasilkan putaran pengalihan.
+ */
+export function firstAllowedPath(granted: readonly string[]): string {
+  return LANDING_PATHS.find((path) => canOpenPath(path, granted)) ?? "/";
 }
