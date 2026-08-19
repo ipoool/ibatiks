@@ -542,8 +542,37 @@ export interface ShippingEstimate {
   price_per_kg: Money;
   cost: Money;
   etd: string;
+  /** Tujuan seperti dikenali kurir, misalnya "CILANDAK BARAT, JAKARTA SELATAN, 12430". */
+  destination?: string;
   source: string;
   rate_found: boolean;
+}
+
+/** Satu tujuan pengiriman di daftar resmi kurir. */
+export interface ShippingDestination {
+  destination_id: number;
+  label: string;
+  city_name: string | null;
+  province_name: string | null;
+  zip_code: string | null;
+}
+
+export interface CourierOption {
+  code: string;
+  name: string;
+}
+
+/** Keadaan layanan tarif yang sedang dipakai backend. */
+export interface ShippingProviderInfo {
+  name: string;
+  /** API key terpasang dan layanannya aktif. */
+  connected: boolean;
+  /** Terhubung sekaligus kota asalnya sudah dipilih. */
+  ready: boolean;
+  origin_id: number;
+  origin_label: string;
+  couriers: string[];
+  courier_options: CourierOption[];
 }
 
 // --- Laporan ---------------------------------------------------------------

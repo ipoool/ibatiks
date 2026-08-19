@@ -388,6 +388,20 @@ export function OrderShipment({ order }: { order: OrderDetail }) {
                   {formatNumber(estimate.data.chargeable_weight_gram / 1000)} kg ×{" "}
                   {formatIDR(estimate.data.price_per_kg)}
                 </p>
+                {estimate.data.destination && (
+                  /*
+                   * Tujuan yang dikenali kurir ditampilkan apa adanya. Nama kota
+                   * yang sama bisa menunjuk kecamatan berbeda dengan tarif
+                   * berbeda, jadi admin perlu bisa memeriksa yang dihitung
+                   * memang alamat yang benar.
+                   */
+                  <p className="text-xs text-muted-foreground">
+                    Tujuan {estimate.data.destination}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Sumber angka: {estimate.data.source}
+                </p>
                 {!estimate.data.rate_found && (
                   <p className="text-xs text-amber-700">
                     Tarif kota ini belum ada, dipakai tarif umum. Tambahkan di Pengaturan → Tarif

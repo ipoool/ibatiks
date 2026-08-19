@@ -286,9 +286,15 @@ diam-diam mengirim nilai sentinel ke server.
 
 Ekspedisi menagih mana yang lebih besar antara berat asli dan **berat volume**, yaitu `(P × L × T dalam cm) ÷ pembagi` — pembagi 6000 untuk JNE. Hasilnya dibulatkan **ke atas** ke kilogram penuh, karena kurir tidak menjual pecahan kilo. Kardus 40 × 30 × 25 cm berisi 800 gram tetap ditagih 5 kg.
 
-Tarif per kota disimpan di tabel `shipping_rates` dan diatur lewat menu Pengaturan → Ongkir. Kota tujuan dicocokkan setelah dinormalisasi (`Kota Bandung`, `BANDUNG`, dan `bandung` sama), dan kalau tidak ketemu dipakai tarif cadangan dari `app_settings`.
+Angkanya diambil dari dua sumber, berurutan.
 
-Perhitungannya berada di balik interface `service.RateProvider`, jadi kalau nanti dipasang API ekspedisi sungguhan, sumber tarifnya tinggal ditukar tanpa mengubah handler maupun frontend.
+**RajaOngkir** dipakai lebih dulu kalau `RAJAONGKIR_API_KEY` terisi. Layanannya mengembalikan ongkos **utuh** untuk berat paket, bukan tarif per kilogram — kurir menagih berjenjang, jadi memaksanya jadi angka per kilo akan meleset pada berat yang bukan kelipatan bulat. Kota asal dan daftar kurir dipilih di menu Pengaturan → Ongkir dan tersimpan di `app_settings` (`shipping_origin_id`, `shipping_origin_label`, `shipping_couriers`; pemisah kurirnya titik dua, `jne:jnt:sicepat`, karena itu bentuk yang diminta API-nya). Alamat order diterjemahkan ke ID tujuan RajaOngkir dari yang paling spesifik ke yang paling umum — kode pos, lalu kelurahan + kota, kecamatan + kota, baru kotanya saja — dan pemetaan yang ketemu disimpan di `shipping_destinations` supaya alamat yang sama tidak memakan kuota dua kali.
+
+**Tabel tarif sendiri** (`shipping_rates`, juga dikelola di menu yang sama) adalah cadangannya: dipakai kalau key-nya kosong, kota asalnya belum dipilih, atau layanannya sedang tidak bisa dihubungi. Kegagalan RajaOngkir sengaja tidak menghentikan perhitungan — admin sedang menimbang paket di depan customer, dan lebih baik menerima angka dari tabel dengan penanda asalnya daripada layar galat. Kota tujuan dicocokkan setelah dinormalisasi (`Kota Bandung`, `BANDUNG`, dan `bandung` sama), dan kalau tidak ketemu dipakai tarif cadangan dari `app_settings`.
+
+Sumber yang benar-benar dipakai selalu disebutkan pada hasil hitungnya (`source`), berikut tujuan seperti dikenali kurir (`destination`) — nama kota yang sama bisa menunjuk kecamatan berbeda dengan tarif berbeda, jadi admin perlu bisa memeriksanya.
+
+Keduanya berada di balik interface: `service.RateProvider` untuk tarif per kilogram dan `service.CostProvider` untuk ongkos utuh. Mengganti vendor berarti menambah satu tipe yang memenuhi salah satunya, tanpa menyentuh handler maupun frontend.
 
 ### Invoice dan WhatsApp
 

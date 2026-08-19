@@ -13,7 +13,9 @@ import type {
   SentChannel,
   Shipment,
   ShipmentStatus,
+  ShippingDestination,
   ShippingEstimate,
+  ShippingProviderInfo,
   ShippingRate,
   StockItem,
   StockMovement,
@@ -330,6 +332,54 @@ export function useEstimateShipping(orderId: string) {
   return useMutation({
     mutationFn: (payload: EstimatePayload) =>
       api.post<ShippingEstimate>(`/orders/${orderId}/shipping-estimate`, payload),
+  });
+}
+
+/**
+ * Uji coba hitung ongkir tanpa order, dipakai panel percobaan di Pengaturan
+ * supaya tim toko bisa memastikan sambungannya benar sebelum ada order jalan.
+ */
+export function useTestShippingEstimate() {
+  return useMutation({
+    mutationFn: (payload: {
+      courier?: string;
+      service?: string;
+      city: string;
+      district?: string;
+      subdistrict?: string;
+      postal_code?: string;
+      weight_gram: number;
+    }) => api.post<ShippingEstimate>("/shipping/estimate", payload),
+  });
+}
+
+export const shippingProviderKeys = {
+  provider: ["shipping-provider"] as const,
+  destinations: (q: string) => ["shipping-destinations", q] as const,
+};
+
+/** Keadaan layanan tarif (RajaOngkir atau tabel tarif sendiri). */
+export function useShippingProvider() {
+  return useQuery({
+    queryKey: shippingProviderKeys.provider,
+    queryFn: () => api.get<ShippingProviderInfo>("/shipping/provider"),
+  });
+}
+
+/**
+ * Pencarian kota asal di daftar tujuan kurir.
+ *
+ * Baru jalan pada tiga huruf: tiap pencarian memakan kuota langganan, jadi
+ * mengetik satu huruf tidak boleh langsung menembak API.
+ */
+export function useShippingDestinations(q: string, enabled = true) {
+  const keyword = q.trim();
+  return useQuery({
+    queryKey: shippingProviderKeys.destinations(keyword),
+    queryFn: () =>
+      api.get<ShippingDestination[]>(`/shipping/destinations${buildQuery({ q: keyword })}`),
+    enabled: enabled && keyword.length >= 3,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

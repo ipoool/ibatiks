@@ -85,14 +85,28 @@ export function ShippingInfoButton({ className }: { className?: string }) {
 
             <section className="space-y-2">
               <h3 className="font-semibold">3. Biayanya</h3>
-              <pre className="scrollbar-thin overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs">
-                ongkir = berat ditagih (kg) × tarif per kg kota tujuan
-              </pre>
               <p className="text-muted-foreground">
-                Tarif per kota diatur di <span className="font-medium">Pengaturan → Ongkir</span>.
-                Kota yang belum punya tarif memakai tarif umum, dan hasilnya ditandai supaya kamu
-                tahu angkanya masih kasar.
+                Ada dua sumber angka, dicoba berurutan. Yang dipakai selalu disebutkan di bawah
+                hasil hitungan, jadi kamu tidak perlu menebak.
               </p>
+              <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+                <li>
+                  <span className="font-medium text-foreground">RajaOngkir</span> — ongkos utuh
+                  langsung dari kurir untuk berat itu, lengkap dengan tujuan yang mereka kenali.
+                  Kurir menagih berjenjang, bukan per kilogram, jadi ini yang paling mendekati
+                  tagihan sebenarnya. Butuh API key di server dan kota asal yang sudah dipilih di{" "}
+                  <span className="font-medium">Pengaturan → Ongkir</span>.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Tabel tarif sendiri</span> —
+                  dipakai kalau RajaOngkir tidak terpasang atau sedang tidak bisa dihubungi:
+                  <pre className="scrollbar-thin mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs">
+                    ongkir = berat ditagih (kg) × tarif per kg kota tujuan
+                  </pre>
+                  Kota yang belum punya tarif memakai tarif cadangan, dan hasilnya ditandai supaya
+                  kamu tahu angkanya masih kasar.
+                </li>
+              </ol>
             </section>
 
             <section className="space-y-2">

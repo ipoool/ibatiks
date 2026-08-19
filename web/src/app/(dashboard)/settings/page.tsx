@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ShippingInfoButton } from "@/components/shipping-info";
+import { ShippingProviderCard, ShippingTestPanel } from "./shipping-provider";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { FilterSelect, OptionSelect, toOptions } from "@/components/filter-select";
 import { useHasRole } from "@/components/layout/user-context";
@@ -140,10 +141,12 @@ export default function SettingsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="ongkir">
+        <TabsContent value="ongkir" className="space-y-6">
+          <ShippingProviderCard />
+          <ShippingTestPanel />
           <SettingsForm
-            title="Perhitungan ongkir"
-            description="Dipakai saat menghitung perkiraan ongkir pada dialog pengemasan."
+            title="Perhitungan ongkir cadangan"
+            description="Dipakai kalau layanan kurir tidak bisa dihubungi atau kota asalnya belum disetel."
             fields={SHIPPING_FIELDS.map((field) => ({ ...field, multiline: false }))}
           />
           <ShippingRates />
@@ -769,15 +772,15 @@ function ShippingRates() {
   const remove = useDeleteShippingRate();
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-1">
-          Tarif per kota tujuan
+          Tabel tarif sendiri
           <ShippingInfoButton />
         </CardTitle>
         <CardDescription>
-          Tarif dipakai berurutan: kota tujuan order dicocokkan dulu di sini, kalau tidak ketemu
-          barulah tarif cadangan di atas yang dipakai.
+          Cadangan saat RajaOngkir tidak terpakai. Urutannya: kota tujuan order dicocokkan dulu di
+          sini, kalau tidak ketemu barulah tarif cadangan di atas yang dipakai.
         </CardDescription>
         {canEdit && (
           <CardAction>

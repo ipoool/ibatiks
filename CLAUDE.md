@@ -47,6 +47,17 @@ Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
 
 **Migrasi bersifat tambahan.** Jangan menyunting file migrasi yang sudah pernah dijalankan — buat migrasi baru. Setiap `.up.sql` wajib punya `.down.sql` yang benar-benar membalik; uji dengan `make migrate-down && make migrate-up`.
 
+## Ongkir
+
+Ada dua sumber tarif dan urutannya tidak boleh dibalik: **RajaOngkir dulu, tabel tarif sendiri sebagai cadangan.** Keduanya di balik interface — `service.RateProvider` (tarif per kg) dan `service.CostProvider` (ongkos utuh). Menambah vendor berarti menambah satu tipe, bukan menyentuh handler atau UI.
+
+- **Kegagalan RajaOngkir tidak boleh menghentikan perhitungan.** `Estimate` menelan galatnya dan tetap jatuh ke tabel tarif. Admin sedang menimbang paket di depan customer; angka dari tabel dengan penanda asalnya jauh lebih berguna daripada layar galat. Yang wajib ada: `source` selalu ikut di hasil, supaya orang tahu angkanya datang dari mana.
+- **Kurir menjual ongkos utuh, bukan harga per kilo.** Jangan mengubah balasan RajaOngkir jadi tarif per kg lalu dikalikan — tarifnya berjenjang dan hasilnya meleset pada berat yang bukan kelipatan bulat. `price_per_kg` pada hasil RajaOngkir cuma turunan untuk ditampilkan.
+- **`shipping_couriers` dipisah titik dua** (`jne:jnt:sicepat`) karena itu bentuk yang diminta API-nya. Simpan apa adanya, jangan diterjemahkan bolak-balik.
+- **Pemetaan alamat ke ID tujuan disimpan** di `shipping_destinations`. Kuota langganan terbatas dan pemetaan kota ke ID hampir tidak pernah berubah; mencari ulang alamat yang sama membuang kuota. Urutan percobaannya dari yang paling spesifik: kode pos → kelurahan + kota → kecamatan + kota → kota.
+- **API key tidak pernah menyentuh browser.** `RAJAONGKIR_API_KEY` tinggal di server; menu Pengaturan hanya menyimpan ID kota asal, labelnya, dan daftar kurir.
+- **Pesan penolakan dari kurir diteruskan apa adanya** ke pencarian kota asal. "API key tidak valid" hanya bisa dibereskan tim toko, dan "terjadi kesalahan pada server" tidak memberi tahu apa pun.
+
 ## Frontend
 
 **shadcn/ui gaya `new-york` (berbasis Radix).** Jangan memasang komponen gaya `base-nova` — mencampur dua pustaka primitif akan mengacaukan token dan perilaku fokus. Komponen dasar ada di `src/components/ui/`.
