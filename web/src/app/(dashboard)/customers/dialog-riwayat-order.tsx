@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { CopyButton } from "@/components/copy-button";
 import { OrderStatusBadge } from "@/components/status-badge";
 import {
   Dialog,
@@ -89,13 +90,16 @@ export function DialogRiwayatOrder({
                   className="flex items-start justify-between gap-3 py-2.5 first:pt-0"
                 >
                   <div className="min-w-0">
-                    <Link
-                      href={`/orders/${order.id}`}
-                      onClick={onClose}
-                      className="text-sm font-medium hover:underline"
-                    >
-                      {order.order_number}
-                    </Link>
+                    <div className="flex items-center gap-0.5">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        onClick={onClose}
+                        className="text-sm font-medium whitespace-nowrap hover:underline"
+                      >
+                        {order.order_number}
+                      </Link>
+                      <CopyButton value={order.order_number} label="Nomor order" />
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {formatDate(order.order_date)} · {order.trip_code}
                     </p>

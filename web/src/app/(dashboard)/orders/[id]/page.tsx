@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2, MapPin, MessageCircle, Plane, User } from "lucide-r
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import { CopyButton } from "@/components/copy-button";
 import { OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
@@ -60,6 +61,7 @@ export default function OrderDetailPage() {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight">{order.order_number}</h1>
+              <CopyButton value={order.order_number} label="Nomor order" />
               <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
               <OrderSourceBadge source={order.order_source} />
             </div>

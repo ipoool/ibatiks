@@ -4,6 +4,7 @@ import { Ban, FileText, MessageCircle, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CopyButton } from "@/components/copy-button";
 import { InvoiceStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,6 +124,7 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{invoice.invoice_number}</span>
+                    <CopyButton value={invoice.invoice_number} label="Nomor invoice" />
                     <InvoiceStatusBadge status={invoice.status} />
                     <span className="text-xs uppercase text-muted-foreground">
                       {invoice.type === "dp" ? "DP" : "Pelunasan"}

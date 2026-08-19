@@ -9,6 +9,7 @@ import { OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
+import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { useOrders } from "@/hooks/use-orders";
 import { formatDate, formatIDR, formatNumber, toNumber } from "@/lib/utils";
@@ -67,9 +68,15 @@ export function TripOrders({ trip }: { trip: Trip }) {
           {data?.items.map((order) => (
             <TR key={order.id}>
               <TD>
-                <Link href={`/orders/${order.id}`} className="font-medium hover:underline">
-                  {order.order_number}
-                </Link>
+                <div className="flex items-center gap-0.5">
+                  <Link
+                    href={`/orders/${order.id}`}
+                    className="font-medium whitespace-nowrap hover:underline"
+                  >
+                    {order.order_number}
+                  </Link>
+                  <CopyButton value={order.order_number} label="Nomor order" />
+                </div>
                 <p className="text-xs text-muted-foreground">{formatDate(order.order_date)}</p>
                 <p className="text-xs text-muted-foreground sm:hidden">{order.customer_name}</p>
               </TD>

@@ -170,9 +170,17 @@ export default function InvoicesPage() {
                   {invoice.type === "dp" ? "DP" : "Pelunasan"}
                 </TD>
                 <TD className="hidden xl:table-cell">
-                  <Link href={`/orders/${invoice.order_id}`} className="text-sm hover:underline">
-                    {invoice.order_number}
-                  </Link>
+                  <div className="flex items-center gap-0.5">
+                    <Link
+                      href={`/orders/${invoice.order_id}`}
+                      className="text-sm whitespace-nowrap hover:underline"
+                    >
+                      {invoice.order_number}
+                    </Link>
+                    {invoice.order_number && (
+                      <CopyButton value={invoice.order_number} label="Nomor order" />
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{invoice.trip_code}</p>
                 </TD>
                 <TD className="hidden text-sm whitespace-normal md:table-cell">
