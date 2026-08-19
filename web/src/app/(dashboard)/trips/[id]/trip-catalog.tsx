@@ -5,8 +5,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { CheckboxField } from "@/components/ui/checkbox-field";
-import { FilterSelect, OptionSelect } from "@/components/filter-select";
+import { Combobox } from "@/components/ui/combobox";
+import { OptionSelect } from "@/components/filter-select";
 import { LastPriceHint } from "@/components/price-history";
+import { QuickAddProductDialog } from "@/components/quick-add-product";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +16,7 @@ import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ErrorState } from "@/components/ui/page";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { useProducts } from "@/hooks/use-master";
@@ -26,7 +29,7 @@ import {
 } from "@/hooks/use-trips";
 import { ApiError } from "@/lib/api";
 import { formatIDR, formatNumber, toNumber } from "@/lib/utils";
-import type { MarkupType, Trip, TripItem } from "@/types/api";
+import type { MarkupType, Product, Trip, TripItem } from "@/types/api";
 
 const EMPTY_FORM: TripItemPayload = {
   product_id: "",
@@ -50,6 +53,7 @@ export function TripCatalog({ trip }: { trip: Trip }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<TripItem | null>(null);
   const [form, setForm] = useState<TripItemPayload>(EMPTY_FORM);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [deleting, setDeleting] = useState<TripItem | null>(null);
   const [recalcOpen, setRecalcOpen] = useState(false);
 
@@ -100,6 +104,30 @@ export function TripCatalog({ trip }: { trip: Trip }) {
   // sebanding: mengisi 880 JPY ke trip berkurs KRW akan terlihat wajar padahal
   // salah tiga digit, dan kesalahan seperti itu baru ketahuan setelah harga
   // jualnya terlanjur diumumkan.
+  /*
+   * Produk yang baru dibuat disimpan sebentar di sini.
+   *
+   * Daftar produk dari server baru menyusul beberapa saat setelah produknya
+   * tersimpan, sementara pilihannya harus ditetapkan sekarang juga. Radix
+   * Select yang menerima nilai tanpa opsi yang cocok menampilkan placeholder
+   * dan tidak memperbaruinya lagi walau opsinya belakangan datang — jadi
+   * opsinya disediakan sendiri, tidak menunggu jaringan.
+   */
+  const [produkBaru, setProdukBaru] = useState<Product | null>(null);
+
+  function pilihProdukBaru(product: Product) {
+    setProdukBaru(product);
+    setForm((current) => ({
+      ...current,
+      product_id: product.id,
+      // Produk baru belum punya harga modal; yang berlaku untuk trip ini
+      // diketik admin di dialog katalog ini juga.
+      cost_price: "",
+      markup_type: product.markup_type,
+      markup_value: product.markup_value,
+    }));
+  }
+
   function selectProduct(productId: string) {
     const product = products?.items.find((candidate) => candidate.id === productId);
     const sameCurrency = product?.base_currency === trip.currency;
@@ -167,11 +195,21 @@ export function TripCatalog({ trip }: { trip: Trip }) {
     (product) => editing?.product_id === product.id || !items?.some((item) => item.product_id === product.id),
   );
 
-  const productOptions =
-    availableProducts?.map((product) => ({
-      value: product.id,
-      label: `${product.name} (${product.sku})`,
-    })) ?? [];
+  const daftarProduk = availableProducts ?? [];
+  // Produk yang baru dibuat ikut ditawarkan sampai daftar dari server memuatnya.
+  const semuaProduk =
+    produkBaru && !daftarProduk.some((p) => p.id === produkBaru.id)
+      ? [produkBaru, ...daftarProduk]
+      : daftarProduk;
+
+  const productOptions = semuaProduk.map((product) => ({
+    value: product.id,
+    label: product.name,
+    // SKU ikut dicari tapi tidak jadi judul: orang mengingat nama produknya,
+    // dan mengetik SKU tetap harus ketemu.
+    keywords: product.sku,
+    description: product.sku,
+  }));
   const fieldError = (name: string) =>
     save.error instanceof ApiError ? save.error.fields?.[name] : undefined;
 
@@ -283,13 +321,54 @@ export function TripCatalog({ trip }: { trip: Trip }) {
       >
         <div className="space-y-4">
           <Field label="Produk" htmlFor="product_id" required error={fieldError("product_id")}>
-            <FilterSelect
-              value={form.product_id}
-              onChange={selectProduct}
-              allLabel="Pilih produk…"
-              options={productOptions}
-              disabled={Boolean(editing)}
-            />
+            {/*
+              Tombol produk baru duduk persis di sebelah pilihannya. Produk yang
+              belum terdaftar biasanya baru ketahuan saat menyusun katalog —
+              memaksa admin membatalkan dialog ini, pergi ke menu Produk, lalu
+              mengulang dari awal berarti kehilangan harga dan markup yang sudah
+              diketik.
+            */}
+            <div className="flex min-w-0 gap-2">
+              {/*
+                Combobox, bukan Select. Dua alasan, dan keduanya nyata.
+
+                Katalog produk bisa memanjang, dan aturan proyek ini memang
+                menyebut Combobox untuk daftar semacam itu — mengetik sebagian
+                nama jauh lebih cepat daripada menggulir ratusan baris.
+
+                Yang kedua baru ketahuan saat menguji tombol Produk baru: Radix
+                Select memanggil onValueChange("") kalau nilainya disetel ke opsi
+                yang baru muncul pada render yang sama, sehingga produk yang baru
+                dibuat langsung terlepas lagi. Combobox membaca labelnya dari
+                daftar biasa, jadi tidak punya perilaku itu.
+              */}
+              <Combobox
+                value={form.product_id}
+                onChange={selectProduct}
+                options={productOptions}
+                placeholder="Pilih produk…"
+                searchPlaceholder="Cari nama atau SKU…"
+                emptyLabel="Produk tidak ditemukan"
+                disabled={Boolean(editing)}
+                className="min-w-0 flex-1"
+              />
+              {!editing && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setQuickAddOpen(true)}
+                    >
+                      <Plus />
+                      <span className="sr-only">Produk baru</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Produk baru</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </Field>
 
           {/* Harga trip sebelumnya ditempel di sini supaya admin tidak perlu
@@ -400,6 +479,19 @@ export function TripCatalog({ trip }: { trip: Trip }) {
           </CheckboxField>
         </div>
       </FormDialog>
+
+      {/*
+        Dirender sebagai saudara dialog katalog, bukan di dalamnya. Radix
+        memindahkan isi tiap dialog ke ujung body, jadi menumpuknya di dalam
+        hanya membuat pohon komponennya berlapis tanpa manfaat — sementara
+        FormDialog sudah menghentikan perambatan submit, sehingga menyimpan
+        produk di sini tidak ikut mengirim form katalog di belakangnya.
+      */}
+      <QuickAddProductDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        onCreated={pilihProdukBaru}
+      />
 
       <ConfirmDialog
         open={recalcOpen}
