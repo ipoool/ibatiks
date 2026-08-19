@@ -4,7 +4,6 @@ import { Ban, FileText, MessageCircle, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { OptionSelect } from "@/components/filter-select";
 import { InvoiceStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,20 +22,20 @@ import {
 } from "@/hooks/use-operations";
 import { ApiError } from "@/lib/api";
 import { formatDate, formatIDR } from "@/lib/utils";
-import type { Invoice, InvoiceType, OrderDetail, SentChannel } from "@/types/api";
+import type { Invoice, OrderDetail, SentChannel } from "@/types/api";
 
-const INVOICE_TYPE_OPTIONS: ReadonlyArray<{ value: InvoiceType; label: string }> = [
-  { value: "final", label: "Pelunasan (seluruh nilai order)" },
-  { value: "dp", label: "DP (hanya uang muka)" },
-];
-
+/**
+ * Invoice di detail order.
+ *
+ * Yang bisa diterbitkan dari sini hanya invoice DP — dokumen yang dikirim
+ * begitu customer setuju dengan isi pesanannya. Invoice pelunasan terbit dari
+ * menu Invoice, setelah paketnya ditimbang dan ongkirnya diketahui; menerbitkan
+ * pelunasan dari sini berarti mengirim tagihan yang nilainya masih akan berubah
+ * begitu ongkirnya masuk.
+ */
 export function OrderInvoices({ order }: { order: OrderDetail }) {
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<{ type: InvoiceType; due_date: string; notes: string }>({
-    type: "final",
-    due_date: "",
-    notes: "",
-  });
+  const [form, setForm] = useState({ due_date: "", notes: "" });
   const [messageInvoiceId, setMessageInvoiceId] = useState<string | null>(null);
 
   const create = useCreateInvoice(order.id);
@@ -49,7 +48,7 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
 
     create.mutate(
       {
-        type: form.type,
+        type: "dp",
         due_date: form.due_date || undefined,
         notes: form.notes || null,
       },
@@ -101,7 +100,7 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
               }}
             >
               <Plus />
-              Terbitkan
+              Invoice DP
             </Button>
           </CardAction>
         )}
@@ -194,23 +193,14 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
       <FormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        title="Terbitkan Invoice"
-        description="Nominal disalin saat invoice dibuat, jadi tidak ikut berubah kalau order diedit setelah ini."
+        title="Terbitkan Invoice DP"
+        description="Menagih uang muka pesanan ini. Nominalnya disalin saat invoice dibuat, jadi tidak ikut berubah kalau order diedit setelah ini."
         error={create.error}
         loading={create.isPending}
         onSubmit={handleSubmit}
         submitLabel="Terbitkan"
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Jenis invoice" htmlFor="invoice_type" required>
-            <OptionSelect
-              id="invoice_type"
-              value={form.type}
-              onChange={(value) => setForm({ ...form, type: value })}
-              options={INVOICE_TYPE_OPTIONS}
-            />
-          </Field>
-
           <Field
             label="Jatuh tempo"
             htmlFor="due_date"

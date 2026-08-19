@@ -126,6 +126,22 @@ type Shipment struct {
 	UpdatedAt          time.Time       `db:"updated_at"           json:"updated_at"`
 }
 
+// InvoiceCandidate adalah order yang siap ditagih pelunasannya.
+//
+// Dipakai dialog Buat Invoice di menu Invoice, supaya admin memilih dari daftar
+// yang memang sudah memenuhi syarat — bukan mengetik nomor order lalu ditolak.
+type InvoiceCandidate struct {
+	OrderID      uuid.UUID       `db:"order_id"      json:"order_id"`
+	OrderNumber  string          `db:"order_number"  json:"order_number"`
+	OrderDate    time.Time       `db:"order_date"    json:"order_date"`
+	CustomerName string          `db:"customer_name" json:"customer_name"`
+	TripCode     string          `db:"trip_code"     json:"trip_code"`
+	Total        decimal.Decimal `db:"total"         json:"total"`
+	ShippingFee  decimal.Decimal `db:"shipping_fee"  json:"shipping_fee"`
+	PaidAmount   decimal.Decimal `db:"paid_amount"   json:"paid_amount"`
+	BalanceDue   decimal.Decimal `db:"balance_due"   json:"balance_due"`
+}
+
 // ShippingQueueItem adalah satu baris di menu Pengiriman.
 //
 // Yang didaftar adalah order, bukan paket. Paket baru terbentuk setelah admin

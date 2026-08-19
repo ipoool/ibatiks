@@ -62,6 +62,17 @@ func (h *InvoiceHandler) List(w http.ResponseWriter, r *http.Request) {
 	response.Paginated(w, invoices, p.Page, p.PerPage, total)
 }
 
+// Candidates mendaftar order yang siap ditagih pelunasannya, untuk dialog Buat
+// Invoice.
+func (h *InvoiceHandler) Candidates(w http.ResponseWriter, r *http.Request) {
+	candidates, err := h.invoices.Candidates(r.Context(), r.URL.Query().Get("q"))
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, candidates)
+}
+
 func (h *InvoiceHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := request.UUIDParam(r, "id")
 	if err != nil {

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,6 +77,22 @@ func (s *InvoiceService) Create(ctx context.Context, orderID uuid.UUID, in Creat
 		}
 		if order.Total.LessThanOrEqual(decimal.Zero) {
 			return domain.InvalidState("order belum punya nilai, tambahkan item terlebih dahulu")
+		}
+
+		// Invoice pelunasan menagih seluruh sisa pesanan, termasuk ongkir.
+		// Menerbitkannya sebelum ongkir diketahui berarti mengirim tagihan yang
+		// nilainya masih akan berubah — customer membayar lalu ditagih lagi,
+		// dan dokumen yang sudah ia terima jadi tidak cocok dengan yang
+		// tercatat di sistem.
+		if in.Type == domain.InvoiceFinal {
+			if order.Status == domain.OrderAwaitingDP {
+				return domain.InvalidState(
+					"DP order ini belum masuk — tagih uang mukanya dulu lewat invoice DP")
+			}
+			if order.ShippingFee.LessThanOrEqual(decimal.Zero) {
+				return domain.InvalidState(
+					"ongkir belum ditetapkan — timbang paketnya dulu di menu Pengiriman")
+			}
 		}
 
 		settings, err := s.settings.All(ctx, tx)
@@ -183,6 +200,11 @@ func (s *InvoiceService) calculateAmounts(order *domain.Order, invoiceType strin
 	amounts.AmountPaid = order.PaidAmount
 	amounts.AmountDue = money.Max(order.BalanceDue, decimal.Zero)
 	return amounts
+}
+
+// Candidates mendaftar order yang siap ditagih pelunasannya.
+func (s *InvoiceService) Candidates(ctx context.Context, search string) ([]domain.InvoiceCandidate, error) {
+	return s.invoices.ListCandidates(ctx, s.pool, strings.TrimSpace(search))
 }
 
 func (s *InvoiceService) Get(ctx context.Context, id uuid.UUID) (*domain.Invoice, error) {

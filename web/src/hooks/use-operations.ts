@@ -6,6 +6,8 @@ import type { ListParams } from "@/hooks/use-master";
 import { api, buildQuery } from "@/lib/api";
 import type {
   Invoice,
+  InvoiceCandidate,
+  PaymentMethod,
   NotifyMessage,
   Purchase,
   PurchaseAllocation,
@@ -158,10 +160,74 @@ export interface InvoiceListParams extends ListParams {
 }
 
 export const invoiceKeys = {
+  candidates: (search: string) => ["invoices", "candidates", search] as const,
   all: ["invoices"] as const,
   list: (params: InvoiceListParams) => ["invoices", "list", params] as const,
   message: (id: string) => ["invoices", "message", id] as const,
 };
+
+/**
+ * Order yang siap ditagih pelunasannya: DP-nya sudah masuk, ongkirnya sudah
+ * ditetapkan, dan belum punya invoice pelunasan yang berlaku.
+ */
+export function useInvoiceCandidates(search: string, enabled: boolean) {
+  return useQuery({
+    queryKey: invoiceKeys.candidates(search),
+    queryFn: () => api.get<InvoiceCandidate[]>(`/invoices/candidates${buildQuery({ q: search })}`),
+    enabled,
+  });
+}
+
+/** Menerbitkan invoice pelunasan untuk sebuah order dari menu Invoice. */
+export function useIssueFinalInvoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      ...payload
+    }: {
+      orderId: string;
+      due_date?: string;
+      notes?: string | null;
+    }) => api.post<Invoice>(`/orders/${orderId}/invoices`, { type: "final", ...payload }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: shipmentKeys.all });
+    },
+  });
+}
+
+/**
+ * Mencatat pelunasan sebuah invoice sebagai pembayaran pada ordernya.
+ *
+ * Sengaja tidak sekadar menandai baris invoice jadi "paid": saldo order dan
+ * laporan piutang dihitung dari tabel pembayaran, jadi menandai dokumennya
+ * tanpa mencatat uangnya akan membuat keduanya berbohong.
+ */
+export function useSettleInvoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      ...payload
+    }: {
+      orderId: string;
+      amount: string;
+      method: PaymentMethod;
+      paid_at?: string;
+      reference?: string | null;
+    }) => api.post(`/orders/${orderId}/payments`, { type: "settlement", ...payload }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: shipmentKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+  });
+}
 
 export function useInvoices(params: InvoiceListParams) {
   return useQuery({

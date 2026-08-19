@@ -535,6 +535,19 @@ export interface ShippingRate {
   updated_at: string;
 }
 
+/** Order yang siap ditagih pelunasannya, untuk dialog Buat Invoice. */
+export interface InvoiceCandidate {
+  order_id: string;
+  order_number: string;
+  order_date: string;
+  customer_name: string;
+  trip_code: string;
+  total: Money;
+  shipping_fee: Money;
+  paid_amount: Money;
+  balance_due: Money;
+}
+
 /**
  * Satu baris di menu Pengiriman.
  *

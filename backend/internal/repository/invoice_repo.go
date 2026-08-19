@@ -263,6 +263,45 @@ func (r *ShipmentRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, c
 		id, courier, service, weightGram, shippingCost, trackingNumber, notes)
 }
 
+// ListCandidates mendaftar order yang siap ditagih pelunasannya: DP-nya sudah
+// masuk, ongkirnya sudah ditetapkan, masih ada sisa tagihan, dan belum punya
+// invoice pelunasan yang berlaku.
+//
+// Invoice yang dibatalkan sengaja tidak menghalangi: itulah cara admin
+// menerbitkan pengganti setelah salah terbit.
+func (r *InvoiceRepo) ListCandidates(ctx context.Context, q db.Querier, search string) ([]domain.InvoiceCandidate, error) {
+	args := []any{}
+	extra := ""
+	if search != "" {
+		args = append(args, "%"+search+"%")
+		extra = fmt.Sprintf(" AND (o.order_number ILIKE $%d OR c.name ILIKE $%d)", len(args), len(args))
+	}
+
+	return collectRows[domain.InvoiceCandidate](ctx, q, `
+		SELECT
+			o.id            AS order_id,
+			o.order_number  AS order_number,
+			o.order_date    AS order_date,
+			c.name          AS customer_name,
+			t.code          AS trip_code,
+			o.total         AS total,
+			o.shipping_fee  AS shipping_fee,
+			o.paid_amount   AS paid_amount,
+			o.balance_due   AS balance_due
+		FROM orders o
+		JOIN customers c ON c.id = o.customer_id
+		JOIN trips t     ON t.id = o.trip_id
+		WHERE o.status = 'dp_paid'
+		  AND o.shipping_fee > 0
+		  AND o.balance_due > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM invoices i
+			WHERE i.order_id = o.id AND i.type = 'final' AND i.status <> 'void'
+		  )`+extra+`
+		ORDER BY o.order_date ASC, o.order_number ASC
+		LIMIT 100`, args...)
+}
+
 // TotalShippingCostByTrip dipakai laporan profit untuk memisahkan ongkir yang
 // benar-benar dibayar ke kurir dari ongkir yang ditagihkan ke customer.
 func (r *ShipmentRepo) TotalShippingCostByTrip(ctx context.Context, q db.Querier, tripID uuid.UUID) (decimal.Decimal, error) {

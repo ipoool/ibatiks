@@ -246,6 +246,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			private.Route("/invoices", func(invoices chi.Router) {
 				invoices.Use(staffOnly, canAccess(domain.PermInvoices))
 				invoices.Get("/", d.Handlers.Invoices.List)
+				invoices.Get("/candidates", d.Handlers.Invoices.Candidates)
 				invoices.Get("/{id}", d.Handlers.Invoices.Get)
 				invoices.Get("/{id}/pdf", d.Handlers.Invoices.PDF)
 				invoices.Get("/{id}/message", d.Handlers.Invoices.Message)
