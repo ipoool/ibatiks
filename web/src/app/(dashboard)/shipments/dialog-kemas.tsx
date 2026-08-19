@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState } from "@/components/ui/page";
+import { Checkbox } from "@/components/ui/checkbox";
 import { usePackOrder, useShippingOptions } from "@/hooks/use-operations";
+import { useOrder } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
-import { cn, formatIDR, toNumber } from "@/lib/utils";
+import { cn, formatIDR, formatNumber, toNumber } from "@/lib/utils";
 import type { ShippingOption, ShippingQueueItem } from "@/types/api";
 
 /**
@@ -33,6 +35,25 @@ export function DialogKemas({
 }) {
   const pack = usePackOrder(item.order_id);
   const options = useShippingOptions(item.order_id);
+  const detail = useOrder(item.order_id);
+
+  /*
+   * Centang pengecekan barang. Sengaja tidak disimpan ke database: ini ritual
+   * di meja kemas — hitung fisiknya, centang, lalu segel kardusnya. Yang punya
+   * arti setelah dialog ditutup adalah paketnya sudah dikemas, dan itu sudah
+   * tercatat sendiri lewat data kemasan.
+   */
+  const [dicek, setDicek] = useState<Record<string, boolean>>({});
+  const daftarItem = detail.data?.items ?? [];
+  const jumlahDicek = daftarItem.filter((baris) => dicek[baris.id]).length;
+  const semuaDicek = daftarItem.length > 0 && jumlahDicek === daftarItem.length;
+  /*
+   * Kalau daftarnya gagal dimuat, penguncian dilepas. Menahan tombol Simpan
+   * karena jaringan sedang bermasalah berarti paket yang sudah siap tidak bisa
+   * dicatat sama sekali — jauh lebih merugikan daripada satu pengecekan yang
+   * terlewat.
+   */
+  const terkunci = detail.isLoading || (daftarItem.length > 0 && !semuaDicek);
 
   const [form, setForm] = useState({
     weight_gram: item.weight_gram ?? 0,
@@ -127,6 +148,7 @@ export function DialogKemas({
       onSubmit={handleSubmit}
       loading={pack.isPending}
       submitLabel="Simpan"
+      submitDisabled={terkunci}
     >
       <ErrorState error={pack.error} />
 
@@ -270,6 +292,65 @@ export function DialogKemas({
           placeholder="42000"
         />
       </Field>
+
+      {/* Daftar periksa isi paket. Ditaruh sebelum catatan supaya urutannya
+          mengikuti pekerjaannya: hitung barangnya dulu, baru tulis catatan. */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Barang yang dipesan</p>
+
+        {detail.isLoading ? (
+          <p className="text-sm text-muted-foreground">Memuat daftar barang…</p>
+        ) : daftarItem.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Daftar barang tidak bisa dimuat. Pengecekan dilewati supaya paket yang sudah siap
+            tetap bisa dicatat.
+          </p>
+        ) : (
+          <>
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {daftarItem.map((baris) => {
+                const kurang = baris.qty_purchased < baris.qty;
+                return (
+                  <label
+                    key={baris.id}
+                    className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-accent/50"
+                  >
+                    <Checkbox
+                      checked={Boolean(dicek[baris.id])}
+                      onCheckedChange={(nilai) =>
+                        setDicek({ ...dicek, [baris.id]: nilai === true })
+                      }
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium">{baris.product_name}</span>
+                      {/* Yang perlu dihitung adalah yang benar-benar terbeli,
+                          bukan yang dulu dipesan — dan bedanya justru yang
+                          paling gampang terlewat saat mengemas. */}
+                      <span className="block text-xs text-muted-foreground">
+                        {kurang
+                          ? `Terbeli ${formatNumber(baris.qty_purchased)} dari ${formatNumber(baris.qty)} pcs dipesan`
+                          : `${formatNumber(baris.qty)} pcs`}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            {semuaDicek ? (
+              <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                <Check className="size-3.5" />
+                Semua barang sudah dicek — order siap dikemas.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Centang tiap barang setelah dihitung fisiknya. Tombol Simpan terbuka setelah
+                semuanya dicek ({formatNumber(jumlahDicek)} dari {formatNumber(daftarItem.length)}).
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       <Field label="Catatan kemasan" htmlFor="kemas_catatan">
         <Textarea
