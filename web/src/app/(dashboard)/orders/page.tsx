@@ -11,6 +11,7 @@ import { FilterSelect } from "@/components/filter-select";
 import { Button } from "@/components/ui/button";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
+import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useOrders } from "@/hooks/use-orders";
@@ -135,7 +136,7 @@ export default function OrdersPage() {
 
       <div>
         <DataTable
-          columns={8}
+          columns={9}
           isLoading={isLoading}
           isEmpty={!isLoading && (data?.items.length ?? 0) === 0}
           emptyTitle="Belum ada order"
@@ -151,7 +152,8 @@ export default function OrdersPage() {
           head={
             <TR>
               <TH className="min-w-32">Order</TH>
-              <TH className="hidden min-w-32 sm:table-cell">Customer</TH>
+              <TH className="hidden whitespace-nowrap sm:table-cell">Tanggal</TH>
+              <TH className="hidden min-w-32 md:table-cell">Customer</TH>
               <TH className="hidden min-w-28 xl:table-cell">Trip</TH>
               <TH className="hidden w-24 xl:table-cell">Channel</TH>
               <TH className="hidden w-16 text-right lg:table-cell">Pcs</TH>
@@ -164,19 +166,30 @@ export default function OrdersPage() {
           {data?.items.map((order) => (
             <TR key={order.id}>
               <TD>
-                <Link
-                  href={`/orders/${order.id}`}
-                  className="font-medium whitespace-nowrap hover:underline"
-                >
-                  {order.order_number}
-                </Link>
-                <p className="text-xs text-muted-foreground">{formatDate(order.order_date)}</p>
-                {/* Nama customer ikut di kolom order selama kolomnya sendiri
-                    disembunyikan; tanpa itu daftar order di ponsel cuma berisi
-                    nomor yang tidak bisa dibedakan satu sama lain. */}
-                <p className="text-xs text-muted-foreground sm:hidden">{order.customer_name}</p>
+                <div className="flex items-center gap-0.5">
+                  <Link
+                    href={`/orders/${order.id}`}
+                    className="font-medium whitespace-nowrap hover:underline"
+                  >
+                    {order.order_number}
+                  </Link>
+                  {/* Nomor order sering ditempel ke chat WhatsApp customer.
+                      Menyalinnya dengan blok manual gampang meleset satu digit,
+                      dan nomor yang salah menuntun ke order orang lain. */}
+                  <CopyButton value={order.order_number} label="Nomor order" />
+                </div>
+                {/* Tanggal dan nama customer ikut di kolom order selama kolom
+                    masing-masing disembunyikan; tanpa itu daftar order di ponsel
+                    cuma berisi nomor yang tidak bisa dibedakan satu sama lain. */}
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {formatDate(order.order_date)}
+                </p>
+                <p className="text-xs text-muted-foreground md:hidden">{order.customer_name}</p>
               </TD>
-              <TD className="hidden sm:table-cell">
+              <TD className="hidden text-sm whitespace-nowrap sm:table-cell">
+                {formatDate(order.order_date)}
+              </TD>
+              <TD className="hidden md:table-cell">
                 <p className="font-medium">{order.customer_name}</p>
                 <p className="text-xs text-muted-foreground">{order.shipping_city}</p>
               </TD>
