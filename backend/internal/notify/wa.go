@@ -83,6 +83,63 @@ func BuildDPRequest(p DPRequestParams) Message {
 	}
 }
 
+// BuildInvoiceMessageFor memilih template sesuai jenis invoice.
+//
+// Pemilihannya sengaja di sini, bukan di layanan pemanggil: inilah aturan yang
+// pernah keliru — invoice DP dikirim dengan template pelunasan — dan aturan
+// yang keliru sekali lebih baik dijaga di tempat yang bisa diuji tanpa
+// database.
+func BuildInvoiceMessageFor(p DPInvoiceParams) Message {
+	if p.Invoice.Type == domain.InvoiceDP {
+		return BuildDPInvoiceMessage(p)
+	}
+	return BuildInvoiceMessage(InvoiceParams{
+		Settings: p.Settings,
+		Customer: p.Customer,
+		Invoice:  p.Invoice,
+		Order:    p.Order,
+	})
+}
+
+// DPInvoiceParams adalah data untuk pesan yang menyertai invoice DP.
+type DPInvoiceParams struct {
+	Settings  domain.Settings
+	Customer  *domain.Customer
+	Invoice   *domain.Invoice
+	Order     *domain.Order
+	TripTitle string
+}
+
+// BuildDPInvoiceMessage menyusun pesan pengantar invoice DP.
+//
+// Memakai template DP, bukan template pelunasan. Keduanya bicara pada saat yang
+// sama sekali berbeda: invoice DP dikirim ketika customer baru menyetujui
+// pesanannya dan barangnya belum dibeli, sementara template pelunasan berbunyi
+// "barang pesananmu sudah sampai di Indonesia". Salah pakai berarti customer
+// diberi tahu barangnya sudah tiba pada hari ia memesan.
+//
+// Nominalnya diambil dari invoice, bukan dari order, supaya cocok dengan angka
+// pada PDF yang dilampirkan.
+func BuildDPInvoiceMessage(p DPInvoiceParams) Message {
+	text := Render(p.Settings.GetOr(domain.SettingWATemplateDP, defaultDPTemplate), map[string]string{
+		"customer_name":  p.Customer.Name,
+		"store_name":     p.Settings.GetOr(domain.SettingStoreName, "Ibatiks"),
+		"trip_title":     p.TripTitle,
+		"order_number":   p.Order.OrderNumber,
+		"invoice_number": p.Invoice.InvoiceNumber,
+		"total":          money.Format(p.Invoice.Total),
+		"dp_amount":      money.Format(p.Invoice.AmountDue),
+		"bank_account":   p.Settings.Get(domain.SettingBankAccount),
+	})
+
+	return Message{
+		Phone:       p.Customer.PhoneWA,
+		Text:        text,
+		WhatsAppURL: WhatsAppURL(p.Customer.PhoneWA, text),
+		MailtoURL:   mailtoIfPresent(p.Customer.Email, "Invoice DP "+p.Invoice.InvoiceNumber, text),
+	}
+}
+
 // InvoiceParams adalah data untuk pesan penagihan pelunasan.
 type InvoiceParams struct {
 	Settings domain.Settings

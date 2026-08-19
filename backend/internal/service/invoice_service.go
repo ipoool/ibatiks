@@ -302,11 +302,20 @@ func (s *InvoiceService) Message(ctx context.Context, id uuid.UUID) (*notify.Mes
 		return nil, err
 	}
 
-	message := notify.BuildInvoiceMessage(notify.InvoiceParams{
-		Settings: settings,
-		Customer: customer,
-		Invoice:  invoice,
-		Order:    order,
+	trip, err := s.trips.GetByID(ctx, s.pool, order.TripID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Invoice DP dan invoice pelunasan memakai template yang berbeda karena
+	// bicara pada saat yang berbeda; pemilihannya ada di notify supaya bisa
+	// diuji tanpa database.
+	message := notify.BuildInvoiceMessageFor(notify.DPInvoiceParams{
+		Settings:  settings,
+		Customer:  customer,
+		Invoice:   invoice,
+		Order:     order,
+		TripTitle: trip.Title,
 	})
 	return &message, nil
 }
