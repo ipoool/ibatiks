@@ -19,13 +19,17 @@ web/out/
 web/next-env.d.ts
 web/*.tsbuildinfo
 
-# Data operasional
-# data/ berisi direktori data PostgreSQL. Isinya berkas biner milik server yang
-# sedang berjalan, bukan sesuatu yang bisa dibaca atau digabung sebagai teks.
-data/
-backups/
-uploads/
-invoices/
+# Data operasional — semuanya diikat ke akar repo dengan garis miring di depan.
+# Tanpa itu, "invoices/" cocok dengan direktori bernama invoices di kedalaman
+# mana pun, termasuk rute Next.js web/src/app/(dashboard)/invoices — dan halaman
+# Invoice diam-diam tidak pernah ikut ter-commit.
+#
+# /data berisi direktori data PostgreSQL: berkas biner milik server yang sedang
+# berjalan, bukan sesuatu yang bisa dibaca atau digabung sebagai teks.
+/data/
+/backups/
+/uploads/
+/invoices/
 
 # Editor & sistem
 .DS_Store
