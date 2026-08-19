@@ -21,11 +21,20 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-jastipin}
       # Locale Indonesia agar pengurutan teks sesuai kebiasaan setempat.
       LANG: id_ID.utf8
+      # Data ditaruh di subdirektori, bukan langsung di titik mount. Postgres
+      # menolak jalan kalau direktori datanya bukan miliknya sendiri, dan titik
+      # mount sebuah folder host hampir tidak pernah begitu.
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       # Di-publish ke host supaya bisa dibuka dari GUI database saat development.
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Folder biasa di repo, bukan volume Docker. Volume bernama ikut terhapus
+      # oleh `docker compose down -v` — satu perintah yang tidak menyebut-nyebut
+      # database sama sekali, tapi menghapus seluruh isinya. Sebagai folder, ia
+      # selamat dari apa pun yang dilakukan Docker pada containernya, dan bisa
+      # disalin atau dicadangkan seperti berkas lain.
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       # Service lain menunggu sampai perintah ini sukses, bukan sekadar sampai
       # containernya menyala — postgres butuh beberapa detik untuk siap.
@@ -106,7 +115,6 @@ services:
       - "8081:8080"
 
 volumes:
-  pgdata:
   uploads:
   gocache:
   backend_tmp:

@@ -67,6 +67,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 **Pencarian customer menormalkan nomor.** Nomor disimpan sebagai `62812…`, sementara admin mengetiknya seperti yang tertera di WhatsApp customer (`0812…`). Kata kunci yang berbentuk nomor ikut dinormalkan sebelum dicocokkan; `domain.LooksLikePhone` sengaja ketat supaya kata kunci berhuruf tetap diperlakukan sebagai pencarian nama dan hasilnya tidak melebar.
 
+**Data PostgreSQL tinggal di folder `./data/postgres`, bukan volume Docker.** Volume bernama ikut terhapus oleh `docker compose down -v` — perintah pembersihan container yang tidak menyebut-nyebut database sama sekali. Jangan mengembalikannya jadi volume. `PGDATA` sengaja menunjuk subdirektori `pgdata` di dalam titik mount, sebab postgres menolak jalan kalau direktori datanya bukan miliknya sendiri. Satu-satunya perintah yang menghapus folder itu adalah `make reset`, dan target itu menghapusnya secara terpisah karena `down -v` tidak lagi bisa.
+
 **Migrasi bersifat tambahan.** Jangan menyunting file migrasi yang sudah pernah dijalankan — buat migrasi baru. Setiap `.up.sql` wajib punya `.down.sql` yang benar-benar membalik; uji dengan `make migrate-down && make migrate-up`.
 
 ## Ongkir

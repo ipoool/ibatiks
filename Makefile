@@ -129,5 +129,9 @@ clean: ## Hapus container dan artefak build (data tetap aman)
 	rm -rf backend/tmp web/.next
 
 reset: ## Hapus SEMUANYA termasuk data database
+	# Data postgres tinggal di ./data/postgres, bukan di volume Docker, jadi
+	# `down -v` saja tidak lagi menghapusnya — dan target ini menjanjikan
+	# sebaliknya. Foldernya dihapus terpisah supaya janjinya tetap ditepati.
 	$(COMPOSE) down -v --remove-orphans
-	@echo "✓ Semua container dan volume dihapus"
+	rm -rf data/postgres
+	@echo "✓ Semua container, volume, dan data database dihapus"

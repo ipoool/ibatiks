@@ -20,6 +20,9 @@ web/next-env.d.ts
 web/*.tsbuildinfo
 
 # Data operasional
+# data/ berisi direktori data PostgreSQL. Isinya berkas biner milik server yang
+# sedang berjalan, bukan sesuatu yang bisa dibaca atau digabung sebagai teks.
+data/
 backups/
 uploads/
 invoices/

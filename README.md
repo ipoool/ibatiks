@@ -490,6 +490,27 @@ IMAGE_REGISTRY=ghcr.io/username IMAGE_TAG=v1.0.0 docker compose -f docker-compos
 
 ## Perawatan
 
+### Di mana datanya tersimpan
+
+Direktori data PostgreSQL ada di **`./data/postgres`**, sebuah folder biasa di
+sebelah `docker-compose.yml` — bukan volume Docker. Ini berlaku baik di
+pengembangan maupun di server.
+
+Alasannya satu: volume bernama ikut terhapus oleh `docker compose down -v`,
+perintah yang biasa dipakai untuk membersihkan container dan tidak menyebut-nyebut
+database sama sekali. Sebagai folder, datanya selamat dari apa pun yang dilakukan
+Docker pada containernya, dan bisa disalin atau dipindahkan seperti berkas biasa.
+
+Folder itu ada di `.gitignore` — isinya berkas biner milik server yang sedang
+berjalan, bukan sesuatu yang bisa dibaca atau digabung sebagai teks.
+
+Satu-satunya perintah yang menghapusnya adalah **`make reset`**, dan itu memang
+tugasnya.
+
+> Menyalin folder ini sebagai cadangan hanya aman kalau containernya sedang mati.
+> Selama postgres berjalan, sebagian datanya masih di memori dan salinannya bisa
+> setengah jadi. Untuk cadangan pada server yang hidup, pakai `make backup`.
+
 ### Backup database
 
 ```bash

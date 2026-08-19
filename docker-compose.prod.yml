@@ -20,8 +20,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER wajib diisi}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB wajib diisi}
+      # Subdirektori, bukan titik mountnya langsung — lihat alasannya di
+      # docker-compose.yml.
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Alasannya sama seperti di compose pengembangan: folder biasa supaya data
+      # tidak bergantung pada umur volume Docker. Di server, folder ini yang
+      # ikut disalin saat memindahkan atau mencadangkan aplikasi.
+      - ./data/postgres:/var/lib/postgresql/data
       - ./backups:/backups
     # Database sengaja tidak mem-publish port ke host: satu-satunya yang boleh
     # menghubunginya adalah service lain di jaringan internal compose ini.
@@ -114,7 +120,6 @@ services:
       - caddy_config:/config
 
 volumes:
-  pgdata:
   uploads:
   caddy_data:
   caddy_config:
