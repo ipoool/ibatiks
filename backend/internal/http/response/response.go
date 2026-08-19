@@ -111,6 +111,8 @@ func statusFor(code domain.ErrorCode) int {
 	case domain.CodeInvalidState:
 		// 409: permintaannya valid, tapi status entitas saat ini menolaknya.
 		return http.StatusConflict
+	case domain.CodeTooMany:
+		return http.StatusTooManyRequests
 	default:
 		return http.StatusInternalServerError
 	}

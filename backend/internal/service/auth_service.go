@@ -8,6 +8,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -46,19 +47,38 @@ type Session struct {
 
 // Login memverifikasi kredensial lalu menerbitkan sepasang token.
 func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipAddress string) (*Session, error) {
-	user, err := s.users.GetByEmail(ctx, s.pool, strings.TrimSpace(email))
+	// Dinormalkan sekali di sini supaya hitungan kegagalan tidak bisa diakali
+	// dengan mengubah huruf besar-kecil emailnya.
+	email = strings.ToLower(strings.TrimSpace(email))
+	now := time.Now()
+
+	attempt, err := s.users.GetLoginAttempt(ctx, s.pool, email)
+	if err != nil {
+		return nil, err
+	}
+	if sisa := attempt.BlockedFor(now); sisa > 0 {
+		return nil, domain.TooMany(
+			"terlalu banyak percobaan login yang gagal — coba lagi dalam %s", sisaMenit(sisa))
+	}
+
+	user, err := s.users.GetByEmail(ctx, s.pool, email)
 	if err != nil {
 		if domainErr, ok := domain.AsError(err); ok && domainErr.Code == domain.CodeNotFound {
 			// Jangan bocorkan apakah email terdaftar: pesan yang sama dipakai
-			// untuk email tak dikenal maupun password salah.
-			return nil, domain.Unauthorized("email atau password salah")
+			// untuk email tak dikenal maupun password salah, dan kegagalannya
+			// sama-sama dihitung.
+			return nil, s.catatGagalLogin(ctx, email, ipAddress)
 		}
 		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return nil, domain.Unauthorized("email atau password salah")
+		return nil, s.catatGagalLogin(ctx, email, ipAddress)
 	}
+
+	// Akun nonaktif tidak ikut dihitung sebagai percobaan gagal: passwordnya
+	// benar, dan menguncinya hanya menyusahkan orang yang memang berhak tahu
+	// kenapa ia tidak bisa masuk.
 	if !user.IsActive {
 		return nil, domain.Forbidden("akun ini sudah dinonaktifkan, hubungi owner")
 	}
@@ -68,9 +88,62 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 		return nil, err
 	}
 
-	// Kegagalan mencatat waktu login tidak boleh menggagalkan login itu sendiri.
+	// Kegagalan membersihkan rekaman atau mencatat waktu login tidak boleh
+	// menggagalkan login yang sudah sah.
+	_ = s.users.ClearLoginAttempts(ctx, s.pool, email)
 	_ = s.users.TouchLastLogin(ctx, s.pool, user.ID)
 	return session, nil
+}
+
+// catatGagalLogin menaikkan hitungan kegagalan lalu menyusun pesan penolakannya.
+//
+// Sisa percobaan ikut disebutkan supaya pengguna yang cuma salah ketik tahu ia
+// mendekati batas. Itu tidak membocorkan apa pun: hitungannya berlaku sama untuk
+// email yang terdaftar maupun tidak.
+func (s *AuthService) catatGagalLogin(ctx context.Context, email, ipAddress string) error {
+	attempt, err := s.users.RecordFailedLogin(
+		ctx, s.pool, email, ipAddress, domain.LoginMaxAttempts, domain.LoginBlockDuration)
+	if err != nil {
+		// Penjagaannya gagal, tapi passwordnya memang salah. Menolak dengan
+		// pesan biasa lebih benar daripada membalas galat server.
+		return domain.Unauthorized("email atau password salah")
+	}
+
+	// Membersihkan baris lama sekalian, selagi sudah menyentuh tabelnya.
+	_ = s.users.PurgeStaleLoginAttempts(ctx, s.pool, 24*time.Hour)
+
+	if sisa := attempt.BlockedFor(time.Now()); sisa > 0 {
+		return domain.TooMany(
+			"gagal %d kali berturut-turut — login untuk email ini dikunci %s",
+			domain.LoginMaxAttempts, sisaMenit(sisa))
+	}
+
+	tersisa := attempt.AttemptsLeft(time.Now())
+	if tersisa <= 2 {
+		return domain.Unauthorized(fmt.Sprintf(
+			"email atau password salah — sisa %d percobaan sebelum dikunci %s",
+			tersisa, sisaMenit(domain.LoginBlockDuration)))
+	}
+	return domain.Unauthorized("email atau password salah")
+}
+
+// sisaMenit membulatkan durasi ke atas ke menit penuh.
+//
+// Detik yang tercetak apa adanya ("4m37s") hanya membuat orang menghitung
+// sendiri; yang mereka butuhkan cuma tahu kira-kira berapa lama menunggu.
+//
+// Pembulatannya dikerjakan sekali dengan pembagian ke atas. Versi sebelumnya
+// membulatkan dulu lalu memeriksa sisa dari nilai aslinya, sehingga kunci lima
+// menit dilaporkan sebagai enam.
+func sisaMenit(d time.Duration) string {
+	if d <= 0 {
+		return "kurang dari 1 menit"
+	}
+	menit := int((d + time.Minute - 1) / time.Minute)
+	if menit <= 1 {
+		return "1 menit"
+	}
+	return fmt.Sprintf("%d menit", menit)
 }
 
 // Refresh menukar refresh token dengan sepasang token baru.

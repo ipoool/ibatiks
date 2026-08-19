@@ -64,3 +64,60 @@ type RefreshToken struct {
 func (t RefreshToken) IsUsable() bool {
 	return t.RevokedAt == nil && t.ExpiresAt.After(time.Now())
 }
+
+// Penjagaan percobaan login.
+const (
+	// LoginMaxAttempts adalah jumlah kegagalan berturut-turut sebelum sebuah
+	// email dikunci.
+	LoginMaxAttempts = 5
+	// LoginBlockDuration adalah lama penguncian, sekaligus lebar jendela
+	// penghitungan: lima kegagalan harus terjadi dalam rentang ini untuk
+	// mengunci. Tanpa jendela, satu salah ketik hari ini dan empat lagi bulan
+	// depan akan mengunci akun tanpa ada yang menyerang apa pun.
+	LoginBlockDuration = 5 * time.Minute
+)
+
+// LoginAttempt adalah rekaman kegagalan login untuk satu alamat email.
+//
+// Dihitung per email, bukan per alamat IP. Itu keputusan sadar: penebak
+// password yang berpindah-pindah IP tetap tertahan, dengan konsekuensi yang
+// harus diketahui — siapa pun yang tahu alamat email seorang pengguna bisa
+// membuatnya terkunci dengan sengaja salah lima kali.
+//
+// Emailnya dicatat apa adanya termasuk yang tidak terdaftar. Kalau hanya email
+// terdaftar yang dihitung, pola penguncian justru membocorkan email mana yang
+// ada di sistem.
+type LoginAttempt struct {
+	Email        string     `db:"email"          json:"email"`
+	FailedCount  int        `db:"failed_count"   json:"failed_count"`
+	LastFailedAt *time.Time `db:"last_failed_at" json:"last_failed_at"`
+	BlockedUntil *time.Time `db:"blocked_until"  json:"blocked_until"`
+	LastIP       *string    `db:"last_ip"        json:"last_ip"`
+	UpdatedAt    time.Time  `db:"updated_at"     json:"updated_at"`
+}
+
+// BlockedFor mengembalikan sisa waktu penguncian, atau nol kalau tidak dikunci.
+func (a *LoginAttempt) BlockedFor(now time.Time) time.Duration {
+	if a == nil || a.BlockedUntil == nil {
+		return 0
+	}
+	if sisa := a.BlockedUntil.Sub(now); sisa > 0 {
+		return sisa
+	}
+	return 0
+}
+
+// AttemptsLeft mengembalikan sisa percobaan sebelum terkunci.
+//
+// Kegagalan yang sudah lewat jendela penghitungan tidak ikut dihitung — hitungan
+// dimulai lagi dari nol.
+func (a *LoginAttempt) AttemptsLeft(now time.Time) int {
+	if a == nil || a.LastFailedAt == nil || now.Sub(*a.LastFailedAt) > LoginBlockDuration {
+		return LoginMaxAttempts
+	}
+	sisa := LoginMaxAttempts - a.FailedCount
+	if sisa < 0 {
+		return 0
+	}
+	return sisa
+}

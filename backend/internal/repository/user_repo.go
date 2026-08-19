@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -180,4 +181,94 @@ func (r *UserRepo) PurgeExpiredRefreshTokens(ctx context.Context, q db.Querier) 
 		`DELETE FROM refresh_tokens
 		 WHERE expires_at < now() - INTERVAL '30 days'
 		    OR (revoked_at IS NOT NULL AND revoked_at < now() - INTERVAL '30 days')`)
+}
+
+// --- Percobaan login --------------------------------------------------------
+
+const loginAttemptColumns = `email, failed_count, last_failed_at, blocked_until, last_ip, updated_at`
+
+// GetLoginAttempt membaca rekaman kegagalan sebuah email.
+//
+// Mengembalikan nil tanpa error kalau belum ada rekamannya — itu keadaan yang
+// paling lazim, dan bukan sesuatu yang perlu ditangani pemanggil sebagai galat.
+func (r *UserRepo) GetLoginAttempt(ctx context.Context, q db.Querier, email string) (*domain.LoginAttempt, error) {
+	rows, err := collectRows[domain.LoginAttempt](ctx, q,
+		`SELECT `+loginAttemptColumns+` FROM login_attempts WHERE email = $1`, email)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
+// RecordFailedLogin menaikkan hitungan kegagalan dan mengunci email bila sudah
+// mencapai batas.
+//
+// Seluruh keputusannya dikerjakan di dalam satu pernyataan SQL, bukan
+// baca-lalu-tulis di Go: dua percobaan yang datang bersamaan akan saling
+// menimpa kalau hitungannya dibaca dulu ke memori, dan penyerang yang menembak
+// paralel justru mendapat percobaan gratis.
+func (r *UserRepo) RecordFailedLogin(
+	ctx context.Context, q db.Querier, email, ip string, maxAttempts int, window time.Duration,
+) (*domain.LoginAttempt, error) {
+	var ipValue *string
+	if ip = strings.TrimSpace(ip); ip != "" {
+		ipValue = &ip
+	}
+
+	return collectOne[domain.LoginAttempt](ctx, q, "percobaan login", `
+		INSERT INTO login_attempts (email, failed_count, last_failed_at, last_ip, updated_at)
+		VALUES ($1, 1, now(), $2, now())
+		ON CONFLICT (email) DO UPDATE SET
+			-- Kegagalan yang sudah lewat jendela tidak ikut dihitung: hitungannya
+			-- dimulai lagi dari satu.
+			failed_count = CASE
+				WHEN login_attempts.last_failed_at IS NULL
+				  OR login_attempts.last_failed_at < now() - $4::interval
+				THEN 1
+				ELSE login_attempts.failed_count + 1
+			END,
+			last_failed_at = now(),
+			last_ip        = $2,
+			updated_at     = now(),
+			blocked_until  = CASE
+				WHEN (CASE
+						WHEN login_attempts.last_failed_at IS NULL
+						  OR login_attempts.last_failed_at < now() - $4::interval
+						THEN 1
+						ELSE login_attempts.failed_count + 1
+					  END) >= $3
+				THEN now() + $4::interval
+				ELSE NULL
+			END
+		RETURNING `+loginAttemptColumns,
+		email, ipValue, maxAttempts, window)
+}
+
+// ClearLoginAttempts menghapus rekaman kegagalan setelah login berhasil.
+func (r *UserRepo) ClearLoginAttempts(ctx context.Context, q db.Querier, email string) error {
+	_, err := q.Exec(ctx, `DELETE FROM login_attempts WHERE email = $1`, email)
+	if err != nil {
+		return wrapPgError(err)
+	}
+	return nil
+}
+
+// PurgeStaleLoginAttempts membuang rekaman yang sudah tidak berarti apa-apa.
+//
+// Tanpa ini tabelnya tumbuh selamanya oleh email acak yang pernah dicoba
+// penyerang. Dipanggil sesekali dari jalur login, bukan lewat penjadwal
+// tersendiri: satu DELETE yang menyapu baris lama jauh lebih murah daripada
+// satu proses latar yang harus dirawat.
+func (r *UserRepo) PurgeStaleLoginAttempts(ctx context.Context, q db.Querier, olderThan time.Duration) error {
+	_, err := q.Exec(ctx, `
+		DELETE FROM login_attempts
+		WHERE last_failed_at < now() - $1::interval
+		  AND (blocked_until IS NULL OR blocked_until < now())`, olderThan)
+	if err != nil {
+		return wrapPgError(err)
+	}
+	return nil
 }

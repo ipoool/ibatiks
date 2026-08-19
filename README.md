@@ -384,6 +384,20 @@ Refresh token dirotasi setiap kali dipakai dan disimpan sebagai hash — kalau i
 
 Beri tripper akun sendiri agar bisa mencatat belanja langsung dari ponsel saat di toko.
 
+**Lima kali gagal login mengunci sebuah email selama lima menit.** Hitungannya berjendela: hanya
+kegagalan dalam lima menit terakhir yang dihitung, jadi satu salah ketik minggu lalu tidak
+mendekatkan siapa pun ke penguncian. Mulai percobaan ketiga, pesannya menyebutkan sisa percobaan
+supaya orang yang cuma salah ketik tahu ia mendekati batas.
+
+Dihitung **per email, bukan per alamat IP**. Penebak password yang berpindah-pindah IP karenanya
+tetap tertahan. Konsekuensinya perlu diketahui: siapa pun yang tahu alamat email seorang pengguna
+bisa membuatnya terkunci dengan sengaja salah lima kali. Penguncian selalu lepas sendiri setelah
+lima menit dan tidak pernah permanen; owner yang butuh masuk segera bisa menghapus barisnya dari
+tabel `login_attempts`.
+
+Email yang tidak terdaftar pun ikut dihitung. Kalau hanya email terdaftar yang dihitung, pola
+penguncian justru membocorkan email mana yang ada di sistem.
+
 ### Mempersempit per pengguna
 
 Role menentukan batas kasarnya. Di dalam batas itu, owner bisa mencentang menu apa saja yang boleh

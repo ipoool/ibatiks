@@ -133,6 +133,14 @@ Token tidak pernah menyentuh `localStorage`. Alurnya:
 - `src/middleware.ts` memperbarui token **sebelum halaman dirender di server** — render halaman tidak lewat proxy, jadi tanpa ini sesi putus tiap 15 menit.
 - Layout dashboard mengarahkan ke `/login?expired=1` bila backend menolak sesi. Penanda itu wajib: tanpanya middleware melihat cookie yang tampak sah dan melempar balik, dan halaman terjebak putaran pengalihan.
 
+**Login dikunci setelah lima kegagalan.** Lima kali gagal dalam lima menit mengunci sebuah email selama lima menit; aturannya di `domain.LoginMaxAttempts` dan `domain.LoginBlockDuration`, hitungannya di tabel `login_attempts`.
+
+- **Dihitung per email, bukan per IP.** Keputusan sadar: penebak password yang berpindah-pindah IP tetap tertahan. Konsekuensinya juga sadar — siapa pun yang tahu email seorang pengguna bisa membuatnya terkunci dengan sengaja salah lima kali. Kuncinya selalu lepas sendiri, tidak pernah permanen.
+- **Email yang tidak terdaftar ikut dihitung.** Kalau hanya email terdaftar yang dihitung, pola penguncian membocorkan email mana yang ada di sistem — persis yang dihindari pesan "email atau password salah" yang seragam itu.
+- **Hitungannya berjendela.** Kegagalan yang lebih lama dari `LoginBlockDuration` dilupakan. Tanpa itu, satu salah ketik hari ini dan empat lagi bulan depan akan mengunci akun tanpa ada yang menyerang apa pun.
+- **Penambahan hitungan dikerjakan satu pernyataan SQL**, bukan baca-lalu-tulis di Go. Dua percobaan yang datang bersamaan akan saling menimpa kalau hitungannya dibaca dulu ke memori, dan penyerang yang menembak paralel justru mendapat percobaan gratis.
+- **Akun nonaktif tidak dihitung sebagai kegagalan**: passwordnya benar, dan menguncinya hanya menyusahkan orang yang memang berhak tahu kenapa ia tidak bisa masuk.
+
 Kalau menyentuh salah satu bagian ini, uji tiga keadaan: token kedaluwarsa (masih bisa lanjut), refresh token ditolak (mendarat di form login, cookie terhapus), dan tanpa cookie sama sekali (dialihkan dengan `?next=`).
 
 ## Merek

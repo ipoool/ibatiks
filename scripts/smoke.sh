@@ -494,6 +494,29 @@ DEL_EMPTY="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/trips/$EMPTY
 expect "$DEL_EMPTY" "204" "hapus trip kosong diterima"
 expect "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$API/trips/$EMPTY_TRIP")" "404" "trip yang dihapus tidak bisa dibuka lagi"
 
+# Lima kali gagal login mengunci email itu selama lima menit. Dipakai email
+# khusus supaya akun owner yang dipakai smoke sendiri tidak ikut terkunci.
+UJI_EMAIL="uji-blokir-$$@ibatiks.id"
+for _ in 1 2 3 4; do
+  curl -s -o /dev/null -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$UJI_EMAIL\",\"password\":\"salah\"}"
+done
+BLOKIR_STATUS="$(curl -s -o /tmp/smoke-blokir.json -w '%{http_code}' -X POST "$API/auth/login" \
+  -H 'Content-Type: application/json' -d "{\"email\":\"$UJI_EMAIL\",\"password\":\"salah\"}")"
+expect "$BLOKIR_STATUS" "429" "login dikunci setelah 5 kali gagal"
+expect "$(jq -r '.error.code' /tmp/smoke-blokir.json)" "TOO_MANY_REQUESTS" "kodenya membedakan dikunci dari password salah"
+rm -f /tmp/smoke-blokir.json
+
+# Email lain tidak ikut terkunci — penguncian dihitung per email.
+LAIN_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/login" \
+  -H 'Content-Type: application/json' -d '{"email":"orang-lain@ibatiks.id","password":"salah"}')"
+expect "$LAIN_STATUS" "401" "email lain tidak ikut terkunci"
+
+# Akun owner yang dipakai smoke tetap bisa login.
+OWNER_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/login" \
+  -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+expect "$OWNER_STATUS" "200" "akun yang tidak pernah gagal tetap bisa masuk"
+
 # Endpoint tanpa token harus ditolak.
 NOAUTH_STATUS="$(curl -s -o /dev/null -w '%{http_code}' "$API/orders")"
 expect "$NOAUTH_STATUS" "401" "akses tanpa token ditolak"

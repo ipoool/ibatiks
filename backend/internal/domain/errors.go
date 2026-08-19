@@ -17,6 +17,7 @@ const (
 	CodeUnauthorized ErrorCode = "UNAUTHORIZED"
 	CodeForbidden    ErrorCode = "FORBIDDEN"
 	CodeInvalidState ErrorCode = "INVALID_STATE"
+	CodeTooMany      ErrorCode = "TOO_MANY_REQUESTS"
 	CodeInternal     ErrorCode = "INTERNAL_ERROR"
 )
 
@@ -74,6 +75,13 @@ func Unauthorized(message string) *Error {
 
 func Forbidden(message string) *Error {
 	return &Error{Code: CodeForbidden, Message: message}
+}
+
+// TooMany dipakai saat permintaan ditolak karena terlalu sering dicoba, bukan
+// karena isinya salah. Dipisah dari Unauthorized supaya frontend bisa
+// membedakan "passwordmu salah" dari "tunggu dulu".
+func TooMany(format string, args ...any) *Error {
+	return &Error{Code: CodeTooMany, Message: fmt.Sprintf(format, args...)}
 }
 
 func Internal(err error) *Error {
