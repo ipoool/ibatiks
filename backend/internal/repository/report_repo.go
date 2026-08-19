@@ -336,6 +336,56 @@ func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p paginati
 	return rows, total, nil
 }
 
+// CustomerSalesByChannel memecah rekap customer menjadi satu baris per kanal.
+//
+// Tanpa paginasi: hasilnya dipakai untuk ekspor CSV, dan ekspor yang berhenti
+// di halaman pertama diam-diam kehilangan sebagian besar datanya tanpa ada
+// tanda apa pun di berkasnya.
+func (r *ReportRepo) CustomerSalesByChannel(ctx context.Context, q db.Querier, tripID *uuid.UUID) ([]domain.CustomerChannelSales, error) {
+	conditions := []string{"o.status <> 'cancelled'"}
+	args := []any{}
+
+	if tripID != nil {
+		args = append(args, *tripID)
+		conditions = append(conditions, fmt.Sprintf("o.trip_id = $%d", len(args)))
+	}
+	where := buildWhere(conditions)
+
+	// Baris tiap customer dikelompokkan berdampingan dan customer dengan omzet
+	// terbesar di atas, mengikuti urutan yang sama seperti di layar. Jendela
+	// dipakai atas hasil agregat, jadi sum-nya bertingkat.
+	query := fmt.Sprintf(`
+		SELECT
+			c.code     AS customer_code,
+			c.name     AS customer_name,
+			c.phone_wa AS customer_phone,
+			c.city     AS city,
+			o.order_source                                 AS order_source,
+			count(DISTINCT o.id)::int                      AS order_count,
+			COALESCE(sum(iq.qty), 0)::int                  AS item_qty,
+			sum(o.total)                                   AS revenue,
+			COALESCE(sum(cg.cogs), 0)                      AS cogs,
+			(sum(o.total) - COALESCE(sum(cg.cogs), 0))     AS profit,
+			COALESCE(sum(GREATEST(o.balance_due, 0)), 0)   AS outstanding,
+			min(o.order_date)                              AS first_order_at,
+			max(o.order_date)                              AS last_order_at
+		FROM orders o
+		JOIN customers c ON c.id = o.customer_id
+		LEFT JOIN LATERAL (
+			SELECT sum(pa.qty * pa.unit_cost_idr) AS cogs
+			FROM purchase_allocations pa
+			JOIN order_items oi ON oi.id = pa.order_item_id
+			WHERE oi.order_id = o.id
+		) cg ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT sum(oi.qty) AS qty FROM order_items oi WHERE oi.order_id = o.id
+		) iq ON TRUE%s
+		GROUP BY c.id, c.code, c.name, c.phone_wa, c.city, o.order_source
+		ORDER BY sum(sum(o.total)) OVER (PARTITION BY c.id) DESC, c.name, o.order_source`, where)
+
+	return collectRows[domain.CustomerChannelSales](ctx, q, query, args...)
+}
+
 // ChannelSales merangkum penjualan per asal order. Jumlah barisnya selalu
 // sedikit (satu per kanal), jadi tidak perlu dihalaman.
 func (r *ReportRepo) ChannelSales(ctx context.Context, q db.Querier, tripID *uuid.UUID, from, to *time.Time) ([]domain.ChannelSales, error) {

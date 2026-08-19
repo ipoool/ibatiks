@@ -47,6 +47,11 @@ func (h *ReportHandler) TripProfit(w http.ResponseWriter, r *http.Request) {
 
 func (h *ReportHandler) OrderProfits(w http.ResponseWriter, r *http.Request) {
 	p := pagination.FromRequest(r)
+	// Ekspor mengambil seluruh baris, bukan sehalaman. Tombolnya bernama
+	// "Ekspor CSV", bukan "Ekspor halaman ini".
+	if r.URL.Query().Get("format") == "csv" {
+		p = p.ForExport()
+	}
 
 	tripID, err := request.UUIDQuery(r, "trip_id")
 	if err != nil {
@@ -84,6 +89,11 @@ func (h *ReportHandler) OrderProfits(w http.ResponseWriter, r *http.Request) {
 // Receivables mendaftar tagihan yang belum lunas, urut dari yang paling lama.
 func (h *ReportHandler) Receivables(w http.ResponseWriter, r *http.Request) {
 	p := pagination.FromRequest(r)
+	// Ekspor mengambil seluruh baris, bukan sehalaman. Tombolnya bernama
+	// "Ekspor CSV", bukan "Ekspor halaman ini".
+	if r.URL.Query().Get("format") == "csv" {
+		p = p.ForExport()
+	}
 
 	receivables, total, err := h.reports.Receivables(r.Context(), p)
 	if err != nil {
@@ -124,17 +134,27 @@ func (h *ReportHandler) CustomerSales(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, total, err := h.reports.CustomerSales(r.Context(), p, tripID)
-	if err != nil {
-		response.Error(w, r, err)
-		return
-	}
-
+	/*
+	 * Ekspor dipecah per kanal asal order, jadi satu customer bisa muncul lebih
+	 * dari sekali. Di layar satu baris per customer sudah menjawab siapa
+	 * pembelanja terbesar; pemecahannya berguna justru di spreadsheet — untuk
+	 * menilai kanal mana yang mendatangkan pelanggan bernilai, bukan sekadar
+	 * kanal mana yang ramai.
+	 *
+	 * Kuerinya sendiri, bukan hasil layar yang dibumbui: yang tampil di layar
+	 * cuma satu halaman, dan ekspor yang berhenti di halaman pertama kehilangan
+	 * sebagian besar datanya tanpa tanda apa pun di berkasnya.
+	 */
 	if r.URL.Query().Get("format") == "csv" {
+		rows, err := h.reports.CustomerSalesByChannel(r.Context(), tripID)
+		if err != nil {
+			response.Error(w, r, err)
+			return
+		}
+
 		writeCSV(w, r, "penjualan-customer", []string{
-			"kode", "customer", "telepon", "kota", "jumlah_order", "qty",
-			"omzet", "hpp", "profit", "piutang", "rata_rata_order",
-			"order_pertama", "order_terakhir",
+			"kode", "customer", "telepon", "kota", "channel", "jumlah_order", "qty",
+			"omzet", "hpp", "profit", "piutang", "order_pertama", "order_terakhir",
 		}, func(write func([]string) error) error {
 			for _, item := range rows {
 				city := ""
@@ -143,9 +163,10 @@ func (h *ReportHandler) CustomerSales(w http.ResponseWriter, r *http.Request) {
 				}
 				if err := write([]string{
 					item.CustomerCode, item.CustomerName, item.CustomerPhone, city,
+					item.Source,
 					strconv.Itoa(item.OrderCount), strconv.Itoa(item.ItemQty),
 					item.Revenue.String(), item.COGS.String(), item.Profit.String(),
-					item.Outstanding.String(), item.AvgOrderValue.String(),
+					item.Outstanding.String(),
 					formatDatePtr(item.FirstOrderAt), formatDatePtr(item.LastOrderAt),
 				}); err != nil {
 					return err
@@ -153,6 +174,12 @@ func (h *ReportHandler) CustomerSales(w http.ResponseWriter, r *http.Request) {
 			}
 			return nil
 		})
+		return
+	}
+
+	rows, total, err := h.reports.CustomerSales(r.Context(), p, tripID)
+	if err != nil {
+		response.Error(w, r, err)
 		return
 	}
 

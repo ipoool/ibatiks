@@ -107,6 +107,28 @@ type CustomerSales struct {
 	LastOrderAt   *time.Time      `db:"last_order_at"  json:"last_order_at"`
 }
 
+// CustomerChannelSales memecah rekap per customer menjadi per kanal asal order.
+//
+// Hanya dipakai untuk ekspor CSV. Di layar, satu baris per customer sudah cukup
+// untuk menjawab siapa pembelanja terbesar; pemecahan per kanal berguna justru
+// setelah datanya dibawa ke spreadsheet — untuk menilai kanal mana yang
+// mendatangkan pelanggan bernilai, bukan sekadar kanal mana yang ramai.
+type CustomerChannelSales struct {
+	CustomerCode  string          `db:"customer_code"  json:"customer_code"`
+	CustomerName  string          `db:"customer_name"  json:"customer_name"`
+	CustomerPhone string          `db:"customer_phone" json:"customer_phone"`
+	City          *string         `db:"city"           json:"city"`
+	Source        string          `db:"order_source"   json:"order_source"`
+	OrderCount    int             `db:"order_count"    json:"order_count"`
+	ItemQty       int             `db:"item_qty"       json:"item_qty"`
+	Revenue       decimal.Decimal `db:"revenue"        json:"revenue"`
+	COGS          decimal.Decimal `db:"cogs"           json:"cogs"`
+	Profit        decimal.Decimal `db:"profit"         json:"profit"`
+	Outstanding   decimal.Decimal `db:"outstanding"    json:"outstanding"`
+	FirstOrderAt  *time.Time      `db:"first_order_at" json:"first_order_at"`
+	LastOrderAt   *time.Time      `db:"last_order_at"  json:"last_order_at"`
+}
+
 // ChannelSales merangkum penjualan per asal order, misalnya WhatsApp versus
 // Instagram, untuk menilai kanal mana yang paling menghasilkan.
 type ChannelSales struct {

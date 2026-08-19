@@ -417,7 +417,12 @@ function CustomerSalesReport() {
 
       <p className="text-sm text-muted-foreground">
         Diurutkan dari pembelanja terbesar. Berguna untuk menentukan siapa yang layak dapat
-        prioritas slot atau harga khusus pada trip berikutnya.
+        prioritas slot atau harga khusus pada trip berikutnya.{" "}
+        {/* Disebutkan supaya jumlah baris berkasnya tidak dikira keliru: satu
+            customer yang memesan lewat dua kanal muncul dua kali. */}
+        <span className="text-muted-foreground/80">
+          Berkas CSV-nya dipecah per channel, jadi satu customer bisa muncul lebih dari sekali.
+        </span>
       </p>
 
       <div>

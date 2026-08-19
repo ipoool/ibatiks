@@ -110,6 +110,11 @@ func (s *ReportService) CustomerSales(ctx context.Context, p pagination.Params, 
 	return s.reports.CustomerSales(ctx, s.pool, p, tripID)
 }
 
+// CustomerSalesByChannel memecah rekap customer menjadi per kanal, untuk ekspor.
+func (s *ReportService) CustomerSalesByChannel(ctx context.Context, tripID *uuid.UUID) ([]domain.CustomerChannelSales, error) {
+	return s.reports.CustomerSalesByChannel(ctx, s.pool, tripID)
+}
+
 // ChannelSales merangkum penjualan per kanal dan menambahkan porsi omzet tiap
 // kanal terhadap total. Porsinya dihitung di sini, bukan di SQL, supaya
 // pembulatannya konsisten dengan laporan lain.
