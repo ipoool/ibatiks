@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { History, MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+import { DialogRiwayatOrder } from "./dialog-riwayat-order";
 import { useDebounced } from "@/hooks/use-debounced";
 import {
   useCustomers,
@@ -46,6 +49,7 @@ export default function CustomersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CustomerPayload>(EMPTY_FORM);
   const [deleting, setDeleting] = useState<Customer | null>(null);
+  const [riwayat, setRiwayat] = useState<Customer | null>(null);
 
   const { data, isLoading, error } = useCustomers({ page, q: debouncedSearch });
   const save = useSaveCustomer(editing?.id);
@@ -210,6 +214,21 @@ export default function CustomersPage() {
               </TD>
               <TD>
                 <div className="flex justify-end gap-1">
+                  {/* Riwayat dibuka dari daftar, bukan dari halaman tersendiri:
+                      pertanyaannya muncul justru saat sedang menelusuri nama. */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setRiwayat(customer)}
+                      >
+                        <History />
+                        <span className="sr-only">Riwayat order</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Riwayat order</TooltipContent>
+                  </Tooltip>
                   <Button variant="ghost" size="icon-sm" onClick={() => openEdit(customer)}>
                     <Pencil />
                     <span className="sr-only">Ubah</span>
@@ -230,6 +249,10 @@ export default function CustomersPage() {
         </DataTable>
 
         <Pagination meta={data?.meta} onPageChange={setPage} />
+
+        {riwayat && (
+          <DialogRiwayatOrder customer={riwayat} onClose={() => setRiwayat(null)} />
+        )}
       </div>
 
       <FormDialog
