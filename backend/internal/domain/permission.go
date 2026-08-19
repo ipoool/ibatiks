@@ -12,20 +12,23 @@ const (
 	PermPurchases    = "purchases"
 	PermOrders       = "orders"
 	PermInvoices     = "invoices"
-	PermPacking      = "packing"
-	PermShipments    = "shipments"
-	PermCustomers    = "customers"
-	PermProducts     = "products"
-	PermStock        = "stock"
-	PermReports      = "reports"
-	PermSettings     = "settings"
-	PermUsers        = "users"
+	// PermShipments mencakup antrean kemas sekaligus daftar paket: keduanya
+	// satu menu, dikerjakan orang yang sama di meja yang sama. Sebelumnya ada
+	// PermPacking tersendiri, dan hak akses yang menyimpannya diterjemahkan
+	// ke sini oleh migrasi 000017.
+	PermShipments = "shipments"
+	PermCustomers = "customers"
+	PermProducts  = "products"
+	PermStock     = "stock"
+	PermReports   = "reports"
+	PermSettings  = "settings"
+	PermUsers     = "users"
 )
 
 // AllPermissions dipakai antarmuka pengaturan untuk menampilkan pilihannya.
 var AllPermissions = []string{
 	PermTrips, PermShoppingList, PermPurchases,
-	PermOrders, PermInvoices, PermPacking, PermShipments,
+	PermOrders, PermInvoices, PermShipments,
 	PermCustomers, PermProducts, PermStock,
 	PermReports, PermSettings, PermUsers,
 }
@@ -47,7 +50,7 @@ func DefaultPermissions(role string) []string {
 	case RoleAdmin:
 		return []string{
 			PermTrips, PermShoppingList, PermPurchases,
-			PermOrders, PermInvoices, PermPacking, PermShipments,
+			PermOrders, PermInvoices, PermShipments,
 			PermCustomers, PermProducts, PermStock, PermReports,
 		}
 	case RoleTripper:

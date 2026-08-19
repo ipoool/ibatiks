@@ -39,7 +39,7 @@ export type Permission =
   | "purchases"
   | "orders"
   | "invoices"
-  | "packing"
+  /** Mencakup antrean kemas sekaligus daftar paket — keduanya satu menu. */
   | "shipments"
   | "customers"
   | "products"

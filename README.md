@@ -184,8 +184,8 @@ menerima dokumen yang terbaca seolah-olah harga pesanannya hanya sebesar DP.
 
 ### Surat jalan
 
-Order punya surat jalan siap cetak (tombol **Surat Jalan** di detail order, antrean Siap Kemas,
-dan daftar Pengiriman). Isinya pengirim, penerima dengan alamat lengkap sampai kelurahan dan
+Order punya surat jalan siap cetak (tombol **Surat Jalan** di detail order dan di kedua tab menu
+**Pengiriman**). Isinya pengirim, penerima dengan alamat lengkap sampai kelurahan dan
 kecamatan, data kurir dan resi, daftar barang, serta kolom tanda tangan serah terima.
 
 Dokumennya tidak disimpan ke disk seperti invoice: isinya seluruhnya berasal dari order, jadi

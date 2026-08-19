@@ -10,7 +10,6 @@ import {
   Luggage,
   MoreHorizontal,
   Package,
-  PackageCheck,
   Plane,
   Receipt,
   Settings,
@@ -74,11 +73,11 @@ export const NAV_SECTIONS: NavSection[] = [
     icon: Store,
     items: [
       { href: "/orders", label: "Order", icon: Receipt, roles: STAFF },
-      { href: "/invoices", label: "Invoice", icon: FileText, roles: STAFF },
-      // Barang dikemas dulu baru diserahkan ke kurir, jadi menunya berurutan
-      // sama seperti pekerjaannya.
-      { href: "/packing", label: "Siap Kemas", icon: PackageCheck, roles: STAFF },
+      // Urutannya mengikuti perjalanan satu order: dicatat, dikemas lalu
+      // dikirim, baru ditagih pelunasannya. Invoice pelunasan memang terbit
+      // paling belakang, jadi menunya duduk paling bawah.
       { href: "/shipments", label: "Pengiriman", icon: Truck, roles: STAFF },
+      { href: "/invoices", label: "Invoice", icon: FileText, roles: STAFF },
     ],
   },
   {

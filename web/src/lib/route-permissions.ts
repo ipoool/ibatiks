@@ -18,7 +18,10 @@ export const ROUTE_PERMISSIONS: ReadonlyArray<{ prefix: string; permission: Perm
   { prefix: "/purchases", permission: "purchases" },
   { prefix: "/orders", permission: "orders" },
   { prefix: "/invoices", permission: "invoices" },
-  { prefix: "/packing", permission: "packing" },
+  // /packing sudah dialihkan ke /shipments, tapi tetap terdaftar di sini:
+  // pengalihannya berjalan setelah middleware, jadi tanpa baris ini orang yang
+  // membuka bookmark lamanya akan ditolak sebelum sempat dialihkan.
+  { prefix: "/packing", permission: "shipments" },
   { prefix: "/shipments", permission: "shipments" },
   { prefix: "/customers", permission: "customers" },
   { prefix: "/products", permission: "products" },
