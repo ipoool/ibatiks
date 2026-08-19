@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
+import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useFetchExchangeRate, useSaveTrip, type TripPayload } from "@/hooks/use-trips";
@@ -107,6 +108,11 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
       loading={save.isPending}
       onSubmit={handleSubmit}
       submitLabel={trip ? "Simpan" : "Buat Trip"}
+      // Radix Select bukan <select> bawaan, jadi validasi browser tidak
+      // melihatnya sama sekali. Tanpa penjagaan ini tombolnya tetap bisa
+      // ditekan selagi mata uang kosong, dan gelembung yang muncul justru
+      // menunjuk kolom lain yang kebetulan berupa input biasa.
+      submitDisabled={form.currency.trim().length !== 3}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Judul trip" htmlFor="title" required error={fieldError("title")} className="sm:col-span-2">
@@ -184,13 +190,10 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Mata uang" htmlFor="currency" required error={fieldError("currency")}>
-            <Input
+            <CurrencySelect
               id="currency"
               value={form.currency}
-              onChange={(event) => setForm({ ...form, currency: event.target.value.toUpperCase() })}
-              placeholder="JPY"
-              maxLength={3}
-              required
+              onChange={(currency) => setForm({ ...form, currency })}
             />
           </Field>
 

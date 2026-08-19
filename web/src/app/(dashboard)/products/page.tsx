@@ -12,6 +12,7 @@ import { FilterSelect, OptionSelect } from "@/components/filter-select";
 import { PriceHistoryDialog } from "@/components/price-history";
 import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
+import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -340,14 +341,10 @@ export default function ProductsPage() {
           </Field>
 
           <Field label="Mata uang" htmlFor="base_currency" error={fieldError("base_currency")}>
-            <Input
+            <CurrencySelect
               id="base_currency"
               value={form.base_currency ?? "IDR"}
-              onChange={(event) =>
-                setForm({ ...form, base_currency: event.target.value.toUpperCase() })
-              }
-              placeholder="JPY"
-              maxLength={3}
+              onChange={(base_currency) => setForm({ ...form, base_currency })}
             />
           </Field>
 

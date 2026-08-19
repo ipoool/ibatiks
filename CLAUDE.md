@@ -96,6 +96,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 **Dropdown yang isinya bisa panjang** (customer, katalog produk) memakai `Combobox`, dengan `keywords` untuk hal yang dicari orang tapi bukan judul: nomor WA, SKU.
 
+**Mata uang dipilih dari daftar, bukan diketik.** Daftarnya di `src/lib/mata-uang.ts` dan dipakai bersama form trip dan form produk lewat `CurrencySelect`, supaya keduanya tidak pernah menawarkan pilihan yang berbeda. Urutannya ASEAN dulu, baru tujuan lain — yang paling sering dipakai paling sedikit digulir. Salah ketik satu huruf ("IRD" alih-alih "IDR") dulu membuat kurs gagal diambil dan seluruh harga jual trip meleset, sementara tulisannya tetap terlihat wajar sekilas. Kode di luar daftar tetap ditampilkan sebagai pilihan tambahan supaya membuka trip lama tidak diam-diam mengganti mata uangnya.
+
 **`src/lib/utils.ts` adalah pusat helper format** (`cn`, `formatIDR`, `formatDate`, `toNumber`, …) dan dipakai puluhan berkas. `shadcn init` pernah menimpanya — jangan jalankan ulang init; tambahkan komponen satu per satu dengan `shadcn add`.
 
 **Middleware harus berada di `src/middleware.ts`.** Proyek ini memakai direktori `src/`; berkas `middleware.ts` di akar `web/` diabaikan Next tanpa peringatan apa pun. Pastikan `ƒ Proxy (Middleware)` muncul di keluaran `next build`.

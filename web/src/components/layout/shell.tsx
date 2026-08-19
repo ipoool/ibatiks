@@ -4,6 +4,7 @@ import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { FooterCredit } from "@/components/layout/footer-credit";
 import { Logo } from "@/components/layout/logo";
 import { visibleSections } from "@/components/layout/nav";
 import { NavMenu } from "@/components/layout/nav-menu";
@@ -160,6 +161,15 @@ export function AppShell({
         <main className="mx-auto w-full max-w-[1400px] flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
           <CurrentUserProvider user={user}>{children}</CurrentUserProvider>
         </main>
+
+        {/*
+          Ditaruh setelah <main> yang flex-1, jadi ia terdorong ke dasar layar
+          saat isi halamannya pendek dan mengikuti di bawah isi saat panjang —
+          bukan melayang menutupi konten seperti elemen yang dipatok fixed.
+        */}
+        <footer className="mx-auto w-full max-w-[1400px] px-4 pb-4 sm:px-6 lg:px-8">
+          <FooterCredit className="text-right" />
+        </footer>
       </div>
 
       {/*
