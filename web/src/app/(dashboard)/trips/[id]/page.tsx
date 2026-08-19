@@ -105,7 +105,7 @@ export default function TripDetailPage() {
           <TabsTrigger value="order">Order</TabsTrigger>
           <TabsTrigger value="belanja">Belanja</TabsTrigger>
           <TabsTrigger value="biaya">Biaya</TabsTrigger>
-          <TabsTrigger value="profit">Profit</TabsTrigger>
+          <TabsTrigger value="profit">Profit / Loss</TabsTrigger>
         </TabsList>
 
         <TabsContent value="katalog">
