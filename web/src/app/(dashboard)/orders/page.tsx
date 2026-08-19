@@ -152,13 +152,13 @@ export default function OrdersPage() {
           head={
             <TR>
               <TH className="min-w-32">Order</TH>
-              <TH className="hidden whitespace-nowrap sm:table-cell">Tanggal</TH>
               <TH className="hidden min-w-32 md:table-cell">Customer</TH>
               <TH className="hidden min-w-28 xl:table-cell">Trip</TH>
               <TH className="hidden w-16 text-right lg:table-cell">Pcs</TH>
               <TH className="w-28 text-right">Total</TH>
               <TH className="hidden w-28 text-right sm:table-cell">Sisa Bayar</TH>
               <TH className="w-28">Status</TH>
+              <TH className="hidden text-right whitespace-nowrap sm:table-cell">Tanggal</TH>
             </TR>
           }
         >
@@ -193,9 +193,6 @@ export default function OrdersPage() {
                 </p>
                 <p className="text-xs text-muted-foreground md:hidden">{order.customer_name}</p>
               </TD>
-              <TD className="hidden text-sm whitespace-nowrap sm:table-cell">
-                {formatDate(order.order_date)}
-              </TD>
               <TD className="hidden md:table-cell">
                 <p className="font-medium">{order.customer_name}</p>
                 <p className="text-xs text-muted-foreground">{order.shipping_city}</p>
@@ -220,6 +217,9 @@ export default function OrdersPage() {
               </TD>
               <TD>
                 <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
+              </TD>
+              <TD className="hidden text-right text-sm whitespace-nowrap text-muted-foreground sm:table-cell">
+                {formatDate(order.order_date)}
               </TD>
             </TR>
           ))}

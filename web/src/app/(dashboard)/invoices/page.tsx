@@ -130,12 +130,12 @@ export default function InvoicesPage() {
             <TR>
               <TH>Invoice</TH>
               <TH className="hidden sm:table-cell">Jenis</TH>
-              <TH className="hidden sm:table-cell">Terbit</TH>
               <TH className="hidden xl:table-cell">Order</TH>
               <TH className="hidden md:table-cell">Customer</TH>
               <TH className="hidden text-right lg:table-cell">Total</TH>
               <TH className="text-right">Sisa</TH>
               <TH className="hidden sm:table-cell">Status</TH>
+              <TH className="hidden text-right whitespace-nowrap sm:table-cell">Terbit</TH>
               <TH className="text-right">Aksi</TH>
             </TR>
           }
@@ -165,9 +165,6 @@ export default function InvoicesPage() {
                 <TD className="hidden text-sm sm:table-cell">
                   {invoice.type === "dp" ? "DP" : "Pelunasan"}
                 </TD>
-                <TD className="hidden text-sm whitespace-nowrap sm:table-cell">
-                  {formatDate(invoice.issue_date)}
-                </TD>
                 <TD className="hidden xl:table-cell">
                   <Link href={`/orders/${invoice.order_id}`} className="text-sm hover:underline">
                     {invoice.order_number}
@@ -195,6 +192,9 @@ export default function InvoicesPage() {
                 </TD>
                 <TD className="hidden sm:table-cell">
                   <InvoiceStatusBadge status={invoice.status} />
+                </TD>
+                <TD className="hidden text-right text-sm whitespace-nowrap text-muted-foreground sm:table-cell">
+                  {formatDate(invoice.issue_date)}
                 </TD>
                 <TD>
                   <div className="flex justify-end gap-1">
