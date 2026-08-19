@@ -176,10 +176,13 @@ export default function OrdersPage() {
                       Menyalinnya dengan blok manual gampang meleset satu digit,
                       dan nomor yang salah menuntun ke order orang lain. */}
                   <CopyButton value={order.order_number} label="Nomor order" />
-                  {/* Channel menempel pada nomor order, bukan berdiri sebagai
-                      kolom sendiri: isinya satu lencana pendek, dan sebagai
-                      kolom ia menyisakan ruang kosong selebar judulnya di
-                      sepanjang tabel. */}
+                </div>
+                {/* Channel ikut di kolom order, bukan berdiri sebagai kolom
+                    sendiri: isinya satu lencana pendek, dan sebagai kolom ia
+                    menyisakan ruang kosong selebar judulnya di sepanjang tabel.
+                    Ditaruh di baris bawah supaya nomor ordernya tidak perlu
+                    berbagi baris — nomor itu yang dicari orang lebih dulu. */}
+                <div className="mt-0.5">
                   <OrderSourceBadge source={order.order_source} />
                 </div>
                 {/* Tanggal dan nama customer ikut di kolom order selama kolom
