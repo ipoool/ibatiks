@@ -3,41 +3,42 @@ package service
 import (
 	"testing"
 
-	"github.com/ipoool/jastipin/backend/internal/pkg/rajaongkir"
+	"github.com/shopspring/decimal"
 )
 
+func rp(n int64) decimal.Decimal { return decimal.NewFromInt(n) }
+
 func TestPilihOngkir(t *testing.T) {
-	costs := []rajaongkir.Cost{
-		{Code: "jne", Service: "REG", Cost: 25000},
-		{Code: "jne", Service: "YES", Cost: 40000},
-		{Code: "sicepat", Service: "BEST", Cost: 18000},
-		{Code: "jnt", Service: "EZ", Cost: 0}, // tanpa harga, harus diabaikan
+	// Layanan tanpa harga sudah disingkirkan QuoteOptions sebelum sampai sini.
+	costs := []CostQuote{
+		{Courier: "JNE", Service: "REG", Cost: rp(25000)},
+		{Courier: "JNE", Service: "YES", Cost: rp(40000)},
+		{Courier: "SICEPAT", Service: "BEST", Cost: rp(18000)},
 	}
 
 	t.Run("kurir dan layanan cocok persis", func(t *testing.T) {
 		got := pilihOngkir(costs, "JNE", "YES")
-		if got == nil || got.Cost != 40000 {
+		if got == nil || !got.Cost.Equal(rp(40000)) {
 			t.Fatalf("mau JNE YES 40000, dapat %+v", got)
 		}
 	})
 
 	t.Run("kurir cocok tapi layanannya tidak, ambil termurah kurir itu", func(t *testing.T) {
 		got := pilihOngkir(costs, "JNE", "OKE")
-		if got == nil || got.Cost != 25000 {
+		if got == nil || !got.Cost.Equal(rp(25000)) {
 			t.Fatalf("mau JNE REG 25000, dapat %+v", got)
 		}
 	})
 
 	t.Run("kurirnya tidak ada, ambil termurah keseluruhan", func(t *testing.T) {
 		got := pilihOngkir(costs, "wahana", "REG")
-		if got == nil || got.Cost != 18000 {
+		if got == nil || !got.Cost.Equal(rp(18000)) {
 			t.Fatalf("mau sicepat 18000, dapat %+v", got)
 		}
 	})
 
-	t.Run("harga nol tidak pernah dipilih", func(t *testing.T) {
-		got := pilihOngkir([]rajaongkir.Cost{{Code: "jnt", Service: "EZ", Cost: 0}}, "jnt", "EZ")
-		if got != nil {
+	t.Run("daftar kosong tidak memilih apa pun", func(t *testing.T) {
+		if got := pilihOngkir(nil, "jnt", "EZ"); got != nil {
 			t.Fatalf("mau nil, dapat %+v", got)
 		}
 	})

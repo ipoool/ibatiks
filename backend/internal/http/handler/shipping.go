@@ -60,6 +60,38 @@ func (h *ShippingHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, estimate)
 }
 
+// OptionsForOrder mendaftar layanan kurir beserta harganya untuk satu order,
+// dipakai saat admin memilih pengiriman di menu Pengiriman.
+func (h *ShippingHandler) OptionsForOrder(w http.ResponseWriter, r *http.Request) {
+	orderID, err := request.UUIDParam(r, "id")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	var req estimateRequest
+	if err := request.DecodeJSON(w, r, &req); err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	options, err := h.shipping.OptionsForOrder(r.Context(), orderID, service.EstimateInput{
+		City:        req.City,
+		District:    req.District,
+		Subdistrict: req.Subdistrict,
+		PostalCode:  req.PostalCode,
+		WeightGram:  req.WeightGram,
+		LengthCM:    req.LengthCM,
+		WidthCM:     req.WidthCM,
+		HeightCM:    req.HeightCM,
+	})
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, options)
+}
+
 // Provider menjelaskan layanan tarif yang sedang aktif kepada menu Pengaturan:
 // terhubung atau tidak, kota asalnya apa, dan kurir mana saja yang ditanyakan.
 func (h *ShippingHandler) Provider(w http.ResponseWriter, r *http.Request) {

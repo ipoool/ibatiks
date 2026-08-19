@@ -126,13 +126,68 @@ type Shipment struct {
 	UpdatedAt          time.Time       `db:"updated_at"           json:"updated_at"`
 }
 
-type ShipmentListItem struct {
-	Shipment
-	OrderNumber     string          `db:"order_number"     json:"order_number"`
-	CustomerName    string          `db:"customer_name"    json:"customer_name"`
-	RecipientName   string          `db:"recipient_name"   json:"recipient_name"`
-	RecipientPhone  string          `db:"recipient_phone"  json:"recipient_phone"`
-	ShippingCity    string          `db:"shipping_city"    json:"shipping_city"`
-	OrderStatus     string          `db:"order_status"     json:"order_status"`
-	OrderBalanceDue decimal.Decimal `db:"order_balance_due" json:"order_balance_due"`
+// ShippingQueueItem adalah satu baris di menu Pengiriman.
+//
+// Yang didaftar adalah order, bukan paket. Paket baru terbentuk setelah admin
+// mengisi data kemasan, sementara pekerjaannya justru dimulai sebelum itu —
+// order yang DP-nya sudah masuk itulah yang menunggu ditimbang, dihitung
+// ongkirnya, lalu diserahkan ke kurir. Mendaftar paket berarti menyembunyikan
+// justru pekerjaan yang belum dikerjakan.
+//
+// Kolom paket bertipe penunjuk karena memang boleh belum ada.
+type ShippingQueueItem struct {
+	OrderID        uuid.UUID       `db:"order_id"        json:"order_id"`
+	OrderNumber    string          `db:"order_number"    json:"order_number"`
+	OrderStatus    string          `db:"order_status"    json:"order_status"`
+	OrderDate      time.Time       `db:"order_date"      json:"order_date"`
+	TripCode       string          `db:"trip_code"       json:"trip_code"`
+	CustomerName   string          `db:"customer_name"   json:"customer_name"`
+	RecipientName  string          `db:"recipient_name"  json:"recipient_name"`
+	RecipientPhone string          `db:"recipient_phone" json:"recipient_phone"`
+	ShippingCity   string          `db:"shipping_city"   json:"shipping_city"`
+	TotalQty       int             `db:"total_qty"       json:"total_qty"`
+	Total          decimal.Decimal `db:"total"           json:"total"`
+	BalanceDue     decimal.Decimal `db:"balance_due"     json:"balance_due"`
+	// ShippingFee adalah ongkir yang ditagihkan ke customer, tersimpan di
+	// order. Nol berarti layanan kurirnya belum dipilih.
+	ShippingFee decimal.Decimal `db:"shipping_fee" json:"shipping_fee"`
+
+	ShipmentID     *uuid.UUID `db:"shipment_id"     json:"shipment_id"`
+	Courier        *string    `db:"courier"         json:"courier"`
+	Service        *string    `db:"service"         json:"service"`
+	WeightGram     *int       `db:"weight_gram"     json:"weight_gram"`
+	LengthCM       *int       `db:"length_cm"       json:"length_cm"`
+	WidthCM        *int       `db:"width_cm"        json:"width_cm"`
+	HeightCM       *int       `db:"height_cm"       json:"height_cm"`
+	TrackingNumber *string    `db:"tracking_number" json:"tracking_number"`
+	ShipmentStatus *string    `db:"shipment_status" json:"shipment_status"`
+	ShipmentNotes  *string    `db:"shipment_notes"  json:"shipment_notes"`
+	PackedAt       *time.Time `db:"packed_at"       json:"packed_at"`
+	ShippedAt      *time.Time `db:"shipped_at"      json:"shipped_at"`
+	// ShippingCost adalah ongkos yang benar-benar dibayar ke kurir, diisi saat
+	// resi dicatat. Dipisah dari ShippingFee karena toko boleh menanggung
+	// selisihnya.
+	ShippingCost       *decimal.Decimal `db:"shipping_cost"        json:"shipping_cost"`
+	CustomerNotifiedAt *time.Time       `db:"customer_notified_at" json:"customer_notified_at"`
+}
+
+// Tahap pekerjaan di menu Pengiriman. Bukan status yang disimpan, melainkan
+// cara menyaring daftar menurut apa yang belum dikerjakan.
+const (
+	// ShippingStagePacking: paketnya belum ditimbang atau ongkirnya belum
+	// ditetapkan, jadi invoice pelunasannya pun belum bisa terbit.
+	ShippingStagePacking = "perlu_kemas"
+	// ShippingStageReady: sudah lunas dan tinggal diserahkan ke kurir.
+	ShippingStageReady = "siap_kirim"
+	// ShippingStageSent: nomor resi sudah tercatat.
+	ShippingStageSent = "terkirim"
+)
+
+func IsValidShippingStage(s string) bool {
+	switch s {
+	case ShippingStagePacking, ShippingStageReady, ShippingStageSent:
+		return true
+	default:
+		return false
+	}
 }

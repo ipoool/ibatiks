@@ -55,20 +55,13 @@ func NewShipmentService(
 // Dokumennya dibentuk saat diminta, bukan disimpan: isinya seluruhnya berasal
 // dari order dan paketnya, jadi mencetak ulang selalu menghasilkan dokumen yang
 // sama dengan keadaan terkini.
-func (s *ShipmentService) DeliveryNote(ctx context.Context, orderID uuid.UUID) ([]byte, string, error) {
+// Label membentuk label pengiriman siap tempel untuk sebuah order.
+//
+// Paket belum tentu sudah dibuat: label boleh dicetak lebih dulu sebagai
+// penanda kardus saat mengemas, dan nomor resinya menyusul — bagiannya
+// disediakan kosong untuk ditulis tangan di konter kurir.
+func (s *ShipmentService) Label(ctx context.Context, orderID uuid.UUID) ([]byte, string, error) {
 	order, err := s.orders.GetByID(ctx, s.pool, orderID)
-	if err != nil {
-		return nil, "", err
-	}
-	items, err := s.orders.ListItems(ctx, s.pool, orderID)
-	if err != nil {
-		return nil, "", err
-	}
-	customer, err := s.customers.GetByID(ctx, s.pool, order.CustomerID)
-	if err != nil {
-		return nil, "", err
-	}
-	trip, err := s.trips.GetByID(ctx, s.pool, order.TripID)
 	if err != nil {
 		return nil, "", err
 	}
@@ -77,8 +70,6 @@ func (s *ShipmentService) DeliveryNote(ctx context.Context, orderID uuid.UUID) (
 		return nil, "", err
 	}
 
-	// Paket belum tentu sudah dibuat: surat jalan boleh dicetak lebih dulu
-	// sebagai lembar pendamping saat mengemas, dan kolom resinya menyusul.
 	shipment, err := s.shipments.GetByOrder(ctx, s.pool, orderID)
 	if err != nil {
 		if domainErr, ok := domain.AsError(err); !ok || domainErr.Code != domain.CodeNotFound {
@@ -87,18 +78,15 @@ func (s *ShipmentService) DeliveryNote(ctx context.Context, orderID uuid.UUID) (
 		shipment = nil
 	}
 
-	content, err := s.renderer.RenderDeliveryNote(pdf.DeliveryNoteData{
+	content, err := s.renderer.RenderLabel(pdf.LabelData{
 		Order:    order,
-		Customer: customer,
-		Trip:     trip,
-		Items:    items,
 		Shipment: shipment,
 		Settings: settings,
 	})
 	if err != nil {
 		return nil, "", domain.Internal(err)
 	}
-	return content, "SJ-" + order.OrderNumber, nil
+	return content, "LABEL-" + order.OrderNumber, nil
 }
 
 type PackInput struct {
@@ -393,8 +381,17 @@ func (s *ShipmentService) Update(ctx context.Context, id uuid.UUID, in UpdateShi
 	return s.shipments.Update(ctx, s.pool, id, courier, serviceName, in.WeightGram, in.ShippingCost, tracking, trimPtr(in.Notes))
 }
 
-func (s *ShipmentService) List(ctx context.Context, p pagination.Params, status string, tripID *uuid.UUID) ([]domain.ShipmentListItem, int64, error) {
-	return s.shipments.List(ctx, s.pool, p, status, tripID)
+// Queue mendaftar pekerjaan pengiriman: order yang DP-nya sudah masuk, beserta
+// data kemasannya bila sudah ada.
+func (s *ShipmentService) Queue(
+	ctx context.Context, p pagination.Params, stage string, tripID *uuid.UUID,
+) ([]domain.ShippingQueueItem, int64, error) {
+	if stage != "" && !domain.IsValidShippingStage(stage) {
+		return nil, 0, domain.Validation("tahap pengiriman tidak dikenal", map[string]string{
+			"stage": "pilih perlu_kemas, siap_kirim, atau terkirim",
+		})
+	}
+	return s.orders.ListForShipping(ctx, s.pool, p, stage, tripID)
 }
 
 func (s *ShipmentService) GetByOrder(ctx context.Context, orderID uuid.UUID) (*domain.Shipment, error) {

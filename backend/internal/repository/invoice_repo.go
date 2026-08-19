@@ -179,12 +179,6 @@ const shipmentColumns = `id, order_id, courier, service, tracking_number, weight
 	                     status, packed_at, packed_by, shipped_at, delivered_at,
 	                     customer_notified_at, notes, created_at, updated_at`
 
-const shipmentColumnsPrefixed = `s.id, s.order_id, s.courier, s.service, s.tracking_number,
-	                             s.weight_gram, s.length_cm, s.width_cm, s.height_cm,
-	                             s.estimated_cost, s.shipping_cost, s.status, s.packed_at,
-	                             s.packed_by, s.shipped_at, s.delivered_at,
-	                             s.customer_notified_at, s.notes, s.created_at, s.updated_at`
-
 type ShipmentRepo struct{}
 
 func NewShipmentRepo() *ShipmentRepo { return &ShipmentRepo{} }
@@ -267,60 +261,6 @@ func (r *ShipmentRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, c
 		WHERE id = $1
 		RETURNING `+shipmentColumns,
 		id, courier, service, weightGram, shippingCost, trackingNumber, notes)
-}
-
-func (r *ShipmentRepo) List(ctx context.Context, q db.Querier, p pagination.Params, status string, tripID *uuid.UUID) ([]domain.ShipmentListItem, int64, error) {
-	conditions := []string{}
-	args := []any{}
-
-	if p.Search != "" {
-		args = append(args, "%"+p.Search+"%")
-		n := len(args)
-		conditions = append(conditions, fmt.Sprintf(
-			"(o.order_number ILIKE $%d OR c.name ILIKE $%d OR COALESCE(s.tracking_number, '') ILIKE $%d)",
-			n, n, n))
-	}
-	if status != "" {
-		args = append(args, status)
-		conditions = append(conditions, fmt.Sprintf("s.status = $%d", len(args)))
-	}
-	if tripID != nil {
-		args = append(args, *tripID)
-		conditions = append(conditions, fmt.Sprintf("o.trip_id = $%d", len(args)))
-	}
-	where := buildWhere(conditions)
-
-	var total int64
-	countQuery := `
-		SELECT count(*) FROM shipments s
-		JOIN orders o    ON o.id = s.order_id
-		JOIN customers c ON c.id = o.customer_id` + where
-	if err := q.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, wrapPgError(err)
-	}
-
-	args = append(args, p.Limit(), p.Offset())
-	query := fmt.Sprintf(`
-		SELECT %s,
-			o.order_number    AS order_number,
-			c.name            AS customer_name,
-			o.recipient_name  AS recipient_name,
-			o.recipient_phone AS recipient_phone,
-			o.shipping_city   AS shipping_city,
-			o.status          AS order_status,
-			o.balance_due     AS order_balance_due
-		FROM shipments s
-		JOIN orders o    ON o.id = s.order_id
-		JOIN customers c ON c.id = o.customer_id%s
-		ORDER BY s.created_at DESC
-		LIMIT $%d OFFSET $%d`,
-		shipmentColumnsPrefixed, where, len(args)-1, len(args))
-
-	shipments, err := collectRows[domain.ShipmentListItem](ctx, q, query, args...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return shipments, total, nil
 }
 
 // TotalShippingCostByTrip dipakai laporan profit untuk memisahkan ongkir yang

@@ -243,6 +243,95 @@ func (s *ShippingService) EstimateForOrder(ctx context.Context, orderID uuid.UUI
 	return s.Estimate(ctx, in)
 }
 
+// ShippingOption adalah satu layanan kurir yang bisa dipilih admin saat
+// mengemas, lengkap dengan harganya.
+type ShippingOption struct {
+	Courier     string          `json:"courier"`
+	Service     string          `json:"service"`
+	Cost        decimal.Decimal `json:"cost"`
+	ETD         string          `json:"etd"`
+	Destination string          `json:"destination,omitempty"`
+	Source      string          `json:"source"`
+}
+
+// Options mendaftar seluruh layanan kurir untuk sebuah paket.
+//
+// Berbeda dari Estimate yang menjawab "berapa kira-kira", ini menjawab "apa
+// saja pilihannya" — yang termurah tidak selalu yang dipakai, karena customer
+// kadang minta layanan yang lebih cepat.
+//
+// Kegagalan menghubungi kurir tidak menghentikan pekerjaan. Yang dikembalikan
+// lalu satu pilihan hasil hitungan tabel tarif, dengan Source yang menyebutkan
+// asalnya, sehingga admin tetap bisa menyelesaikan pengemasannya.
+func (s *ShippingService) Options(ctx context.Context, in EstimateInput) ([]ShippingOption, error) {
+	if s.costs != nil {
+		settings, err := s.settings.All(ctx, s.pool)
+		if err != nil {
+			return nil, err
+		}
+		divisor := settingInt(settings, "shipping_volumetric_divisor", 6000)
+		volumetrik := domain.VolumetricWeightGram(in.LengthCM, in.WidthCM, in.HeightCM, divisor)
+		beratKirim := domain.ChargeableWeightGram(in.WeightGram, volumetrik, 1000)
+
+		pilihan, errQuote := s.costs.QuoteOptions(ctx, CostQuoteInput{
+			City:        in.City,
+			District:    in.District,
+			Subdistrict: in.Subdistrict,
+			PostalCode:  in.PostalCode,
+			WeightGram:  beratKirim,
+		})
+		if errQuote == nil && len(pilihan) > 0 {
+			out := make([]ShippingOption, 0, len(pilihan))
+			for _, p := range pilihan {
+				out = append(out, ShippingOption{
+					Courier:     p.Courier,
+					Service:     p.Service,
+					Cost:        money.RoundRupiah(p.Cost),
+					ETD:         p.ETD,
+					Destination: p.Destination,
+					Source:      s.costs.Name(),
+				})
+			}
+			return out, nil
+		}
+	}
+
+	estimate, err := s.Estimate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return []ShippingOption{{
+		Courier:     estimate.Courier,
+		Service:     estimate.Service,
+		Cost:        estimate.Cost,
+		ETD:         estimate.ETD,
+		Destination: estimate.Destination,
+		Source:      estimate.Source,
+	}}, nil
+}
+
+// OptionsForOrder memakai alamat tujuan dari order, supaya admin tidak perlu
+// mengetik ulang kotanya saat mengemas.
+func (s *ShippingService) OptionsForOrder(ctx context.Context, orderID uuid.UUID, in EstimateInput) ([]ShippingOption, error) {
+	order, err := s.orders.GetByID(ctx, s.pool, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(in.City) == "" {
+		in.City = order.ShippingCity
+	}
+	if strings.TrimSpace(in.District) == "" {
+		in.District = derefString(order.ShippingDistrict)
+	}
+	if strings.TrimSpace(in.Subdistrict) == "" {
+		in.Subdistrict = derefString(order.ShippingSubdistrict)
+	}
+	if strings.TrimSpace(in.PostalCode) == "" {
+		in.PostalCode = derefString(order.ShippingPostalCode)
+	}
+	return s.Options(ctx, in)
+}
+
 // --- Layanan tarif kurir ----------------------------------------------------
 
 // SearchDestinations mencari kota/kecamatan tujuan di layanan kurir.

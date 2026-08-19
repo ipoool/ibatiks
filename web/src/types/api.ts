@@ -535,6 +535,59 @@ export interface ShippingRate {
   updated_at: string;
 }
 
+/**
+ * Satu baris di menu Pengiriman.
+ *
+ * Yang didaftar adalah order, bukan paket — paket baru terbentuk setelah data
+ * kemasan diisi, sementara pekerjaannya justru dimulai sebelum itu. Kolom paket
+ * karenanya boleh null.
+ */
+export interface ShippingQueueItem {
+  order_id: string;
+  order_number: string;
+  order_status: OrderStatus;
+  order_date: string;
+  trip_code: string;
+  customer_name: string;
+  recipient_name: string;
+  recipient_phone: string;
+  shipping_city: string;
+  total_qty: number;
+  total: Money;
+  balance_due: Money;
+  /** Ongkir yang ditagihkan ke customer. Nol berarti layanan belum dipilih. */
+  shipping_fee: Money;
+
+  shipment_id: string | null;
+  courier: string | null;
+  service: string | null;
+  weight_gram: number | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
+  tracking_number: string | null;
+  shipment_status: ShipmentStatus | null;
+  shipment_notes: string | null;
+  packed_at: string | null;
+  shipped_at: string | null;
+  /** Ongkos yang benar-benar dibayar ke kurir, diisi saat resi dicatat. */
+  shipping_cost: Money | null;
+  customer_notified_at: string | null;
+}
+
+/** Tahap pekerjaan di menu Pengiriman, dipakai menyaring daftar. */
+export type ShippingStage = "perlu_kemas" | "siap_kirim" | "terkirim";
+
+/** Satu layanan kurir yang bisa dipilih saat mengemas. */
+export interface ShippingOption {
+  courier: string;
+  service: string;
+  cost: Money;
+  etd: string;
+  destination?: string;
+  source: string;
+}
+
 /** Hasil hitung ongkir beserta dasar perhitungannya. */
 export interface ShippingEstimate {
   courier: string;

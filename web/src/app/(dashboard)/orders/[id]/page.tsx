@@ -17,7 +17,6 @@ import { OrderActions, OrderEditButton } from "./order-actions";
 import { OrderInvoices } from "./order-invoices";
 import { OrderItems } from "./order-items";
 import { OrderPayments } from "./order-payments";
-import { OrderShipment } from "./order-shipment";
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -196,8 +195,6 @@ export default function OrderDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          <OrderShipment order={order} />
         </div>
       </div>
     </>

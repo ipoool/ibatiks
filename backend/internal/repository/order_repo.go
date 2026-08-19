@@ -218,6 +218,98 @@ func (r *OrderRepo) Delete(ctx context.Context, q db.Querier, id uuid.UUID) erro
 	return execExpectOne(ctx, q, "order", `DELETE FROM orders WHERE id = $1`, id)
 }
 
+// ListForShipping mendaftar order yang sudah membayar DP beserta data
+// kemasannya, untuk menu Pengiriman.
+//
+// LEFT JOIN, bukan JOIN: paket baru terbentuk setelah admin mengisi data
+// kemasan, sementara justru order yang belum dikemas itulah yang paling perlu
+// terlihat. Menyaring dengan JOIN biasa akan menyembunyikan seluruh pekerjaan
+// yang belum dikerjakan.
+func (r *OrderRepo) ListForShipping(
+	ctx context.Context, q db.Querier, p pagination.Params, stage string, tripID *uuid.UUID,
+) ([]domain.ShippingQueueItem, int64, error) {
+	// Order yang masih menunggu DP belum jadi pekerjaan gudang: barangnya
+	// belum tentu dibeli, dan mengemasnya berarti menalangi dengan uang toko.
+	conditions := []string{"o.status IN ('dp_paid', 'paid', 'shipped', 'completed')"}
+	args := []any{}
+
+	if p.Search != "" {
+		args = append(args, "%"+p.Search+"%")
+		n := len(args)
+		conditions = append(conditions, fmt.Sprintf(
+			"(o.order_number ILIKE $%d OR c.name ILIKE $%d OR o.recipient_name ILIKE $%d"+
+				" OR COALESCE(s.tracking_number, '') ILIKE $%d)", n, n, n, n))
+	}
+
+	switch stage {
+	case domain.ShippingStagePacking:
+		// Belum ditimbang atau ongkirnya belum ditetapkan — keduanya sama-sama
+		// menghalangi invoice pelunasan terbit.
+		conditions = append(conditions,
+			"(s.id IS NULL OR s.weight_gram = 0 OR o.shipping_fee = 0)")
+	case domain.ShippingStageReady:
+		conditions = append(conditions, "o.status = 'paid'", "s.tracking_number IS NULL")
+	case domain.ShippingStageSent:
+		conditions = append(conditions, "s.tracking_number IS NOT NULL")
+	}
+
+	if tripID != nil {
+		args = append(args, *tripID)
+		conditions = append(conditions, fmt.Sprintf("o.trip_id = $%d", len(args)))
+	}
+	where := buildWhere(conditions)
+
+	from := `
+		FROM orders o
+		JOIN customers c      ON c.id = o.customer_id
+		JOIN trips t          ON t.id = o.trip_id
+		LEFT JOIN shipments s ON s.order_id = o.id`
+
+	var total int64
+	if err := q.QueryRow(ctx, `SELECT count(*)`+from+where, args...).Scan(&total); err != nil {
+		return nil, 0, wrapPgError(err)
+	}
+
+	args = append(args, p.Limit(), p.Offset())
+	query := fmt.Sprintf(`
+		SELECT
+			o.id              AS order_id,
+			o.order_number    AS order_number,
+			o.status          AS order_status,
+			o.order_date      AS order_date,
+			t.code            AS trip_code,
+			c.name            AS customer_name,
+			o.recipient_name  AS recipient_name,
+			o.recipient_phone AS recipient_phone,
+			o.shipping_city   AS shipping_city,
+			o.total           AS total,
+			o.balance_due     AS balance_due,
+			o.shipping_fee    AS shipping_fee,
+			COALESCE((SELECT sum(oi.qty) FROM order_items oi WHERE oi.order_id = o.id), 0)::int AS total_qty,
+			s.id                   AS shipment_id,
+			s.courier              AS courier,
+			s.service              AS service,
+			s.weight_gram          AS weight_gram,
+			s.length_cm            AS length_cm,
+			s.width_cm             AS width_cm,
+			s.height_cm            AS height_cm,
+			s.tracking_number      AS tracking_number,
+			s.status               AS shipment_status,
+			s.notes                AS shipment_notes,
+			s.packed_at            AS packed_at,
+			s.shipped_at           AS shipped_at,
+			s.shipping_cost        AS shipping_cost,
+			s.customer_notified_at AS customer_notified_at%s%s
+		ORDER BY o.order_date DESC, o.order_number DESC
+		LIMIT $%d OFFSET $%d`, from, where, len(args)-1, len(args))
+
+	items, err := collectRows[domain.ShippingQueueItem](ctx, q, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
 // SetShippingFee menuliskan ongkir yang ditagihkan ke customer.
 //
 // Sengaja tidak lewat Update: ongkir ditetapkan belakangan, saat paket dikemas

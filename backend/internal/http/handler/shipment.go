@@ -20,15 +20,16 @@ func NewShipmentHandler(shipments *service.ShipmentService) *ShipmentHandler {
 	return &ShipmentHandler{shipments: shipments}
 }
 
-// DeliveryNote mengirimkan surat jalan sebagai PDF siap cetak.
-func (h *ShipmentHandler) DeliveryNote(w http.ResponseWriter, r *http.Request) {
+// Label mengirimkan label pengiriman sebagai PDF siap cetak, ukuran 100 x 150
+// mm mengikuti kertas thermal yang dipakai kurir.
+func (h *ShipmentHandler) Label(w http.ResponseWriter, r *http.Request) {
 	orderID, err := request.UUIDParam(r, "id")
 	if err != nil {
 		response.Error(w, r, err)
 		return
 	}
 
-	content, name, err := h.shipments.DeliveryNote(r.Context(), orderID)
+	content, name, err := h.shipments.Label(r.Context(), orderID)
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -217,6 +218,7 @@ func (h *ShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, shipment)
 }
 
+// List mendaftar pekerjaan pengiriman, satu baris per order.
 func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	p := pagination.FromRequest(r)
 
@@ -226,10 +228,10 @@ func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shipments, total, err := h.shipments.List(r.Context(), p, r.URL.Query().Get("status"), tripID)
+	items, total, err := h.shipments.Queue(r.Context(), p, r.URL.Query().Get("stage"), tripID)
 	if err != nil {
 		response.Error(w, r, err)
 		return
 	}
-	response.Paginated(w, shipments, p.Page, p.PerPage, total)
+	response.Paginated(w, items, p.Page, p.PerPage, total)
 }

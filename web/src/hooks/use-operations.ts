@@ -12,11 +12,13 @@ import type {
   PurchaseResult,
   SentChannel,
   Shipment,
-  ShipmentStatus,
   ShippingDestination,
   ShippingEstimate,
+  ShippingOption,
   ShippingProviderInfo,
+  ShippingQueueItem,
   ShippingRate,
+  ShippingStage,
   StockItem,
   StockMovement,
 } from "@/types/api";
@@ -204,14 +206,14 @@ export function useVoidInvoice() {
 
 export const invoicePDFUrl = (id: string) => api.downloadURL(`/invoices/${id}/pdf`);
 
-/** Surat jalan siap cetak untuk diserahkan bersama paket ke kurir. */
-export const deliveryNoteUrl = (orderID: string) =>
-  api.downloadURL(`/orders/${orderID}/delivery-note`);
+/** Label pengirim–penerima siap tempel di kardus. */
+export const labelUrl = (orderID: string) => api.downloadURL(`/orders/${orderID}/label`);
 
 // --- Pengiriman ------------------------------------------------------------
 
 export interface ShipmentListParams extends ListParams {
-  status?: ShipmentStatus | "";
+  /** Tahap pekerjaan, bukan status tersimpan. Kosong berarti semuanya. */
+  stage?: ShippingStage | "";
   trip_id?: string;
 }
 
@@ -219,12 +221,32 @@ export const shipmentKeys = {
   all: ["shipments"] as const,
   list: (params: ShipmentListParams) => ["shipments", "list", params] as const,
   message: (orderId: string) => ["shipments", "message", orderId] as const,
+  options: (orderId: string) => ["shipments", "options", orderId] as const,
 };
 
-export function useShipments(params: ShipmentListParams) {
+/** Antrean pengiriman: order yang DP-nya sudah masuk beserta data kemasannya. */
+export function useShippingQueue(params: ShipmentListParams) {
   return useQuery({
     queryKey: shipmentKeys.list(params),
-    queryFn: () => api.list<Shipment>(`/shipments${buildQuery({ ...params })}`),
+    queryFn: () => api.list<ShippingQueueItem>(`/shipments${buildQuery({ ...params })}`),
+  });
+}
+
+/**
+ * Daftar layanan kurir beserta harganya untuk satu paket.
+ *
+ * Sengaja mutation, bukan query: dijalankan saat admin menekan tombolnya
+ * setelah mengisi berat dan dimensi, bukan tiap kali dialognya terbuka —
+ * tiap panggilan memakan kuota langganan RajaOngkir.
+ */
+export function useShippingOptions(orderId: string) {
+  return useMutation({
+    mutationFn: (payload: {
+      weight_gram: number;
+      length_cm?: number;
+      width_cm?: number;
+      height_cm?: number;
+    }) => api.post<ShippingOption[]>(`/orders/${orderId}/shipping-options`, payload),
   });
 }
 
@@ -245,6 +267,8 @@ export function usePackOrder(orderId: string) {
       length_cm?: number;
       width_cm?: number;
       height_cm?: number;
+      /** Ongkir yang ditagihkan; dikosongkan berarti tidak ikut diubah. */
+      shipping_fee?: string;
       notes?: string | null;
     }) => api.post<Shipment>(`/orders/${orderId}/pack`, payload),
     onSuccess: () => invalidateShipmentRelated(queryClient),

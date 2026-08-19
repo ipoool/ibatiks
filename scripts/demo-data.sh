@@ -74,7 +74,6 @@ ORDER_RINA="$(api POST /orders "{
     {\"product_id\":\"$SNK2\",\"qty\":2}
   ],
   \"order_source\":\"whatsapp\",
-  \"shipping_fee\":\"22000\",
   \"notes\":\"Tolong dibubble wrap dobel ya, botolnya kaca\"
 }")"
 ORDER_RINA_ID="$(jq -r '.data.id' <<<"$ORDER_RINA")"
@@ -86,8 +85,7 @@ ORDER_BUDI="$(api POST /orders "{
     {\"product_id\":\"$SKN2\",\"qty\":3},
     {\"product_id\":\"$FSH1\",\"qty\":2}
   ],
-  \"order_source\":\"instagram\",
-  \"shipping_fee\":\"25000\"
+  \"order_source\":\"instagram\"
 }")"
 ORDER_BUDI_ID="$(jq -r '.data.id' <<<"$ORDER_BUDI")"
 say "$(jq -r '.data.order_number' <<<"$ORDER_BUDI") — Budi Santoso"
@@ -99,7 +97,6 @@ ORDER_SARI="$(api POST /orders "{
     {\"product_id\":\"$SKN1\",\"qty\":1}
   ],
   \"order_source\":\"tiktok\",
-  \"shipping_fee\":\"30000\",
   \"notes\":\"Untuk oleh-oleh kantor\"
 }")"
 ORDER_SARI_ID="$(jq -r '.data.id' <<<"$ORDER_SARI")"
@@ -172,8 +169,8 @@ say "Barang order Budi dicocokkan, satu item sebagian"
 # --- Order Rina diselesaikan sampai dikirim ---------------------------------
 step "Menyelesaikan order Rina sampai dikirim"
 api POST "/orders/$ORDER_RINA_ID/pack" \
-  '{"courier":"JNE","service":"REG","weight_gram":1250,"length_cm":30,"width_cm":22,"height_cm":15}' >/dev/null
-say "dikemas"
+  '{"courier":"JNE","service":"REG","weight_gram":1250,"length_cm":30,"width_cm":22,"height_cm":15,"shipping_fee":"22000"}' >/dev/null
+say "dikemas, ongkir Rp22.000 ditetapkan"
 
 api POST "/orders/$ORDER_RINA_ID/invoices" '{"type":"final"}' >/dev/null
 say "invoice pelunasan diterbitkan"
@@ -193,7 +190,7 @@ step "Order Budi dikemas dan ditagih"
 # ditagih, bukan berat asli 800 g. Ini contoh kasus yang paling sering bikin
 # ongkir meleset kalau hanya menimbang.
 api POST "/orders/$ORDER_BUDI_ID/pack" \
-  '{"courier":"JNE","service":"YES","weight_gram":800,"length_cm":40,"width_cm":30,"height_cm":25}' >/dev/null
+  '{"courier":"JNE","service":"YES","weight_gram":800,"length_cm":40,"width_cm":30,"height_cm":25,"shipping_fee":"125000"}' >/dev/null
 api POST "/orders/$ORDER_BUDI_ID/invoices" '{"type":"final"}' >/dev/null
 say "menunggu pelunasan"
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,6 +26,11 @@ type CostProvider interface {
 	// tanpa error kalau tujuannya tidak dikenali — pemanggil lalu jatuh ke
 	// tabel tarif.
 	QuoteCost(ctx context.Context, in CostQuoteInput) (*CostQuote, error)
+	// QuoteOptions mengembalikan seluruh layanan yang tersedia, bukan satu.
+	// Admin yang sedang mengemas perlu melihat pilihannya sendiri: yang
+	// termurah tidak selalu yang dipilih, karena customer kadang minta layanan
+	// yang lebih cepat.
+	QuoteOptions(ctx context.Context, in CostQuoteInput) ([]CostQuote, error)
 	// SearchDestination mencari daftar tujuan yang cocok dengan kata kunci.
 	// Dipakai menu Pengaturan untuk memilih kota asal pengiriman — asal yang
 	// keliru membuat seluruh perhitungan ongkir meleset, jadi tim toko harus
@@ -116,7 +122,7 @@ func (p *rajaOngkirProvider) SearchDestination(ctx context.Context, q string, li
 	return tujuan, nil
 }
 
-func (p *rajaOngkirProvider) QuoteCost(ctx context.Context, in CostQuoteInput) (*CostQuote, error) {
+func (p *rajaOngkirProvider) QuoteOptions(ctx context.Context, in CostQuoteInput) ([]CostQuote, error) {
 	if !p.client.Enabled() {
 		return nil, nil
 	}
@@ -145,22 +151,33 @@ func (p *rajaOngkirProvider) QuoteCost(ctx context.Context, in CostQuoteInput) (
 	if err != nil {
 		return nil, err
 	}
-	if len(costs) == 0 {
-		return nil, nil
-	}
 
-	pilihan := pilihOngkir(costs, in.Courier, in.Service)
-	if pilihan == nil {
-		return nil, nil
+	pilihan := make([]CostQuote, 0, len(costs))
+	for _, c := range costs {
+		// Layanan tanpa harga tidak berguna bagi admin yang sedang memilih.
+		if c.Cost <= 0 {
+			continue
+		}
+		pilihan = append(pilihan, CostQuote{
+			Courier:     strings.ToUpper(c.Code),
+			Service:     strings.ToUpper(c.Service),
+			Cost:        decimal.NewFromInt(int64(c.Cost)),
+			ETD:         strings.TrimSpace(c.ETD),
+			Destination: dest.Label,
+		})
 	}
+	sort.SliceStable(pilihan, func(i, j int) bool {
+		return pilihan[i].Cost.LessThan(pilihan[j].Cost)
+	})
+	return pilihan, nil
+}
 
-	return &CostQuote{
-		Courier:     strings.ToUpper(pilihan.Code),
-		Service:     strings.ToUpper(pilihan.Service),
-		Cost:        decimal.NewFromInt(int64(pilihan.Cost)),
-		ETD:         strings.TrimSpace(pilihan.ETD),
-		Destination: dest.Label,
-	}, nil
+func (p *rajaOngkirProvider) QuoteCost(ctx context.Context, in CostQuoteInput) (*CostQuote, error) {
+	pilihan, err := p.QuoteOptions(ctx, in)
+	if err != nil || len(pilihan) == 0 {
+		return nil, err
+	}
+	return pilihOngkir(pilihan, in.Courier, in.Service), nil
 }
 
 // pilihOngkir memilih layanan yang paling mendekati permintaan admin.
@@ -169,24 +186,21 @@ func (p *rajaOngkirProvider) QuoteCost(ctx context.Context, in CostQuoteInput) (
 // termurah — admin sedang memperkirakan biaya, dan angka termurah adalah dasar
 // tawar-menawar yang paling masuk akal ketimbang layanan pertama yang kebetulan
 // dikembalikan API.
-func pilihOngkir(costs []rajaongkir.Cost, courier, service string) *rajaongkir.Cost {
-	courier = strings.ToLower(strings.TrimSpace(courier))
-	service = strings.ToLower(strings.TrimSpace(service))
+func pilihOngkir(pilihan []CostQuote, courier, service string) *CostQuote {
+	courier = strings.TrimSpace(courier)
+	service = strings.TrimSpace(service)
 
-	var cocokKurir, termurah *rajaongkir.Cost
-	for i := range costs {
-		c := &costs[i]
-		if c.Cost <= 0 {
-			continue
-		}
-		if termurah == nil || c.Cost < termurah.Cost {
+	var cocokKurir, termurah *CostQuote
+	for i := range pilihan {
+		c := &pilihan[i]
+		if termurah == nil || c.Cost.LessThan(termurah.Cost) {
 			termurah = c
 		}
-		if courier != "" && strings.EqualFold(c.Code, courier) {
+		if courier != "" && strings.EqualFold(c.Courier, courier) {
 			if service != "" && strings.EqualFold(c.Service, service) {
 				return c
 			}
-			if cocokKurir == nil || c.Cost < cocokKurir.Cost {
+			if cocokKurir == nil || c.Cost.LessThan(cocokKurir.Cost) {
 				cocokKurir = c
 			}
 		}

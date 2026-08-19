@@ -208,7 +208,7 @@ func NewRouter(d RouterDeps) http.Handler {
 
 				orders.Post("/{id}/receive", d.Handlers.Orders.Receive)
 
-				orders.Get("/{id}/delivery-note", d.Handlers.Shipments.DeliveryNote)
+				orders.Get("/{id}/label", d.Handlers.Shipments.Label)
 				orders.Get("/{id}/invoices", d.Handlers.Invoices.ListByOrder)
 				orders.Post("/{id}/invoices", d.Handlers.Invoices.Create)
 				orders.Get("/{id}/dp-message", d.Handlers.Invoices.DPMessage)
@@ -220,6 +220,7 @@ func NewRouter(d RouterDeps) http.Handler {
 				orders.Get("/{id}/shipment-message", d.Handlers.Shipments.Message)
 				orders.Post("/{id}/shipment-notified", d.Handlers.Shipments.MarkNotified)
 				orders.Post("/{id}/shipping-estimate", d.Handlers.Shipping.EstimateForOrder)
+				orders.Post("/{id}/shipping-options", d.Handlers.Shipping.OptionsForOrder)
 			})
 
 			private.Route("/purchases", func(purchases chi.Router) {
