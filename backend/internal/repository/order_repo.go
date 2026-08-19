@@ -355,9 +355,13 @@ func (r *OrderRepo) RecalculateTotals(ctx context.Context, q db.Querier, id uuid
 		    -- validasi diskon yang wajar dilakukan di layer service.
 		    total    = GREATEST(s.items_subtotal - o.discount + o.shipping_fee, 0)
 		FROM (
+			-- Yang ditagih adalah yang benar-benar terbeli untuk order ini.
+			-- Dasarnya qty_purchased, yang diselaraskan sendiri dari alokasi
+			-- pembelian tiap kali tripper mencatat belanja — bukan angka yang
+			-- harus diketik ulang orang di layar terpisah.
 			SELECT COALESCE(sum(
 				CASE WHEN fulfillment_status IN ('unavailable', 'partial', 'refunded')
-				     THEN qty_received * unit_price
+				     THEN qty_purchased * unit_price
 				     ELSE subtotal
 				END
 			), 0) AS items_subtotal
@@ -435,13 +439,6 @@ func (r *OrderRepo) UpdateItem(ctx context.Context, q db.Querier, id uuid.UUID, 
 		UPDATE order_items SET qty = $2, unit_price = $3, notes = $4
 		WHERE id = $1
 		RETURNING `+orderItemColumns, id, qty, unitPrice, notes)
-}
-
-func (r *OrderRepo) UpdateItemFulfillment(ctx context.Context, q db.Querier, id uuid.UUID, status string, qtyReceived int) (*domain.OrderItem, error) {
-	return collectOne[domain.OrderItem](ctx, q, "item order", `
-		UPDATE order_items SET fulfillment_status = $2, qty_received = $3
-		WHERE id = $1
-		RETURNING `+orderItemColumns, id, status, qtyReceived)
 }
 
 func (r *OrderRepo) DeleteItem(ctx context.Context, q db.Querier, id uuid.UUID) error {

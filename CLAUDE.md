@@ -48,7 +48,9 @@ Kolom `shipping_fee` pada permintaan edit order bertipe penunjuk. Kalau bertipe 
 
 **Invoice memuat nilai order seutuhnya.** Baik invoice DP maupun pelunasan menuliskan subtotal, diskon, ongkir, dan total order yang sebenarnya; yang membedakan hanya apa yang ditagih (`dp_amount` untuk DP, sisa tagihan untuk pelunasan). Jangan kembali menyimpan nilai DP sebagai `total` — customer akan menerima dokumen yang seolah-olah menyatakan pesanannya cuma seharga uang muka.
 
-**Barang yang tidak dapat tidak ikut ditagih.** Begitu sebuah item dicocokkan sebagai `unavailable`, `partial`, atau `refunded`, yang ditagihkan adalah `qty_received × unit_price` — bukan jumlah yang dulu dipesan. Aturannya ada di `RecalculateTotals`, dan `ReceiveItems` wajib memanggilnya. Kolom `qty` sengaja dibiarkan apa adanya supaya tetap terbaca apa yang dipesan semula; yang berubah hanya apa yang ditagih. Tanpa ini invoice pelunasan memuat barang yang tidak akan pernah dikirim.
+**Barang yang tidak dapat tidak ikut ditagih, dan dasarnya `qty_purchased`.** Untuk item yang tidak terbeli penuh, yang ditagihkan adalah `qty_purchased × unit_price` — bukan jumlah yang dulu dipesan. Aturannya di `RecalculateTotals`, dan `PurchaseService` wajib memanggilnya setiap kali `SyncItemPurchasedQty` dipanggil, baik saat pembelian dicatat maupun dihapus. Kolom `qty` sengaja dibiarkan apa adanya supaya tetap terbaca apa yang dipesan semula; yang berubah hanya apa yang ditagih.
+
+Dulu dasarnya `qty_received`, diisi lewat layar "Cocokkan Barang" tersendiri. Layar itu dilepas: angkanya sudah ada di data pembelian, dan meminta orang mengetiknya ulang berarti satu angka yang sama disimpan dua kali dan bisa berbeda. Sisanya justru berbahaya — selama belum dicocokkan, `qty_received` masih nol, jadi item berstatus `partial` tertagih **nol rupiah** kalau ada jalur lain yang memanggil `RecalculateTotals` lebih dulu (menetapkan ongkir saat mengemas, misalnya). Kolom `qty_received` ditinggalkan di database untuk baris lama dan tidak lagi ditulis siapa pun.
 
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
 
@@ -62,6 +64,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 `orders.trip_id` sengaja tetap `ON DELETE RESTRICT`. Order dihapus lewat `OrderRepo.DeleteByTrip` di dalam transaksi yang sama, supaya tidak ada jalur lain di aplikasi ini yang bisa membuang order tanpa melewati penjagaan di atas.
 
 **Label pengiriman, bukan surat jalan.** Yang dicetak dan ditempel di kardus adalah label pengirim–penerima ukuran 100 × 150 mm (`internal/pdf/label.go`), mengikuti kertas thermal yang dipakai kurir. Tanpa daftar barang dan tanpa nominal: label terbaca siapa pun yang memegang paket di jalan, dan isi belanjaan customer bukan urusan mereka. Blok penerima sengaja jauh lebih besar dari yang lain — itu satu-satunya bagian yang benar-benar dibaca orang.
+
+Nama kurir dan nomor resi juga tidak dicetak. Keduanya sudah ada di label resmi kurir yang ditempel berdampingan; menuliskannya lagi berarti dua nomor pada satu kardus, dan yang dari kami sudah kedaluwarsa begitu paket dibatalkan lalu dikirim ulang lewat kurir lain.
 
 **Dokumen historis tetap bisa dibuka walau master datanya dihapus.** Detail order memakai `GetByIDIncludingDeleted` untuk customernya: menghapus customer tidak menghapus ordernya, jadi menyaring `deleted_at IS NULL` di jalur itu membuat seluruh order lamanya mati dengan "customer tidak ditemukan" — padahal ordernya masih ada dan bisa jadi masih punya sisa tagihan. Daftar dan penyuntingan tetap menyaring yang sudah dihapus.
 
@@ -115,6 +119,8 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 **Penjagaan kiriman ganda memakai `useRef`, bukan `isPending`.** Baik atribut `disabled` maupun `mutation.isPending` baru berubah setelah React merender ulang, jadi dua kiriman di tick yang sama — klik ganda, tombol Enter yang ditahan — sama-sama membaca nilai lama dan lolos berdua. Di form catat order itu berarti dua order kembar untuk customer yang sama. Ref berubah saat itu juga; jangan lupa melepasnya kembali di `onError` supaya admin tetap bisa mencoba ulang.
 
 **Dialog tidak boleh menjalankan submit form halaman di baliknya.** Radix memindahkan isi dialog ke ujung body, tapi React merambatkan event lewat pohon komponen, bukan pohon DOM. `FormDialog` sudah menghentikan perambatan submit-nya; jangan menghapus baris itu. Tanpa itu, menekan Simpan di Tambah Customer pada halaman catat order ikut membuat ordernya.
+
+**Dialog kemas menahan tombol Simpan sampai seluruh barang dicentang.** Centangnya tidak disimpan ke database — itu ritual di meja kemas, bukan data. Kalau daftar barangnya gagal dimuat, penguncian dilepas: menahan Simpan karena jaringan bermasalah berarti paket yang sudah siap tidak bisa dicatat sama sekali.
 
 **Tombol simpan pada dialog berisi `Combobox` wajib memakai `submitDisabled`.** Radix Combobox bukan `<select>` bawaan, jadi validasi bawaan browser tidak melihatnya sama sekali: tombolnya tetap bisa ditekan selagi kosong, dan gelembung yang muncul justru menunjuk kolom lain yang kebetulan berupa input biasa.
 

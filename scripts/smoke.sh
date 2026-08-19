@@ -269,15 +269,15 @@ AUDIT="$(api GET "/audit-logs?entity=order&entity_id=$ORDER_B_ID")"
 expect "$(jq -r '[.data[] | select(.action=="item_change")] | length > 0' <<<"$AUDIT")" "true" "perubahan qty tercatat di audit log"
 
 # ---------------------------------------------------------------------------
-step "Terima barang, kemas, dan terbitkan invoice"
+step "Kemas dan terbitkan invoice"
 api PATCH "/trips/$TRIP/status" '{"status":"closed"}' >/dev/null
 ok "order untuk trip ini ditutup"
 
-RECEIVE_ITEMS="$(api GET "/orders/$ORDER_A_ID" | jq -c '[.data.items[] | {item_id: .id, qty_received: .qty}]')"
-RECEIVED="$(api POST "/orders/$ORDER_A_ID/receive" "{\"items\":$RECEIVE_ITEMS}")"
-# Mencocokkan barang datang tidak menggeser status order: belanja dan
-# penerimaan adalah bagian dari tahap Diproses.
-expect "$(jq -r '.data.status' <<<"$RECEIVED")" "dp_paid" "status order A tetap Diproses setelah barang dicocokkan"
+# Tidak ada lagi langkah mencocokkan barang datang. Yang ditagih dihitung dari
+# qty yang benar-benar terbeli, dan itu sudah diselaraskan sendiri saat tripper
+# mencatat belanjanya.
+ORDER_A_STATE="$(api GET "/orders/$ORDER_A_ID")"
+expect "$(jq -r '.data.status' <<<"$ORDER_A_STATE")" "dp_paid" "status order A tetap Diproses setelah belanja"
 
 # Ongkir hanya punya satu sumber: kurir. Tanpa RAJAONGKIR_API_KEY, permintaan
 # estimasi ditolak dengan alasannya, bukan dijawab angka tebakan — dulu di sini

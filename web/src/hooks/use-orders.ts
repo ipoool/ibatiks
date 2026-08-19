@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ListParams } from "@/hooks/use-master";
 import { api, buildQuery } from "@/lib/api";
 import type {
-  FulfillmentStatus,
   Invoice,
   NotifyMessage,
   Order,
@@ -210,21 +209,6 @@ export function useDeletePayment(orderId: string) {
   return useMutation({
     mutationFn: (paymentId: string) =>
       api.delete(`/orders/${orderId}/payments/${paymentId}`) as Promise<void>,
-    onSuccess: () => invalidateOrderRelated(queryClient, orderId),
-  });
-}
-
-export type ReceiptPayload = {
-  items: Array<{ item_id: string; qty_received: number; status?: FulfillmentStatus }>;
-};
-
-/** Mencatat pencocokan barang yang datang dengan isi pesanan. */
-export function useReceiveOrder(orderId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: ReceiptPayload) =>
-      api.post<OrderDetail>(`/orders/${orderId}/receive`, payload),
     onSuccess: () => invalidateOrderRelated(queryClient, orderId),
   });
 }

@@ -211,8 +211,6 @@ func NewRouter(d RouterDeps) http.Handler {
 				orders.Post("/{id}/payments", d.Handlers.Orders.RecordPayment)
 				orders.Delete("/{id}/payments/{paymentId}", d.Handlers.Orders.DeletePayment)
 
-				orders.Post("/{id}/receive", d.Handlers.Orders.Receive)
-
 				orders.Get("/{id}/label", d.Handlers.Shipments.Label)
 				orders.Get("/{id}/invoices", d.Handlers.Invoices.ListByOrder)
 				orders.Post("/{id}/invoices", d.Handlers.Invoices.Create)

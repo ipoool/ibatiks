@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, PackageSearch, Pencil } from "lucide-react";
+import { Ban, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -18,10 +18,10 @@ import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useCancelOrder, useReceiveOrder, useUpdateOrder } from "@/hooks/use-orders";
+import { useCancelOrder, useUpdateOrder } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
-import { formatIDR, formatNumber, toDateInput, toNumber } from "@/lib/utils";
-import type { FulfillmentStatus, OrderDetail } from "@/types/api";
+import { formatIDR, toDateInput, toNumber } from "@/lib/utils";
+import type { OrderDetail } from "@/types/api";
 
 /**
  * Aksi order pada kop halaman: pembatalan saja.
@@ -113,29 +113,6 @@ export function OrderEditButton({ order }: { order: OrderDetail }) {
         Ubah
       </Button>
       {open && <EditOrderDialog order={order} onClose={() => setOpen(false)} />}
-    </>
-  );
-}
-
-/**
- * Tombol mencocokkan barang datang, ditempatkan pada kartu Item pesanan.
- *
- * Yang dicocokkan adalah item pesanan satu per satu, jadi tombolnya berada di
- * kartu yang memuat daftarnya. Tersedia sepanjang order Diproses — termasuk
- * setelah paketnya dikemas, karena barang susulan sering datang belakangan.
- */
-export function OrderReceiveButton({ order }: { order: OrderDetail }) {
-  const [open, setOpen] = useState(false);
-
-  if (order.status !== "dp_paid") return null;
-
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        <PackageSearch />
-        Cocokkan Barang
-      </Button>
-      {open && <ReceiveDialog order={order} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -349,125 +326,6 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
             onChange={(event) => setForm({ ...form, notes: event.target.value })}
           />
         </Field>
-      </div>
-    </FormDialog>
-  );
-}
-
-const FULFILLMENT_OPTIONS: Array<{ value: FulfillmentStatus; label: string }> = [
-  { value: "purchased", label: "Lengkap" },
-  { value: "partial", label: "Sebagian" },
-  { value: "unavailable", label: "Tidak tersedia" },
-];
-
-function ReceiveDialog({ order, onClose }: { order: OrderDetail; onClose: () => void }) {
-  const receive = useReceiveOrder(order.id);
-
-  // Default-nya diterima penuh: itu yang paling sering terjadi, admin tinggal
-  // mengubah baris yang bermasalah saja.
-  const [rows, setRows] = useState(
-    order.items.map((item) => ({
-      item_id: item.id,
-      name: item.product_name,
-      ordered: item.qty,
-      qty_received: item.qty_received > 0 ? item.qty_received : item.qty,
-      status: "purchased" as FulfillmentStatus,
-    })),
-  );
-
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-
-    receive.mutate(
-      {
-        items: rows.map((row) => ({
-          item_id: row.item_id,
-          qty_received: Number(row.qty_received),
-          status: row.status,
-        })),
-      },
-      {
-        onSuccess: () => {
-          toast.success("Barang dicocokkan dengan pesanan");
-          onClose();
-        },
-        onError: (error) => {
-          toast.error(error instanceof ApiError ? error.message : "Gagal mencatat penerimaan");
-        },
-      },
-    );
-  }
-
-  return (
-    <FormDialog
-      open
-      onOpenChange={(open) => !open && onClose()}
-      title="Cocokkan Barang yang Datang"
-      description="Isi berapa unit yang benar-benar diterima untuk tiap produk."
-      error={receive.error}
-      loading={receive.isPending}
-      onSubmit={handleSubmit}
-      submitLabel="Simpan Penerimaan"
-      className="max-w-2xl"
-    >
-      <div className="space-y-3">
-        {rows.map((row, index) => (
-          <div
-            key={row.item_id}
-            className="grid items-end gap-3 rounded-lg border border-border p-3 sm:grid-cols-[1fr_7rem_10rem]"
-          >
-            <div className="min-w-0">
-              <p className="truncate font-medium">{row.name}</p>
-              <p className="text-xs text-muted-foreground">
-                Dipesan {formatNumber(row.ordered)} pcs
-              </p>
-            </div>
-
-            <Field label="Diterima" htmlFor={`qty_${row.item_id}`}>
-              <Input
-                id={`qty_${row.item_id}`}
-                type="number"
-                min="0"
-                max={row.ordered}
-                value={row.qty_received}
-                onChange={(event) => {
-                  const qty = Number(event.target.value);
-                  setRows((current) =>
-                    current.map((item, i) =>
-                      i === index
-                        ? {
-                            ...item,
-                            qty_received: qty,
-                            // Status ikut menyesuaikan supaya admin tidak perlu
-                            // mengubah dua kolom untuk satu kenyataan.
-                            status:
-                              qty === 0
-                                ? "unavailable"
-                                : qty >= item.ordered
-                                  ? "purchased"
-                                  : "partial",
-                          }
-                        : item,
-                    ),
-                  );
-                }}
-              />
-            </Field>
-
-            <Field label="Status" htmlFor={`status_${row.item_id}`}>
-              <OptionSelect
-                id={`status_${row.item_id}`}
-                value={row.status}
-                onChange={(value) =>
-                  setRows((current) =>
-                    current.map((item, i) => (i === index ? { ...item, status: value } : item)),
-                  )
-                }
-                options={FULFILLMENT_OPTIONS}
-              />
-            </Field>
-          </div>
-        ))}
       </div>
     </FormDialog>
   );

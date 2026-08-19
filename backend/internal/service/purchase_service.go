@@ -195,6 +195,13 @@ func (s *PurchaseService) allocate(
 		if err := s.orders.SyncItemPurchasedQty(ctx, tx, item.OrderItemID); err != nil {
 			return 0, 0, err
 		}
+		// Total order ikut dihitung ulang di sini. Yang ditagih adalah yang
+		// benar-benar terbeli, jadi begitu qty terbelinya berubah, nilai
+		// ordernya harus ikut — kalau tidak, invoice pelunasan memuat barang
+		// yang tidak pernah didapat.
+		if _, err := s.orders.RecalculateTotals(ctx, tx, item.OrderID); err != nil {
+			return 0, 0, err
+		}
 
 		remaining -= give
 		toOrders += give
@@ -257,11 +264,15 @@ func (s *PurchaseService) Delete(ctx context.Context, id uuid.UUID, actorID uuid
 
 		var stockQty int
 		affectedItems := make([]uuid.UUID, 0, len(allocations))
+		affectedOrders := make([]uuid.UUID, 0, len(allocations))
 		for _, alloc := range allocations {
 			if alloc.OrderItemID == nil {
 				stockQty += alloc.Qty
 			} else {
 				affectedItems = append(affectedItems, *alloc.OrderItemID)
+				if alloc.OrderID != nil {
+					affectedOrders = append(affectedOrders, *alloc.OrderID)
+				}
 			}
 		}
 
@@ -292,6 +303,13 @@ func (s *PurchaseService) Delete(ctx context.Context, id uuid.UUID, actorID uuid
 		// baris pesanan tinggal diselaraskan ulang.
 		for _, itemID := range affectedItems {
 			if err := s.orders.SyncItemPurchasedQty(ctx, tx, itemID); err != nil {
+				return err
+			}
+		}
+		// Pembelian yang dibatalkan mengembalikan qty terbeli ke nol, jadi nilai
+		// ordernya ikut turun kembali.
+		for _, orderID := range affectedOrders {
+			if _, err := s.orders.RecalculateTotals(ctx, tx, orderID); err != nil {
 				return err
 			}
 		}

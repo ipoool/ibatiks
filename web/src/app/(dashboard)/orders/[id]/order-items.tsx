@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { FulfillmentBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 
-import { OrderReceiveButton } from "./order-actions";
 import { Combobox } from "@/components/ui/combobox";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
@@ -99,7 +98,6 @@ export function OrderItems({ order }: { order: OrderDetail }) {
         <CardTitle>Item pesanan</CardTitle>
         <CardAction>
           <div className="flex flex-wrap items-center gap-2">
-            <OrderReceiveButton order={order} />
             {order.editable && (
               <Button
                 size="sm"
@@ -150,7 +148,6 @@ export function OrderItems({ order }: { order: OrderDetail }) {
                     <span className="text-xs text-muted-foreground">
                       {item.product_sku}
                       {item.qty_purchased > 0 && ` · dibeli ${formatNumber(item.qty_purchased)}`}
-                      {item.qty_received > 0 && ` · diterima ${formatNumber(item.qty_received)}`}
                     </span>
                   </div>
                 </TD>
@@ -158,7 +155,7 @@ export function OrderItems({ order }: { order: OrderDetail }) {
                 <TD className="text-right">
                   {editing ? (
                     <NumberInput
-                      min={Math.max(item.qty_received, 1)}
+                      min={1}
                       value={editQty}
                       onValueChange={setEditQty}
                       className="h-9 text-right"

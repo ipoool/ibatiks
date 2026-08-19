@@ -12,7 +12,7 @@ Trip dibuat (tanggal, negara, kurs)
               → DP diverifikasi lewat bukti transfer → order jadi "Diproses"
               └─ Daftar belanja otomatis untuk tripper (hanya order ber-DP)
                   └─ Tripper belanja (boleh lebih → sisanya jadi stok)
-                      └─ Barang tiba → dicocokkan → dikemas, ongkir ditetapkan
+                      └─ Barang tiba → dikemas (isi paket dicek), ongkir ditetapkan
                           └─ Invoice pelunasan (sudah termasuk ongkir) → WhatsApp
                               └─ Lunas → kirim + resi + label → customer dikabari
                               └─ Laporan: omzet, HPP riil, biaya trip, laba,
@@ -237,7 +237,7 @@ Status order mengikuti perjalanan satu pesanan:
 | Status | Artinya |
 |---|---|
 | **Menunggu DP** | Baru dicatat, menunggu uang muka masuk |
-| **Diproses** | DP diterima. Belanja, penerimaan barang, pengemasan, penetapan ongkir, dan penerbitan invoice pelunasan semuanya terjadi di tahap ini |
+| **Diproses** | DP diterima. Belanja, pengemasan, penetapan ongkir, dan penerbitan invoice pelunasan semuanya terjadi di tahap ini |
 | **Pembayaran Lunas** | Sisa tagihan sudah masuk, siap diserahkan ke kurir |
 | **Dikirim** | Sudah diserahkan ke kurir dan resinya terisi |
 | **Selesai** | Diterima customer |
@@ -556,7 +556,7 @@ make reset        # hapus semuanya termasuk data
 
 ### Uji end-to-end
 
-`scripts/smoke.sh` menelusuri satu siklus jastip lengkap lewat API — trip dibuka, order masuk, DP dibayar, tripper belanja lebih banyak dari pesanan, qty diedit, barang diterima, dikemas, ditagih, dilunasi, dikirim — lalu **mencocokkan angka laba trip dengan hitungan manual**, termasuk memastikan surplus stok tidak salah dibebankan sebagai HPP.
+`scripts/smoke.sh` menelusuri satu siklus jastip lengkap lewat API — trip dibuka, order masuk, DP dibayar, tripper belanja lebih banyak dari pesanan, qty diedit, dikemas, ditagih, dilunasi, dikirim — lalu **mencocokkan angka laba trip dengan hitungan manual**, termasuk memastikan surplus stok tidak salah dibebankan sebagai HPP.
 
 ```bash
 make smoke                                  # terhadap lingkungan pengembangan
