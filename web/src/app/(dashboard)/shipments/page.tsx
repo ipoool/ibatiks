@@ -107,14 +107,17 @@ export default function ShipmentsPage() {
 
       <div>
         <DataTable
-          columns={6}
+          columns={9}
           isLoading={isLoading}
           isEmpty={!isLoading && (data?.items.length ?? 0) === 0}
           emptyTitle="Antrean kosong"
           emptyDescription="Order muncul di sini setelah DP-nya diterima."
           head={
             <TR>
-              <TH className="min-w-44">Order</TH>
+              <TH className="min-w-36">Order</TH>
+              <TH>Status</TH>
+              <TH className="hidden md:table-cell">Customer</TH>
+              <TH className="hidden xl:table-cell">Trip</TH>
               <TH className="hidden sm:table-cell">Penerima</TH>
               <TH className="hidden lg:table-cell">Paket</TH>
               <TH className="hidden text-right lg:table-cell">Ongkir</TH>
@@ -160,24 +163,30 @@ function BarisPengiriman({
 
   return (
     <TR>
-      <TD className="whitespace-normal">
+      <TD>
         <Link href={`/orders/${item.order_id}`} className="font-medium hover:underline">
           {item.order_number}
         </Link>
-        <div className="mt-1">
-          <OrderStatusBadge status={item.order_status} settled={lunas} />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {item.customer_name} · {item.trip_code}
-        </p>
-        {/* Penerima dan kota menyusul nomor order saat kolomnya disembunyikan;
-            itu yang dipakai mencocokkan paket di meja kemas. */}
+        {/* Isian kolom yang sedang disembunyikan dilipat ke sini, bukan hilang:
+            di meja kemas, nama penerima dan kotanya yang dipakai mencocokkan
+            paket dengan barisnya. */}
         <p className="mt-1 text-xs text-muted-foreground sm:hidden">
           {item.recipient_name} · {item.shipping_city}
         </p>
+        <p className="text-xs text-muted-foreground md:hidden">
+          {item.customer_name} · {item.trip_code}
+        </p>
       </TD>
 
-      <TD className="hidden sm:table-cell">
+      <TD>
+        <OrderStatusBadge status={item.order_status} settled={lunas} />
+      </TD>
+
+      <TD className="hidden whitespace-normal md:table-cell">{item.customer_name}</TD>
+
+      <TD className="hidden text-sm text-muted-foreground xl:table-cell">{item.trip_code}</TD>
+
+      <TD className="hidden whitespace-normal sm:table-cell">
         <p className="font-medium">{item.recipient_name}</p>
         <p className="text-xs text-muted-foreground">{item.shipping_city}</p>
       </TD>
