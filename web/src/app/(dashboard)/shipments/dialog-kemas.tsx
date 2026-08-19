@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState } from "@/components/ui/page";
@@ -40,6 +41,12 @@ export function DialogKemas({
     height_cm: item.height_cm ?? 0,
     notes: item.shipment_notes ?? "",
   });
+  // Ongkir yang diketik sendiri. Dipakai kalau RajaOngkir tidak bisa menjawab —
+  // API key belum diisi, kuota habis, atau layanannya sedang down. Angkanya dari
+  // struk konter atau aplikasi kurir; itu yang benar-benar dibayar.
+  const [ongkirManual, setOngkirManual] = useState(
+    toNumber(item.shipping_fee) > 0 ? String(toNumber(item.shipping_fee)) : "",
+  );
   const [terpilih, setTerpilih] = useState<ShippingOption | null>(
     item.courier && toNumber(item.shipping_fee) > 0
       ? {
@@ -55,6 +62,9 @@ export function DialogKemas({
   const daftar = options.data ?? [];
   const [pertama] = daftar;
 
+  // Yang tersimpan: layanan yang dipilih kalau ada, kalau tidak angka ketikan.
+  const ongkirTersimpan = terpilih ? String(toNumber(terpilih.cost)) : ongkirManual.trim();
+
   function ambilPilihan() {
     if (form.weight_gram <= 0) {
       toast.error("Isi berat paketnya dulu");
@@ -68,8 +78,13 @@ export function DialogKemas({
         height_cm: form.height_cm || undefined,
       },
       {
+        onSuccess: () => setTerpilih(null),
         onError: (err) => {
-          toast.error(err instanceof ApiError ? err.message : "Gagal mengambil daftar layanan");
+          toast.error(
+            err instanceof ApiError
+              ? `${err.message} — ongkirnya bisa diketik sendiri di bawah`
+              : "Gagal mengambil daftar layanan",
+          );
         },
       },
     );
@@ -86,14 +101,14 @@ export function DialogKemas({
         length_cm: form.length_cm,
         width_cm: form.width_cm,
         height_cm: form.height_cm,
-        // Ongkir hanya ikut terkirim kalau layanannya benar-benar dipilih;
-        // kalau tidak, yang tersimpan di order dibiarkan apa adanya.
-        shipping_fee: terpilih ? String(toNumber(terpilih.cost)) : undefined,
+        // Dikosongkan berarti admin baru menyimpan ukuran paketnya; ongkir di
+        // order dibiarkan apa adanya.
+        shipping_fee: ongkirTersimpan || undefined,
         notes: form.notes || null,
       },
       {
         onSuccess: () => {
-          toast.success(terpilih ? "Data kemasan dan ongkir tersimpan" : "Data kemasan tersimpan");
+          toast.success(ongkirTersimpan ? "Data kemasan dan ongkir tersimpan" : "Data kemasan tersimpan");
           onClose();
         },
         onError: (err) => {
@@ -228,6 +243,32 @@ export function DialogKemas({
             </p>
           )}
         </div>
+      </Field>
+
+      {/*
+       * Satu-satunya jaring pengaman sejak tabel tarif dilepas. Kurir sesekali
+       * tidak bisa dihubungi, dan pengemasan tidak boleh berhenti karenanya —
+       * angka dari struk konter lebih benar daripada tebakan mana pun.
+       */}
+      <Field
+        label="Atau ketik ongkirnya sendiri (Rp)"
+        htmlFor="kemas_ongkir_manual"
+        hint="Dipakai kalau daftar layanan tidak bisa diambil. Mengetik di sini melepas pilihan layanan di atas."
+      >
+        <Input
+          id="kemas_ongkir_manual"
+          type="number"
+          min="0"
+          step="any"
+          value={ongkirManual}
+          onChange={(event) => {
+            setOngkirManual(event.target.value);
+            // Mengetik angka sendiri berarti melepas pilihan dari daftar;
+            // dua sumber angka yang aktif bersamaan hanya membingungkan.
+            setTerpilih(null);
+          }}
+          placeholder="42000"
+        />
       </Field>
 
       <Field label="Catatan kemasan" htmlFor="kemas_catatan">

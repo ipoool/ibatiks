@@ -5,29 +5,20 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ShippingInfoButton } from "@/components/shipping-info";
 import { ShippingProviderCard, ShippingTestPanel } from "./shipping-provider";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { FilterSelect, OptionSelect, toOptions } from "@/components/filter-select";
-import { useHasRole } from "@/components/layout/user-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog, FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { NumberInput } from "@/components/ui/number-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageHeader } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDebounced } from "@/hooks/use-debounced";
-import {
-  useDeleteShippingRate,
-  useSaveShippingRate,
-  useShippingRates,
-} from "@/hooks/use-operations";
 import {
   useAuditLogs,
   useDeleteUser,
@@ -38,8 +29,8 @@ import {
   useUsers,
 } from "@/hooks/use-reports";
 import { ApiError } from "@/lib/api";
-import { formatDateTime, formatIDR } from "@/lib/utils";
-import type { Permission, ShippingRate, User, UserRole } from "@/types/api";
+import { formatDateTime } from "@/lib/utils";
+import type { Permission, User, UserRole } from "@/types/api";
 
 /** Kunci pengaturan yang punya form khusus, dikelompokkan agar mudah dibaca. */
 const STORE_FIELDS = [
@@ -50,24 +41,6 @@ const STORE_FIELDS = [
   { key: "bank_account", label: "Rekening pembayaran", hint: "Tampil di invoice dan pesan penagihan" },
   { key: "invoice_footer", label: "Catatan penutup invoice" },
   { key: "invoice_due_days", label: "Jatuh tempo invoice (hari)" },
-] as const;
-
-/*
- * Parameter perhitungan ongkir. Pembagi volume mengikuti kebiasaan ekspedisi
- * dalam negeri (6000 untuk JNE); tarif cadangan dipakai saat kota tujuan belum
- * terdaftar di tabel tarif.
- */
-const SHIPPING_FIELDS = [
-  {
-    key: "shipping_volumetric_divisor",
-    label: "Pembagi berat volume",
-    hint: "JNE memakai 6000: (P × L × T dalam cm) ÷ 6000 = kg volume",
-  },
-  {
-    key: "shipping_default_price_per_kg",
-    label: "Tarif cadangan per kg (Rp)",
-    hint: "Dipakai kalau kota tujuan belum ada di tabel tarif",
-  },
 ] as const;
 
 const TEMPLATE_FIELDS = [
@@ -98,17 +71,13 @@ const AUDIT_ENTITY_OPTIONS = [
   { value: "settings", label: "Pengaturan" },
 ] as const;
 
-const COURIER_SERVICE_OPTIONS = ["REG", "YES", "OKE", "JTR"].map((service) => ({
-  value: service,
-  label: service,
-}));
 
 export default function SettingsPage() {
   return (
     <>
       <PageHeader
         title="Pengaturan"
-        description="Identitas toko, template pesan WhatsApp, tarif ongkir, dan pengguna back office"
+        description="Identitas toko, template pesan WhatsApp, pengiriman, dan pengguna back office"
       />
 
       <Tabs defaultValue="toko">
@@ -144,12 +113,6 @@ export default function SettingsPage() {
         <TabsContent value="ongkir" className="space-y-6">
           <ShippingProviderCard />
           <ShippingTestPanel />
-          <SettingsForm
-            title="Perhitungan ongkir cadangan"
-            description="Dipakai kalau layanan kurir tidak bisa dihubungi atau kota asalnya belum disetel."
-            fields={SHIPPING_FIELDS.map((field) => ({ ...field, multiline: false }))}
-          />
-          <ShippingRates />
         </TabsContent>
 
         <TabsContent value="pengguna">
@@ -755,239 +718,5 @@ function AuditTrail() {
         <Pagination meta={data?.meta} onPageChange={setPage} />
       </div>
     </>
-  );
-}
-
-function ShippingRates() {
-  const canEdit = useHasRole("owner");
-  const [search, setSearch] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<ShippingRate | null>(null);
-  const debouncedSearch = useDebounced(search);
-
-  const { data, isLoading, error } = useShippingRates({ q: debouncedSearch || undefined });
-  const remove = useDeleteShippingRate();
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-1">
-          Tabel tarif sendiri
-          <ShippingInfoButton />
-        </CardTitle>
-        <CardDescription>
-          Cadangan saat RajaOngkir tidak terpakai. Urutannya: kota tujuan order dicocokkan dulu di
-          sini, kalau tidak ketemu barulah tarif cadangan di atas yang dipakai.
-        </CardDescription>
-        {canEdit && (
-          <CardAction>
-            <Button size="sm" onClick={() => setFormOpen(true)}>
-              <Plus />
-              Tambah Tarif
-            </Button>
-          </CardAction>
-        )}
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        <ErrorState error={error} />
-
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Cari kota…"
-          className="sm:max-w-xs"
-        />
-
-        <DataTable
-          columns={canEdit ? 6 : 5}
-          isLoading={isLoading}
-          isEmpty={!isLoading && (data?.length ?? 0) === 0}
-          emptyTitle="Belum ada tarif"
-          emptyDescription="Tambahkan kota tujuan yang sering dikirimi paket."
-          head={
-            <TR>
-              <TH className="min-w-40">Kota</TH>
-              <TH className="hidden w-24 lg:table-cell">Kurir</TH>
-              <TH className="hidden w-24 sm:table-cell">Layanan</TH>
-              <TH className="w-32 text-right">Per kg</TH>
-              <TH className="hidden w-24 sm:table-cell">Estimasi</TH>
-              {canEdit && <TH className="w-16 text-right">Aksi</TH>}
-            </TR>
-          }
-        >
-          {data?.map((rate) => (
-            <TR key={rate.id}>
-              <TD>
-                <p className="font-medium capitalize">{rate.destination_city}</p>
-                {rate.province && (
-                  <p className="text-xs text-muted-foreground">{rate.province}</p>
-                )}
-              </TD>
-              <TD className="hidden text-sm lg:table-cell">{rate.courier}</TD>
-              <TD className="hidden text-sm sm:table-cell">{rate.service}</TD>
-              <TD className="tabular text-right font-medium">{formatIDR(rate.price_per_kg)}</TD>
-              <TD className="hidden text-sm text-muted-foreground sm:table-cell">
-                {rate.etd || "—"}
-              </TD>
-              {canEdit && (
-                <TD className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeleteTarget(rate)}
-                    aria-label={`Hapus tarif ${rate.destination_city}`}
-                  >
-                    <Trash2 className="text-red-600" />
-                  </Button>
-                </TD>
-              )}
-            </TR>
-          ))}
-        </DataTable>
-      </CardContent>
-
-      {formOpen && <ShippingRateDialog onClose={() => setFormOpen(false)} />}
-
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Hapus tarif ongkir?"
-        description={`Tarif untuk ${deleteTarget?.destination_city ?? ""} akan dihapus. Order ke kota ini nanti memakai tarif cadangan.`}
-        confirmLabel="Hapus"
-        destructive
-        error={remove.error}
-        loading={remove.isPending}
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          remove.mutate(deleteTarget.id, {
-            onSuccess: () => {
-              toast.success("Tarif dihapus");
-              setDeleteTarget(null);
-            },
-            onError: (err) => {
-              toast.error(err instanceof ApiError ? err.message : "Gagal menghapus tarif");
-            },
-          });
-        }}
-      />
-    </Card>
-  );
-}
-
-function ShippingRateDialog({ onClose }: { onClose: () => void }) {
-  const save = useSaveShippingRate();
-  const [form, setForm] = useState({
-    courier: "JNE",
-    service: "REG",
-    destination_city: "",
-    province: "",
-    price_per_kg: "",
-    min_weight_gram: 1000,
-    etd: "",
-  });
-
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    save.mutate(
-      {
-        ...form,
-        province: form.province || null,
-        etd: form.etd || null,
-        min_weight_gram: Number(form.min_weight_gram),
-      },
-      {
-        onSuccess: () => {
-          toast.success("Tarif tersimpan");
-          onClose();
-        },
-      },
-    );
-  }
-
-  return (
-    <FormDialog
-      open
-      onOpenChange={(open) => !open && onClose()}
-      title="Tambah Tarif Ongkir"
-      description="Kota yang sudah ada akan diperbarui tarifnya, bukan digandakan."
-      error={save.error}
-      loading={save.isPending}
-      onSubmit={handleSubmit}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Kota tujuan" htmlFor="destination_city" required className="sm:col-span-2">
-          <Input
-            id="destination_city"
-            value={form.destination_city}
-            onChange={(event) => setForm({ ...form, destination_city: event.target.value })}
-            placeholder="Bandung"
-            required
-            autoFocus
-          />
-        </Field>
-
-        <Field label="Provinsi" htmlFor="province">
-          <Input
-            id="province"
-            value={form.province}
-            onChange={(event) => setForm({ ...form, province: event.target.value })}
-            placeholder="Jawa Barat"
-          />
-        </Field>
-
-        <Field label="Kurir" htmlFor="rate_courier">
-          <Input
-            id="rate_courier"
-            value={form.courier}
-            onChange={(event) => setForm({ ...form, courier: event.target.value })}
-          />
-        </Field>
-
-        <Field label="Layanan" htmlFor="rate_service">
-          <OptionSelect
-            id="rate_service"
-            value={form.service}
-            onChange={(value) => setForm({ ...form, service: value })}
-            options={COURIER_SERVICE_OPTIONS}
-          />
-        </Field>
-
-        <Field label="Tarif per kg (Rp)" htmlFor="price_per_kg" required>
-          <Input
-            id="price_per_kg"
-            type="number"
-            min="0"
-            step="any"
-            value={form.price_per_kg}
-            onChange={(event) => setForm({ ...form, price_per_kg: event.target.value })}
-            required
-          />
-        </Field>
-
-        <Field
-          label="Berat minimum (gram)"
-          htmlFor="min_weight_gram"
-          hint="Ekspedisi menagih minimal 1 kg"
-        >
-          <NumberInput
-            id="min_weight_gram"
-            min="0"
-            step="any"
-            value={form.min_weight_gram}
-            onValueChange={(weight) => setForm({ ...form, min_weight_gram: weight })}
-          />
-        </Field>
-
-        <Field label="Estimasi tiba" htmlFor="etd" hint="Tulis lengkap dengan satuannya">
-          <Input
-            id="etd"
-            value={form.etd}
-            onChange={(event) => setForm({ ...form, etd: event.target.value })}
-            placeholder="2-3 hari"
-          />
-        </Field>
-      </div>
-    </FormDialog>
   );
 }

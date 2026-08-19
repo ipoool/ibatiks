@@ -9,19 +9,15 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// ShippingRate adalah tarif kirim per kilogram untuk satu kota tujuan.
-type ShippingRate struct {
-	ID              uuid.UUID       `db:"id"               json:"id"`
-	Courier         string          `db:"courier"          json:"courier"`
-	Service         string          `db:"service"          json:"service"`
-	DestinationCity string          `db:"destination_city" json:"destination_city"`
-	Province        *string         `db:"province"         json:"province"`
-	PricePerKg      decimal.Decimal `db:"price_per_kg"     json:"price_per_kg"`
-	MinWeightGram   int             `db:"min_weight_gram"  json:"min_weight_gram"`
-	ETD             *string         `db:"etd"              json:"etd"`
-	CreatedAt       time.Time       `db:"created_at"       json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at"       json:"updated_at"`
-}
+// VolumetricDivisor adalah pembagi berat volumetrik: (P x L x T dalam cm)
+// dibagi angka ini menghasilkan kilogram.
+//
+// 6000 adalah angka yang dipakai JNE dan diikuti hampir semua kurir dalam
+// negeri. Dulu ini bisa disetel per toko, tapi tidak ada yang pernah
+// mengubahnya — dan salah menyetelnya membuat seluruh perkiraan ongkir meleset
+// tanpa gejala apa pun. Lebih baik satu angka yang benar daripada satu kolom
+// yang bisa salah diisi.
+const VolumetricDivisor = 6000
 
 // ShippingEstimate adalah hasil perhitungan ongkir beserta dasar hitungannya,
 // supaya admin bisa melihat kenapa angkanya sekian.
@@ -45,12 +41,9 @@ type ShippingEstimate struct {
 	// — nama kota yang sama bisa menunjuk kecamatan yang berbeda tarifnya.
 	Destination string `json:"destination,omitempty"`
 
-	// Source menjelaskan asal tarifnya: "tabel tarif", "tarif default", atau
-	// nama vendor kalau nanti dipasang integrasi API.
+	// Source menyebutkan dari mana angkanya diambil, yaitu nama layanan kurir
+	// yang menjawabnya.
 	Source string `json:"source"`
-	// RateFound bernilai false kalau kota tujuan belum ada di tabel tarif dan
-	// perhitungannya memakai tarif default.
-	RateFound bool `json:"rate_found"`
 }
 
 // NormalizeCity merapikan nama kota agar pencocokan tarif tidak bergantung pada

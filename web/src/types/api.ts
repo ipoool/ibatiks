@@ -522,19 +522,6 @@ export interface NotifyMessage {
 
 // --- Ongkir ----------------------------------------------------------------
 
-export interface ShippingRate {
-  id: string;
-  courier: string;
-  service: string;
-  destination_city: string;
-  province: string | null;
-  price_per_kg: Money;
-  min_weight_gram: number;
-  etd: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 /** Sisa barang surplus sebuah trip yang masih tersimpan di gudang. */
 export interface TripStockOnHand {
   product_name: string;
@@ -646,8 +633,8 @@ export interface ShippingEstimate {
   etd: string;
   /** Tujuan seperti dikenali kurir, misalnya "CILANDAK BARAT, JAKARTA SELATAN, 12430". */
   destination?: string;
+  /** Nama layanan kurir yang menjawab. */
   source: string;
-  rate_found: boolean;
 }
 
 /** Satu tujuan pengiriman di daftar resmi kurir. */

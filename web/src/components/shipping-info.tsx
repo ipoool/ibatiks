@@ -63,8 +63,8 @@ export function ShippingInfoButton({ className }: { className?: string }) {
                 berat volume (kg) = panjang × lebar × tinggi (cm) ÷ 6.000
               </pre>
               <p className="text-muted-foreground">
-                Angka 6.000 adalah pembagi bawaan JNE. Kalau kurirmu memakai angka lain (misalnya
-                5.000), ubah di <span className="font-medium">Pengaturan → Ongkir</span>.
+                Angka 6.000 adalah pembagi bawaan JNE, dan hampir semua kurir dalam negeri
+                mengikutinya.
               </p>
             </section>
 
@@ -86,27 +86,23 @@ export function ShippingInfoButton({ className }: { className?: string }) {
             <section className="space-y-2">
               <h3 className="font-semibold">3. Biayanya</h3>
               <p className="text-muted-foreground">
-                Ada dua sumber angka, dicoba berurutan. Yang dipakai selalu disebutkan di bawah
-                hasil hitungan, jadi kamu tidak perlu menebak.
+                Angkanya datang dari <span className="font-medium text-foreground">kurir</span>,
+                lewat RajaOngkir. Setelah berat dan dimensi diisi di dialog kemas, daftar layanan
+                beserta harganya keluar dan kamu memilih salah satu — kurir menjual ongkos utuh
+                untuk berat itu, bukan harga per kilogram, jadi angkanya sama dengan yang nanti
+                dibayar di konter.
               </p>
-              <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>
-                  <span className="font-medium text-foreground">RajaOngkir</span> — ongkos utuh
-                  langsung dari kurir untuk berat itu, lengkap dengan tujuan yang mereka kenali.
-                  Kurir menagih berjenjang, bukan per kilogram, jadi ini yang paling mendekati
-                  tagihan sebenarnya. Butuh API key di server dan kota asal yang sudah dipilih di{" "}
-                  <span className="font-medium">Pengaturan → Ongkir</span>.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Tabel tarif sendiri</span> —
-                  dipakai kalau RajaOngkir tidak terpasang atau sedang tidak bisa dihubungi:
-                  <pre className="scrollbar-thin mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs">
-                    ongkir = berat ditagih (kg) × tarif per kg kota tujuan
-                  </pre>
-                  Kota yang belum punya tarif memakai tarif cadangan, dan hasilnya ditandai supaya
-                  kamu tahu angkanya masih kasar.
-                </li>
-              </ol>
+              <p className="text-muted-foreground">
+                Toko tidak lagi menyimpan tabel tarif sendiri. Tarif yang diketik tangan tidak
+                pernah ikut naik saat kurir menaikkan harganya, dan angka yang salah tapi terlihat
+                resmi lebih berbahaya daripada tidak ada angka sama sekali.
+              </p>
+              <p className="text-muted-foreground">
+                Kalau kurirnya sedang tidak bisa dihubungi, ongkirnya{" "}
+                <span className="font-medium text-foreground">diketik sendiri</span> di dialog yang
+                sama — dari struk konter atau aplikasi kurir. Pengemasan tidak perlu berhenti
+                menunggu layanannya pulih.
+              </p>
             </section>
 
             <section className="space-y-2">
@@ -127,12 +123,12 @@ export function ShippingInfoButton({ className }: { className?: string }) {
                       <td className="text-right">maks(1,5 kg; 4 kg) = 4 kg</td>
                     </tr>
                     <tr>
-                      <td className="text-muted-foreground">Tarif Jakarta Selatan</td>
-                      <td className="text-right">Rp 25.000 / kg</td>
+                      <td className="text-muted-foreground">Ditanyakan ke kurir</td>
+                      <td className="text-right">JNE REG, 4 kg ke Jakarta Selatan</td>
                     </tr>
                     <tr className="font-medium">
                       <td>Ongkir</td>
-                      <td className="text-right">4 × Rp 25.000 = Rp 100.000</td>
+                      <td className="text-right">seharga yang dijawab kurir untuk 4 kg</td>
                     </tr>
                   </tbody>
                 </table>
@@ -153,8 +149,8 @@ export function ShippingInfoButton({ className }: { className?: string }) {
                   laba memakai biaya yang nyata.
                 </li>
                 <li>
-                  Ongkir yang ditagihkan ke customer diisi terpisah di order — toko bebas
-                  menanggung sebagian atau menggratiskannya.
+                  Ongkir yang ditagihkan ke customer dan ongkir yang dibayar ke kurir disimpan
+                  terpisah — toko bebas menanggung selisihnya.
                 </li>
                 <li>
                   Berat produk diambil dari master produk. Produk yang beratnya masih 0 membuat

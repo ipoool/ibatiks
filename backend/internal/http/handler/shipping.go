@@ -3,8 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/ipoool/jastipin/backend/internal/http/request"
 	"github.com/ipoool/jastipin/backend/internal/http/response"
 	"github.com/ipoool/jastipin/backend/internal/service"
@@ -145,61 +143,4 @@ func (h *ShippingHandler) EstimateForOrder(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	response.OK(w, estimate)
-}
-
-func (h *ShippingHandler) ListRates(w http.ResponseWriter, r *http.Request) {
-	rates, err := h.shipping.ListRates(r.Context(),
-		r.URL.Query().Get("courier"), r.URL.Query().Get("q"))
-	if err != nil {
-		response.Error(w, r, err)
-		return
-	}
-	response.OK(w, rates)
-}
-
-type rateRequest struct {
-	Courier         string          `json:"courier"          validate:"omitempty,max=30"`
-	Service         string          `json:"service"          validate:"omitempty,max=20"`
-	DestinationCity string          `json:"destination_city" validate:"required,max=80"`
-	Province        *string         `json:"province"`
-	PricePerKg      decimal.Decimal `json:"price_per_kg"     validate:"required"`
-	MinWeightGram   int             `json:"min_weight_gram"  validate:"gte=0"`
-	ETD             *string         `json:"etd"`
-}
-
-func (h *ShippingHandler) SaveRate(w http.ResponseWriter, r *http.Request) {
-	var req rateRequest
-	if err := request.DecodeJSON(w, r, &req); err != nil {
-		response.Error(w, r, err)
-		return
-	}
-
-	rate, err := h.shipping.SaveRate(r.Context(), service.RateInput{
-		Courier:         req.Courier,
-		Service:         req.Service,
-		DestinationCity: req.DestinationCity,
-		Province:        req.Province,
-		PricePerKg:      req.PricePerKg,
-		MinWeightGram:   req.MinWeightGram,
-		ETD:             req.ETD,
-	})
-	if err != nil {
-		response.Error(w, r, err)
-		return
-	}
-	response.Created(w, rate)
-}
-
-func (h *ShippingHandler) DeleteRate(w http.ResponseWriter, r *http.Request) {
-	id, err := request.UUIDParam(r, "id")
-	if err != nil {
-		response.Error(w, r, err)
-		return
-	}
-
-	if err := h.shipping.DeleteRate(r.Context(), id); err != nil {
-		response.Error(w, r, err)
-		return
-	}
-	response.NoContent(w)
 }

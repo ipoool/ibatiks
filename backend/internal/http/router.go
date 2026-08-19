@@ -275,17 +275,12 @@ func NewRouter(d RouterDeps) http.Handler {
 			private.Route("/shipping", func(shipping chi.Router) {
 				shipping.Use(staffOnly)
 				shipping.Post("/estimate", d.Handlers.Shipping.Estimate)
-				shipping.Get("/rates", d.Handlers.Shipping.ListRates)
 				shipping.Get("/provider", d.Handlers.Shipping.Provider)
 
-				shipping.Group(func(write chi.Router) {
-					write.Use(ownerOnly, canAccess(domain.PermSettings))
-					write.Post("/rates", d.Handlers.Shipping.SaveRate)
-					write.Delete("/rates/{id}", d.Handlers.Shipping.DeleteRate)
-					// Pencarian tujuan memakan kuota langganan, jadi hanya
-					// dibuka untuk yang memang sedang menyetel pengiriman.
-					write.Get("/destinations", d.Handlers.Shipping.SearchDestinations)
-				})
+				// Pencarian tujuan memakan kuota langganan, jadi hanya dibuka
+				// untuk yang memang sedang menyetel pengiriman.
+				shipping.With(ownerOnly, canAccess(domain.PermSettings)).
+					Get("/destinations", d.Handlers.Shipping.SearchDestinations)
 			})
 
 			private.Route("/reports", func(reports chi.Router) {

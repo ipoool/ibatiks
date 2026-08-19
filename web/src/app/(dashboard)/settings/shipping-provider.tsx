@@ -27,6 +27,10 @@ import type { ShippingDestination } from "@/types/api";
 /**
  * Sambungan ke layanan tarif kurir (RajaOngkir).
  *
+ * Ini satu-satunya sumber ongkir sejak tabel tarif dilepas. Kalau belum
+ * terhubung, ongkirnya diketik sendiri di dialog kemas — bukan diambil dari
+ * angka cadangan yang dirawat entah sejak kapan.
+ *
  * Yang disimpan hanya tiga hal: ID kota asal, labelnya, dan daftar kurir yang
  * ditanyakan. API key-nya sendiri tidak pernah lewat sini — kunci itu tinggal di
  * `RAJAONGKIR_API_KEY` pada server, sehingga tidak pernah terkirim ke browser
@@ -99,8 +103,8 @@ export function ShippingProviderCard() {
         </CardTitle>
         <CardDescription>
           {provider?.connected
-            ? "Ongkir diambil langsung dari kurir sesuai berat paket. Tabel tarif di bawah tetap dipakai kalau layanannya sedang tidak bisa dihubungi."
-            : "API key belum dipasang di server. Isi RAJAONGKIR_API_KEY pada berkas .env lalu jalankan ulang backend; sampai itu terjadi, ongkir dihitung dari tabel tarif di bawah."}
+            ? "Ongkir diambil langsung dari kurir sesuai berat paket. Kalau layanannya sedang tidak bisa dihubungi, ongkirnya diketik sendiri saat mengemas."
+            : "API key belum dipasang di server. Isi RAJAONGKIR_API_KEY pada berkas .env lalu jalankan ulang backend; sampai itu terjadi, ongkir harus diketik sendiri saat mengemas."}
         </CardDescription>
       </CardHeader>
 
@@ -262,8 +266,8 @@ export function ShippingTestPanel() {
       <CardHeader>
         <CardTitle>Coba hitung ongkir</CardTitle>
         <CardDescription>
-          Uji satu alamat tujuan tanpa menyentuh order mana pun. Hasilnya menyebutkan dari mana
-          angkanya diambil.
+          Uji satu alamat tujuan tanpa menyentuh order mana pun, untuk memastikan sambungannya
+          benar sebelum ada order berjalan.
         </CardDescription>
       </CardHeader>
 
@@ -334,19 +338,19 @@ export function ShippingTestPanel() {
               Berat ditagih {(hasil.chargeable_weight_gram / 1000).toLocaleString("id-ID")} kg ·
               sumber angka: {hasil.source}
             </p>
-            {!hasil.rate_found && (
-              <p className="text-muted-foreground">
-                Kota ini belum ada di tabel tarif, jadi yang dipakai tarif cadangan.
-              </p>
-            )}
           </div>
         )}
 
+        {/*
+         * Tidak ada lagi sumber angka cadangan, jadi tanpa sambungan yang siap
+         * tombol Hitung pasti gagal. Alasannya disebutkan lebih dulu supaya
+         * admin tidak menekannya lalu mengira ada yang rusak.
+         */}
         {!provider?.ready && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-amber-600">
             {provider?.connected
-              ? "Kota asal belum dipilih, jadi hasilnya masih datang dari tabel tarif."
-              : "RajaOngkir belum terhubung, jadi hasilnya datang dari tabel tarif."}
+              ? "Kota asal belum dipilih di kartu di atas, jadi ongkir belum bisa dihitung."
+              : "RajaOngkir belum terhubung, jadi ongkir belum bisa dihitung. Isi RAJAONGKIR_API_KEY di server."}
           </p>
         )}
       </CardContent>

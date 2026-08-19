@@ -71,14 +71,16 @@ Yang tidak menghalangi tapi tetap hilang: **uang yang sudah diterima**. Karena i
 
 ## Ongkir
 
-Ada dua sumber tarif dan urutannya tidak boleh dibalik: **RajaOngkir dulu, tabel tarif sendiri sebagai cadangan.** Keduanya di balik interface — `service.RateProvider` (tarif per kg) dan `service.CostProvider` (ongkos utuh). Menambah vendor berarti menambah satu tipe, bukan menyentuh handler atau UI.
+**Hanya satu sumber angka: kurir, lewat RajaOngkir.** Toko pernah menyimpan tabel tarif per kota sendiri sebagai cadangan; itu dilepas di migrasi 000019. Tarif yang diisi tangan tidak pernah ikut naik saat kurir menaikkan harganya, dan angka yang salah tapi terlihat resmi lebih berbahaya daripada tidak ada angka sama sekali. Jangan menambahkan sumber tarif kedua.
 
-- **Kegagalan RajaOngkir tidak boleh menghentikan perhitungan.** `Estimate` menelan galatnya dan tetap jatuh ke tabel tarif. Admin sedang menimbang paket di depan customer; angka dari tabel dengan penanda asalnya jauh lebih berguna daripada layar galat. Yang wajib ada: `source` selalu ikut di hasil, supaya orang tahu angkanya datang dari mana.
-- **Kurir menjual ongkos utuh, bukan harga per kilo.** Jangan mengubah balasan RajaOngkir jadi tarif per kg lalu dikalikan — tarifnya berjenjang dan hasilnya meleset pada berat yang bukan kelipatan bulat. `price_per_kg` pada hasil RajaOngkir cuma turunan untuk ditampilkan.
+- **Kegagalan menghubungi kurir kini dilaporkan, bukan ditelan.** Selama masih ada tabel tarif, menelan galat berarti tetap memberi angka. Sekarang tidak ada angka pengganti, jadi menelannya hanya menghasilkan daftar kosong tanpa penjelasan. `Estimate` dan `Options` mengembalikan galat yang menyebutkan sebabnya.
+- **Jaring pengamannya manusia, bukan tabel.** Dialog kemas punya kolom ongkir yang bisa diketik sendiri, dipakai kalau daftar layanan gagal keluar. Angka dari struk konter lebih benar daripada tebakan mana pun. Jangan menggantinya dengan tarif default.
+- **Kurir menjual ongkos utuh, bukan harga per kilo.** Jangan mengubah balasan RajaOngkir jadi tarif per kg lalu dikalikan — tarifnya berjenjang dan hasilnya meleset pada berat yang bukan kelipatan bulat. `price_per_kg` pada hasil cuma turunan untuk ditampilkan.
+- **Pembagi berat volumetrik adalah konstanta** `domain.VolumetricDivisor` (6000, mengikuti JNE). Dulu bisa disetel per toko dan tidak ada yang pernah mengubahnya, sementara salah menyetelnya membuat seluruh perkiraan meleset tanpa gejala.
 - **`shipping_couriers` dipisah titik dua** (`jne:jnt:sicepat`) karena itu bentuk yang diminta API-nya. Simpan apa adanya, jangan diterjemahkan bolak-balik.
 - **Pemetaan alamat ke ID tujuan disimpan** di `shipping_destinations`. Kuota langganan terbatas dan pemetaan kota ke ID hampir tidak pernah berubah; mencari ulang alamat yang sama membuang kuota. Urutan percobaannya dari yang paling spesifik: kode pos → kelurahan + kota → kecamatan + kota → kota.
 - **API key tidak pernah menyentuh browser.** `RAJAONGKIR_API_KEY` tinggal di server; menu Pengaturan hanya menyimpan ID kota asal, labelnya, dan daftar kurir.
-- **Pesan penolakan dari kurir diteruskan apa adanya** ke pencarian kota asal. "API key tidak valid" hanya bisa dibereskan tim toko, dan "terjadi kesalahan pada server" tidak memberi tahu apa pun.
+- **Pesan penolakan dari kurir diteruskan apa adanya.** "API key tidak valid" hanya bisa dibereskan tim toko, dan "terjadi kesalahan pada server" tidak memberi tahu apa pun.
 
 ## Frontend
 

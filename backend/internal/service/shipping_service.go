@@ -16,43 +16,22 @@ import (
 	"github.com/ipoool/jastipin/backend/internal/repository"
 )
 
-// RateProvider adalah sumber tarif kirim.
+// ShippingService menjawab pertanyaan ongkir memakai tarif dari kurir.
 //
-// Antarmuka ini sengaja dipisah supaya integrasi API kurir (RajaOngkir, Komerce,
-// atau API JNE langsung) bisa dipasang tanpa mengubah satu pun pemanggilnya:
-// cukup buat tipe baru yang memenuhi antarmuka ini lalu daftarkan di
-// ShippingService. Implementasi bawaan membaca tabel shipping_rates.
-type RateProvider interface {
-	// Name dipakai untuk menandai asal angka pada hasil estimasi.
-	Name() string
-	// Quote mengembalikan tarif per kilogram untuk satu tujuan. Mengembalikan
-	// nil tanpa error kalau tujuannya tidak dikenali, supaya pemanggil bisa
-	// jatuh ke tarif default.
-	Quote(ctx context.Context, courier, service, city string) (*domain.ShippingRate, error)
-}
-
-// tableRateProvider membaca tarif dari tabel shipping_rates yang dikelola
-// sendiri oleh pemilik toko lewat menu Pengaturan.
-type tableRateProvider struct {
-	pool  *pgxpool.Pool
-	rates *repository.ShippingRepo
-}
-
-func (p *tableRateProvider) Name() string { return "tabel tarif" }
-
-func (p *tableRateProvider) Quote(ctx context.Context, courier, service, city string) (*domain.ShippingRate, error) {
-	return p.rates.FindRate(ctx, p.pool, courier, service, city)
-}
-
+// Hanya ada satu sumber angka: layanan kurir. Toko pernah menyimpan tabel tarif
+// per kota sendiri sebagai cadangan, dan itu dilepas — tabel yang diisi tangan
+// selalu tertinggal dari tarif yang sebenarnya berlaku, dan angka yang salah
+// tapi terlihat resmi lebih berbahaya daripada tidak ada angka sama sekali.
+//
+// Kalau kurirnya tidak bisa dihubungi, jawabannya adalah galat yang menyebutkan
+// sebabnya, bukan tebakan. Admin lalu mengetik ongkirnya sendiri dari struk atau
+// aplikasi kurir saat mengemas.
 type ShippingService struct {
 	pool     *pgxpool.Pool
 	rates    *repository.ShippingRepo
 	orders   *repository.OrderRepo
 	settings *repository.SettingsRepo
-	provider RateProvider
-	// costs diisi kalau ada layanan yang bisa menghitung ongkos utuh, misalnya
-	// RajaOngkir. Dicoba lebih dulu; tabel tarif jadi cadangannya.
-	costs CostProvider
+	costs    CostProvider
 }
 
 func NewShippingService(
@@ -61,23 +40,10 @@ func NewShippingService(
 	orders *repository.OrderRepo,
 	settings *repository.SettingsRepo,
 ) *ShippingService {
-	return &ShippingService{
-		pool:     pool,
-		rates:    rates,
-		orders:   orders,
-		settings: settings,
-		provider: &tableRateProvider{pool: pool, rates: rates},
-	}
+	return &ShippingService{pool: pool, rates: rates, orders: orders, settings: settings}
 }
 
-// UseProvider mengganti sumber tarif per kilogram.
-func (s *ShippingService) UseProvider(provider RateProvider) {
-	s.provider = provider
-}
-
-// UseCostProvider memasang layanan yang menghitung ongkos utuh, seperti
-// RajaOngkir. Tabel tarif tetap dipertahankan sebagai cadangan supaya toko
-// tidak lumpuh saat langganan habis atau layanannya sedang tidak bisa dihubungi.
+// UseCostProvider memasang layanan yang menghitung ongkos utuh, yaitu RajaOngkir.
 func (s *ShippingService) UseCostProvider(provider CostProvider) {
 	s.costs = provider
 }
@@ -113,134 +79,41 @@ func hargaPerKg(cost decimal.Decimal, chargeableGram int) decimal.Decimal {
 	return cost.Div(kg).Round(2)
 }
 
-// Estimate menghitung perkiraan ongkir.
-//
-// Ekspedisi menagih berdasarkan berat yang lebih besar antara berat asli dan
-// berat volumetrik, dibulatkan ke atas per kilogram. Hasilnya dikembalikan
-// lengkap dengan dasar hitungannya supaya admin bisa memeriksa kenapa angkanya
-// sekian, bukan sekadar menerima satu angka.
-func (s *ShippingService) Estimate(ctx context.Context, in EstimateInput) (*domain.ShippingEstimate, error) {
-	courier := strings.ToUpper(strings.TrimSpace(in.Courier))
-	if courier == "" {
-		courier = "JNE"
-	}
-	service := strings.ToUpper(strings.TrimSpace(in.Service))
-	if service == "" {
-		service = "REG"
-	}
-	if strings.TrimSpace(in.City) == "" {
-		return nil, domain.Validation("kota tujuan belum diisi", map[string]string{
-			"city": "wajib diisi untuk menghitung ongkir",
-		})
-	}
-
-	settings, err := s.settings.All(ctx, s.pool)
-	if err != nil {
-		return nil, err
-	}
-
-	divisor := settingInt(settings, "shipping_volumetric_divisor", 6000)
-	defaultPerKg := settingDecimal(settings, "shipping_default_price_per_kg", decimal.NewFromInt(25000))
-
-	volumetricAwal := domain.VolumetricWeightGram(in.LengthCM, in.WidthCM, in.HeightCM, divisor)
-
-	// Layanan kurir dicoba lebih dulu kalau terpasang. Kegagalannya sengaja
-	// tidak menghentikan perhitungan: admin sedang menimbang paket di depan
-	// customer, dan lebih baik menerima angka dari tabel tarif dengan penanda
-	// asalnya daripada layar galat.
-	if s.costs != nil {
-		beratKirim := domain.ChargeableWeightGram(in.WeightGram, volumetricAwal, 1000)
-		quote, errQuote := s.costs.QuoteCost(ctx, CostQuoteInput{
-			Courier:     courier,
-			Service:     service,
-			City:        in.City,
-			District:    in.District,
-			Subdistrict: in.Subdistrict,
-			PostalCode:  in.PostalCode,
-			WeightGram:  beratKirim,
-		})
-		if errQuote == nil && quote != nil {
-			return &domain.ShippingEstimate{
-				Courier:              quote.Courier,
-				Service:              quote.Service,
-				City:                 domain.NormalizeCity(in.City),
-				ActualWeightGram:     in.WeightGram,
-				VolumetricWeightGram: volumetricAwal,
-				ChargeableWeightGram: beratKirim,
-				PricePerKg:           hargaPerKg(quote.Cost, beratKirim),
-				Cost:                 money.RoundRupiah(quote.Cost),
-				ETD:                  quote.ETD,
-				Destination:          quote.Destination,
-				Source:               s.costs.Name(),
-				RateFound:            true,
-			}, nil
-		}
-	}
-
-	rate, err := s.provider.Quote(ctx, courier, service, in.City)
-	if err != nil {
-		return nil, err
-	}
-
-	pricePerKg := defaultPerKg
-	minWeight := 1000
-	etd := ""
-	source := "tarif default"
-	found := false
-
-	if rate != nil {
-		pricePerKg = rate.PricePerKg
-		minWeight = rate.MinWeightGram
-		if rate.ETD != nil {
-			etd = *rate.ETD
-		}
-		source = s.provider.Name()
-		found = true
-	}
-
-	volumetric := volumetricAwal
-	chargeable := domain.ChargeableWeightGram(in.WeightGram, volumetric, minWeight)
-
-	kg := decimal.NewFromInt(int64(chargeable)).Div(decimal.NewFromInt(1000))
-	cost := money.RoundRupiah(pricePerKg.Mul(kg))
-
-	return &domain.ShippingEstimate{
-		Courier:              courier,
-		Service:              service,
-		City:                 domain.NormalizeCity(in.City),
-		ActualWeightGram:     in.WeightGram,
-		VolumetricWeightGram: volumetric,
-		ChargeableWeightGram: chargeable,
-		PricePerKg:           pricePerKg,
-		Cost:                 cost,
-		ETD:                  etd,
-		Source:               source,
-		RateFound:            found,
-	}, nil
+// beratDitagih menghitung berat yang dipakai menagih: yang lebih besar antara
+// berat timbangan dan berat volumetrik, dibulatkan ke atas per kilogram.
+func beratDitagih(in EstimateInput) (volumetrik, ditagih int) {
+	volumetrik = domain.VolumetricWeightGram(
+		in.LengthCM, in.WidthCM, in.HeightCM, domain.VolumetricDivisor)
+	return volumetrik, domain.ChargeableWeightGram(in.WeightGram, volumetrik, 1000)
 }
 
-// EstimateForOrder menghitung ongkir memakai kota tujuan dari alamat order,
-// supaya admin tidak perlu mengetik ulang kotanya.
-func (s *ShippingService) EstimateForOrder(ctx context.Context, orderID uuid.UUID, in EstimateInput) (*domain.ShippingEstimate, error) {
-	order, err := s.orders.GetByID(ctx, s.pool, orderID)
+// Estimate mengembalikan satu perkiraan ongkir, yang termurah kalau kurir dan
+// layanannya tidak ditentukan.
+func (s *ShippingService) Estimate(ctx context.Context, in EstimateInput) (*domain.ShippingEstimate, error) {
+	pilihan, volumetrik, ditagih, err := s.hitung(ctx, in)
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(in.City) == "" {
-		in.City = order.ShippingCity
+
+	terpilih := pilihOngkir(pilihan, in.Courier, in.Service)
+	if terpilih == nil {
+		return nil, domain.InvalidState(
+			"kurir tidak punya layanan untuk paket seberat ini — isi ongkirnya sendiri saat mengemas")
 	}
-	// Bagian alamat yang lebih rinci ikut dibawa supaya layanan kurir bisa
-	// menunjuk kecamatan yang tepat, bukan sekadar kotanya.
-	if strings.TrimSpace(in.District) == "" {
-		in.District = derefString(order.ShippingDistrict)
-	}
-	if strings.TrimSpace(in.Subdistrict) == "" {
-		in.Subdistrict = derefString(order.ShippingSubdistrict)
-	}
-	if strings.TrimSpace(in.PostalCode) == "" {
-		in.PostalCode = derefString(order.ShippingPostalCode)
-	}
-	return s.Estimate(ctx, in)
+
+	return &domain.ShippingEstimate{
+		Courier:              terpilih.Courier,
+		Service:              terpilih.Service,
+		City:                 domain.NormalizeCity(in.City),
+		ActualWeightGram:     in.WeightGram,
+		VolumetricWeightGram: volumetrik,
+		ChargeableWeightGram: ditagih,
+		PricePerKg:           hargaPerKg(terpilih.Cost, ditagih),
+		Cost:                 money.RoundRupiah(terpilih.Cost),
+		ETD:                  terpilih.ETD,
+		Destination:          terpilih.Destination,
+		Source:               s.costs.Name(),
+	}, nil
 }
 
 // ShippingOption adalah satu layanan kurir yang bisa dipilih admin saat
@@ -259,63 +132,93 @@ type ShippingOption struct {
 // Berbeda dari Estimate yang menjawab "berapa kira-kira", ini menjawab "apa
 // saja pilihannya" — yang termurah tidak selalu yang dipakai, karena customer
 // kadang minta layanan yang lebih cepat.
-//
-// Kegagalan menghubungi kurir tidak menghentikan pekerjaan. Yang dikembalikan
-// lalu satu pilihan hasil hitungan tabel tarif, dengan Source yang menyebutkan
-// asalnya, sehingga admin tetap bisa menyelesaikan pengemasannya.
 func (s *ShippingService) Options(ctx context.Context, in EstimateInput) ([]ShippingOption, error) {
-	if s.costs != nil {
-		settings, err := s.settings.All(ctx, s.pool)
-		if err != nil {
-			return nil, err
-		}
-		divisor := settingInt(settings, "shipping_volumetric_divisor", 6000)
-		volumetrik := domain.VolumetricWeightGram(in.LengthCM, in.WidthCM, in.HeightCM, divisor)
-		beratKirim := domain.ChargeableWeightGram(in.WeightGram, volumetrik, 1000)
-
-		pilihan, errQuote := s.costs.QuoteOptions(ctx, CostQuoteInput{
-			City:        in.City,
-			District:    in.District,
-			Subdistrict: in.Subdistrict,
-			PostalCode:  in.PostalCode,
-			WeightGram:  beratKirim,
-		})
-		if errQuote == nil && len(pilihan) > 0 {
-			out := make([]ShippingOption, 0, len(pilihan))
-			for _, p := range pilihan {
-				out = append(out, ShippingOption{
-					Courier:     p.Courier,
-					Service:     p.Service,
-					Cost:        money.RoundRupiah(p.Cost),
-					ETD:         p.ETD,
-					Destination: p.Destination,
-					Source:      s.costs.Name(),
-				})
-			}
-			return out, nil
-		}
-	}
-
-	estimate, err := s.Estimate(ctx, in)
+	pilihan, _, ditagih, err := s.hitung(ctx, in)
 	if err != nil {
 		return nil, err
 	}
-	return []ShippingOption{{
-		Courier:     estimate.Courier,
-		Service:     estimate.Service,
-		Cost:        estimate.Cost,
-		ETD:         estimate.ETD,
-		Destination: estimate.Destination,
-		Source:      estimate.Source,
-	}}, nil
+
+	out := make([]ShippingOption, 0, len(pilihan))
+	for _, p := range pilihan {
+		out = append(out, ShippingOption{
+			Courier:     p.Courier,
+			Service:     p.Service,
+			Cost:        money.RoundRupiah(p.Cost),
+			ETD:         p.ETD,
+			Destination: p.Destination,
+			Source:      s.costs.Name(),
+		})
+	}
+	_ = ditagih
+	return out, nil
 }
 
-// OptionsForOrder memakai alamat tujuan dari order, supaya admin tidak perlu
-// mengetik ulang kotanya saat mengemas.
-func (s *ShippingService) OptionsForOrder(ctx context.Context, orderID uuid.UUID, in EstimateInput) ([]ShippingOption, error) {
-	order, err := s.orders.GetByID(ctx, s.pool, orderID)
+// hitung menanyakan seluruh pilihan ongkir ke layanan kurir.
+//
+// Galatnya sengaja tidak ditelan seperti dulu. Waktu masih ada tabel tarif,
+// menelan galat berarti tetap memberi angka; sekarang tidak ada lagi angka
+// pengganti, jadi menelannya hanya akan menghasilkan daftar kosong tanpa
+// penjelasan. Admin berhak tahu kenapa daftarnya tidak keluar.
+func (s *ShippingService) hitung(ctx context.Context, in EstimateInput) ([]CostQuote, int, int, error) {
+	if strings.TrimSpace(in.City) == "" {
+		return nil, 0, 0, domain.Validation("kota tujuan belum diisi", map[string]string{
+			"city": "wajib diisi untuk menghitung ongkir",
+		})
+	}
+	if s.costs == nil {
+		return nil, 0, 0, domain.InvalidState(
+			"RajaOngkir belum terhubung — isi RAJAONGKIR_API_KEY di server, atau ketik ongkirnya sendiri saat mengemas")
+	}
+
+	volumetrik, ditagih := beratDitagih(in)
+
+	pilihan, err := s.costs.QuoteOptions(ctx, CostQuoteInput{
+		City:        in.City,
+		District:    in.District,
+		Subdistrict: in.Subdistrict,
+		PostalCode:  in.PostalCode,
+		WeightGram:  ditagih,
+	})
+	if err != nil {
+		// Pesan penolakan dari kurir diteruskan apa adanya: "API key tidak
+		// valid" hanya bisa dibereskan tim toko, dan "terjadi kesalahan pada
+		// server" tidak memberi tahu apa pun.
+		var ro *rajaongkir.Error
+		if errors.As(err, &ro) {
+			return nil, 0, 0, domain.InvalidState("%s menolak permintaan: %s", s.costs.Name(), ro.Message)
+		}
+		return nil, 0, 0, err
+	}
+	if len(pilihan) == 0 {
+		return nil, 0, 0, domain.InvalidState(
+			"kota asal atau tujuannya belum dikenali kurir — periksa kota asal di Pengaturan, atau ketik ongkirnya sendiri saat mengemas")
+	}
+
+	return pilihan, volumetrik, ditagih, nil
+}
+
+// EstimateForOrder dan OptionsForOrder memakai alamat tujuan dari order, supaya
+// admin tidak perlu mengetik ulang kotanya saat mengemas.
+func (s *ShippingService) EstimateForOrder(ctx context.Context, orderID uuid.UUID, in EstimateInput) (*domain.ShippingEstimate, error) {
+	in, err := s.lengkapiAlamat(ctx, orderID, in)
 	if err != nil {
 		return nil, err
+	}
+	return s.Estimate(ctx, in)
+}
+
+func (s *ShippingService) OptionsForOrder(ctx context.Context, orderID uuid.UUID, in EstimateInput) ([]ShippingOption, error) {
+	in, err := s.lengkapiAlamat(ctx, orderID, in)
+	if err != nil {
+		return nil, err
+	}
+	return s.Options(ctx, in)
+}
+
+func (s *ShippingService) lengkapiAlamat(ctx context.Context, orderID uuid.UUID, in EstimateInput) (EstimateInput, error) {
+	order, err := s.orders.GetByID(ctx, s.pool, orderID)
+	if err != nil {
+		return in, err
 	}
 	if strings.TrimSpace(in.City) == "" {
 		in.City = order.ShippingCity
@@ -329,15 +232,12 @@ func (s *ShippingService) OptionsForOrder(ctx context.Context, orderID uuid.UUID
 	if strings.TrimSpace(in.PostalCode) == "" {
 		in.PostalCode = derefString(order.ShippingPostalCode)
 	}
-	return s.Options(ctx, in)
+	return in, nil
 }
 
 // --- Layanan tarif kurir ----------------------------------------------------
 
 // SearchDestinations mencari kota/kecamatan tujuan di layanan kurir.
-//
-// Mengembalikan daftar kosong kalau layanannya tidak terpasang, bukan galat:
-// menu Pengaturan tetap harus bisa dibuka toko yang belum berlangganan.
 func (s *ShippingService) SearchDestinations(ctx context.Context, q string) ([]domain.ShippingDestination, error) {
 	if s.costs == nil {
 		return []domain.ShippingDestination{}, nil
@@ -350,9 +250,6 @@ func (s *ShippingService) SearchDestinations(ctx context.Context, q string) ([]d
 
 	tujuan, err := s.costs.SearchDestination(ctx, q, 10)
 	if err != nil {
-		// Pesan penolakan dari kurir diteruskan apa adanya. API key keliru atau
-		// langganan habis adalah hal yang hanya bisa dibereskan tim toko, dan
-		// "terjadi kesalahan pada server" tidak memberi tahu apa pun.
 		var ro *rajaongkir.Error
 		if errors.As(err, &ro) {
 			return nil, domain.InvalidState("%s menolak permintaan: %s", s.costs.Name(), ro.Message)
@@ -373,14 +270,13 @@ func (s *ShippingService) ProviderInfo(ctx context.Context) (*domain.ShippingPro
 	}
 
 	info := domain.ShippingProviderInfo{
-		Name:          s.provider.Name(),
+		Name:          "RajaOngkir",
 		OriginID:      settingInt(settings, "shipping_origin_id", 0),
 		OriginLabel:   settingString(settings, "shipping_origin_label", ""),
 		Couriers:      daftarKurir(settingString(settings, "shipping_couriers", "jne")),
 		CourierOption: domain.KurirRajaOngkir,
 	}
 	if s.costs != nil {
-		info.Name = s.costs.Name()
 		info.Connected = true
 		info.Ready = info.OriginID > 0 && len(info.Couriers) > 0
 	}
@@ -401,73 +297,9 @@ func daftarKurir(nilai string) []string {
 	return kurir
 }
 
-// --- Pengelolaan tarif ------------------------------------------------------
-
-func (s *ShippingService) ListRates(ctx context.Context, courier, search string) ([]domain.ShippingRate, error) {
-	return s.rates.List(ctx, s.pool, courier, search)
-}
-
-type RateInput struct {
-	Courier         string
-	Service         string
-	DestinationCity string
-	Province        *string
-	PricePerKg      decimal.Decimal
-	MinWeightGram   int
-	ETD             *string
-}
-
-func (s *ShippingService) SaveRate(ctx context.Context, in RateInput) (*domain.ShippingRate, error) {
-	if strings.TrimSpace(in.DestinationCity) == "" {
-		return nil, domain.Validation("kota tujuan wajib diisi", map[string]string{
-			"destination_city": "wajib diisi",
-		})
-	}
-	if in.PricePerKg.IsNegative() {
-		return nil, domain.Validation("tarif tidak valid", map[string]string{
-			"price_per_kg": "harus 0 atau lebih",
-		})
-	}
-
-	courier := strings.ToUpper(strings.TrimSpace(in.Courier))
-	if courier == "" {
-		courier = "JNE"
-	}
-	service := strings.ToUpper(strings.TrimSpace(in.Service))
-	if service == "" {
-		service = "REG"
-	}
-	minWeight := in.MinWeightGram
-	if minWeight <= 0 {
-		minWeight = 1000
-	}
-
-	return s.rates.Upsert(ctx, s.pool, repository.ShippingRateParams{
-		Courier:         courier,
-		Service:         service,
-		DestinationCity: in.DestinationCity,
-		Province:        trimPtr(in.Province),
-		PricePerKg:      in.PricePerKg,
-		MinWeightGram:   minWeight,
-		ETD:             trimPtr(in.ETD),
-	})
-}
-
-func (s *ShippingService) DeleteRate(ctx context.Context, id uuid.UUID) error {
-	return s.rates.Delete(ctx, s.pool, id)
-}
-
 func settingInt(settings domain.Settings, key string, fallback int) int {
 	value, err := strconv.Atoi(strings.TrimSpace(settings.Get(key)))
 	if err != nil || value <= 0 {
-		return fallback
-	}
-	return value
-}
-
-func settingDecimal(settings domain.Settings, key string, fallback decimal.Decimal) decimal.Decimal {
-	value, err := decimal.NewFromString(strings.TrimSpace(settings.Get(key)))
-	if err != nil || value.IsNegative() {
 		return fallback
 	}
 	return value

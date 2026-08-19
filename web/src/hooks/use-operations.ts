@@ -19,7 +19,6 @@ import type {
   ShippingOption,
   ShippingProviderInfo,
   ShippingQueueItem,
-  ShippingRate,
   ShippingStage,
   StockItem,
   StockMovement,
@@ -448,7 +447,7 @@ export const shippingProviderKeys = {
   destinations: (q: string) => ["shipping-destinations", q] as const,
 };
 
-/** Keadaan layanan tarif (RajaOngkir atau tabel tarif sendiri). */
+/** Keadaan sambungan ke RajaOngkir, satu-satunya sumber ongkir. */
 export function useShippingProvider() {
   return useQuery({
     queryKey: shippingProviderKeys.provider,
@@ -473,45 +472,3 @@ export function useShippingDestinations(q: string, enabled = true) {
   });
 }
 
-export const shippingRateKeys = {
-  all: ["shipping-rates"] as const,
-  list: (params: { courier?: string; q?: string }) => ["shipping-rates", params] as const,
-};
-
-export function useShippingRates(params: { courier?: string; q?: string } = {}) {
-  return useQuery({
-    queryKey: shippingRateKeys.list(params),
-    queryFn: () => api.get<ShippingRate[]>(`/shipping/rates${buildQuery({ ...params })}`),
-    staleTime: 5 * 60_000,
-  });
-}
-
-export function useSaveShippingRate() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: {
-      courier?: string;
-      service?: string;
-      destination_city: string;
-      province?: string | null;
-      price_per_kg: string;
-      min_weight_gram?: number;
-      etd?: string | null;
-    }) => api.post<ShippingRate>("/shipping/rates", payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: shippingRateKeys.all });
-    },
-  });
-}
-
-export function useDeleteShippingRate() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.delete(`/shipping/rates/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: shippingRateKeys.all });
-    },
-  });
-}

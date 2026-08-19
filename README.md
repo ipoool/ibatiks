@@ -330,15 +330,25 @@ Kalau customer terlanjur melunasi sebelum paketnya ditimbang, ordernya ditarik k
 Diproses dengan sisa tagihan sebesar ongkirnya, supaya barangnya tidak berangkat sementara
 ongkirnya tidak pernah tertagih.
 
-Angkanya sendiri diambil dari dua sumber, berurutan.
+Angkanya datang dari **satu sumber saja: kurir**, lewat RajaOngkir. Toko pernah menyimpan tabel
+tarif per kota sendiri sebagai cadangan; itu dilepas. Tarif yang diketik tangan tidak pernah ikut
+naik saat kurir menaikkan harganya, dan angka yang salah tapi terlihat resmi lebih berbahaya
+daripada tidak ada angka sama sekali.
 
-**RajaOngkir** dipakai lebih dulu kalau `RAJAONGKIR_API_KEY` terisi. Layanannya mengembalikan ongkos **utuh** untuk berat paket, bukan tarif per kilogram — kurir menagih berjenjang, jadi memaksanya jadi angka per kilo akan meleset pada berat yang bukan kelipatan bulat. Kota asal dan daftar kurir dipilih di menu Pengaturan → Ongkir dan tersimpan di `app_settings` (`shipping_origin_id`, `shipping_origin_label`, `shipping_couriers`; pemisah kurirnya titik dua, `jne:jnt:sicepat`, karena itu bentuk yang diminta API-nya). Alamat order diterjemahkan ke ID tujuan RajaOngkir dari yang paling spesifik ke yang paling umum — kode pos, lalu kelurahan + kota, kecamatan + kota, baru kotanya saja — dan pemetaan yang ketemu disimpan di `shipping_destinations` supaya alamat yang sama tidak memakan kuota dua kali.
+Kalau kurirnya sedang tidak bisa dihubungi — API key belum diisi, kuota habis, layanannya down —
+ongkirnya **diketik sendiri** di dialog kemas, dari struk konter atau aplikasi kurir. Pengemasan
+tidak berhenti menunggu layanannya pulih, dan yang tersimpan tetap angka yang benar-benar dibayar.
 
-**Tabel tarif sendiri** (`shipping_rates`, juga dikelola di menu yang sama) adalah cadangannya: dipakai kalau key-nya kosong, kota asalnya belum dipilih, atau layanannya sedang tidak bisa dihubungi. Kegagalan RajaOngkir sengaja tidak menghentikan perhitungan — admin sedang menimbang paket di depan customer, dan lebih baik menerima angka dari tabel dengan penanda asalnya daripada layar galat. Kota tujuan dicocokkan setelah dinormalisasi (`Kota Bandung`, `BANDUNG`, dan `bandung` sama), dan kalau tidak ketemu dipakai tarif cadangan dari `app_settings`.
+Kota asal dan daftar kurir disetel di **Pengaturan → Ongkir**, tersimpan di `app_settings`
+(`shipping_origin_id`, `shipping_origin_label`, `shipping_couriers`; pemisah kurirnya titik dua,
+`jne:jnt:sicepat`, karena itu bentuk yang diminta API-nya). Alamat order diterjemahkan ke ID tujuan
+RajaOngkir dari yang paling spesifik ke yang paling umum — kode pos, lalu kelurahan + kota,
+kecamatan + kota, baru kotanya saja — dan pemetaan yang ketemu disimpan di `shipping_destinations`
+supaya alamat yang sama tidak memakan kuota dua kali.
 
-Sumber yang benar-benar dipakai selalu disebutkan pada hasil hitungnya (`source`), berikut tujuan seperti dikenali kurir (`destination`) — nama kota yang sama bisa menunjuk kecamatan berbeda dengan tarif berbeda, jadi admin perlu bisa memeriksanya.
-
-Keduanya berada di balik interface: `service.RateProvider` untuk tarif per kilogram dan `service.CostProvider` untuk ongkos utuh. Mengganti vendor berarti menambah satu tipe yang memenuhi salah satunya, tanpa menyentuh handler maupun frontend.
+Sumber angka selalu disebutkan pada hasil hitungnya (`source`), berikut tujuan seperti dikenali
+kurir (`destination`) — nama kota yang sama bisa menunjuk kecamatan berbeda dengan tarif berbeda,
+jadi admin perlu bisa memeriksanya.
 
 ### Invoice dan WhatsApp
 

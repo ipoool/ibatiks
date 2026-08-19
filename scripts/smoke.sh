@@ -279,18 +279,17 @@ RECEIVED="$(api POST "/orders/$ORDER_A_ID/receive" "{\"items\":$RECEIVE_ITEMS}")
 # penerimaan adalah bagian dari tahap Diproses.
 expect "$(jq -r '.data.status' <<<"$RECEIVED")" "dp_paid" "status order A tetap Diproses setelah barang dicocokkan"
 
-# Kardus 40x30x25 cm -> berat volume (40*30*25)/6000 = 5 kg, jauh di atas berat
-# asli 900 g, jadi yang ditagih ekspedisi adalah 5 kg.
-ESTIMATE="$(api POST "/orders/$ORDER_A_ID/shipping-estimate" '{"weight_gram":900,"length_cm":40,"width_cm":30,"height_cm":25}')"
-expect "$(jq -r '.data.volumetric_weight_gram' <<<"$ESTIMATE")" "5000" "berat volume dari dimensi kardus"
-expect "$(jq -r '.data.chargeable_weight_gram' <<<"$ESTIMATE")" "5000" "berat yang ditagih memakai yang terbesar"
-expect "$(jq -r '.data.rate_found' <<<"$ESTIMATE")" "true" "tarif kota tujuan ditemukan"
-ESTIMATED_COST="$(money "$(jq -r '.data.cost' <<<"$ESTIMATE")")"
-expect "$ESTIMATED_COST" "60000" "ongkir 5 kg ke Jakarta Selatan (5 x Rp12.000)"
-
-# Paket kecil: berat asli menang atas berat volume, lalu dibulatkan ke kg penuh.
-SMALL="$(api POST "/orders/$ORDER_A_ID/shipping-estimate" '{"weight_gram":2300,"length_cm":10,"width_cm":10,"height_cm":10}')"
-expect "$(jq -r '.data.chargeable_weight_gram' <<<"$SMALL")" "3000" "berat 2,3 kg dibulatkan ke 3 kg"
+# Ongkir hanya punya satu sumber: kurir. Tanpa RAJAONGKIR_API_KEY, permintaan
+# estimasi ditolak dengan alasannya, bukan dijawab angka tebakan — dulu di sini
+# ada tabel tarif yang diam-diam menutupi keadaan itu.
+EST_STATUS="$(curl -s -o /tmp/smoke-estimate.json -w '%{http_code}' -X POST \
+  "$API/orders/$ORDER_A_ID/shipping-estimate" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"weight_gram":900,"length_cm":40,"width_cm":30,"height_cm":25}')"
+expect "$EST_STATUS" "409" "estimasi ongkir ditolak saat kurir belum terhubung"
+expect "$(jq -r '.error.message | contains("RAJAONGKIR_API_KEY")' /tmp/smoke-estimate.json)" "true" \
+  "penolakannya menyebutkan apa yang harus dibereskan"
+rm -f /tmp/smoke-estimate.json
 
 # Invoice pelunasan menagih seluruh sisa pesanan termasuk ongkir, jadi ia tidak
 # boleh terbit sebelum paketnya ditimbang — customer akan menerima tagihan yang
@@ -299,11 +298,14 @@ TOO_EARLY="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/orders/$ORDER_
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"type":"final"}')"
 expect "$TOO_EARLY" "409" "invoice pelunasan ditolak sebelum ongkir ditetapkan"
 
-# Ongkir ditetapkan bersama data kemasan, memakai angka hasil estimasi di atas.
+# Ongkir ditetapkan bersama data kemasan. Angkanya diketik admin sendiri —
+# jaring pengaman yang menggantikan tabel tarif.
 PACKED="$(api POST "/orders/$ORDER_A_ID/pack" '{"courier":"JNE","service":"REG","weight_gram":900,"length_cm":40,"width_cm":30,"height_cm":25,"shipping_fee":"60000"}')"
 expect "$(jq -r '.data.status' <<<"$PACKED")" "ready" "status paket setelah dikemas"
 expect "$(jq -r '.data.length_cm' <<<"$PACKED")" "40" "dimensi paket tersimpan"
-expect "$(money "$(jq -r '.data.estimated_cost' <<<"$PACKED")")" "60000" "estimasi ongkir ikut tersimpan saat dikemas"
+# Estimasi pembanding kosong karena kurirnya tidak bisa dihubungi. Itu tidak
+# menghentikan pengemasan: ongkir yang dipakai adalah yang diketik admin.
+expect "$(money "$(jq -r '.data.estimated_cost' <<<"$PACKED")")" "0" "estimasi pembanding kosong saat kurir tak terhubung"
 
 # Mengemas tidak menggeser status order, tapi ongkirnya masuk ke total.
 AFTER_PACK="$(api GET "/orders/$ORDER_A_ID")"
