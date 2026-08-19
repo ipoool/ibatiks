@@ -44,13 +44,21 @@ export default function ReportsPage() {
 
       <Tabs defaultValue="piutang">
         <TabsList>
+          <TabsTrigger value="customer">Per Customer</TabsTrigger>
+          <TabsTrigger value="channel">Per Channel</TabsTrigger>
           <TabsTrigger value="piutang">Piutang</TabsTrigger>
           {canSeeMargin && <TabsTrigger value="profit">Profit per Order</TabsTrigger>}
           <TabsTrigger value="produk">Performa Produk</TabsTrigger>
-          <TabsTrigger value="customer">Per Customer</TabsTrigger>
-          <TabsTrigger value="channel">Per Channel</TabsTrigger>
         </TabsList>
 
+        {/* Urutan isi disamakan dengan urutan tabnya supaya berkas ini tetap
+            terbaca berurutan; Radix memilih isi berdasarkan value, bukan posisi. */}
+        <TabsContent value="customer">
+          <CustomerSalesReport />
+        </TabsContent>
+        <TabsContent value="channel">
+          <ChannelSalesReport />
+        </TabsContent>
         <TabsContent value="piutang">
           <ReceivablesReport />
         </TabsContent>
@@ -61,12 +69,6 @@ export default function ReportsPage() {
         )}
         <TabsContent value="produk">
           <ProductSalesReport />
-        </TabsContent>
-        <TabsContent value="customer">
-          <CustomerSalesReport />
-        </TabsContent>
-        <TabsContent value="channel">
-          <ChannelSalesReport />
         </TabsContent>
       </Tabs>
     </>
