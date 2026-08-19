@@ -340,7 +340,7 @@ function NewOrderForm() {
               </Field>
 
               <Field
-                label="Asal order"
+                label="Channel"
                 htmlFor="order_source"
                 hint="Dipakai laporan penjualan per channel"
               >

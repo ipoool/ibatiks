@@ -6,6 +6,7 @@ import { api, buildQuery } from "@/lib/api";
 import type {
   Customer,
   CustomerStats,
+  Social,
   PricePreview,
   Product,
   ProductCategory,
@@ -56,7 +57,7 @@ export type CustomerPayload = {
   name: string;
   phone_wa: string;
   email?: string | null;
-  instagram?: string | null;
+  socials?: Social[];
   address?: string | null;
   city?: string | null;
   district?: string | null;

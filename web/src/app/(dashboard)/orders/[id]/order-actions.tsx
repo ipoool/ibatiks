@@ -188,7 +188,7 @@ function EditOrderDialog({ order, onClose }: { order: OrderDetail; onClose: () =
           />
         </Field>
 
-        <Field label="Asal order" htmlFor="order_source">
+        <Field label="Channel" htmlFor="order_source">
           <OptionSelect
             id="order_source"
             value={form.order_source}

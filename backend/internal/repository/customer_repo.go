@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -11,7 +12,7 @@ import (
 	"github.com/ipoool/jastipin/backend/internal/pkg/pagination"
 )
 
-const customerColumns = `id, code, name, phone_wa, email, instagram, address, city,
+const customerColumns = `id, code, name, phone_wa, email, socials, address, city,
 	                     district, subdistrict, province, postal_code, notes,
 	                     created_at, updated_at, deleted_at`
 
@@ -24,7 +25,7 @@ type CustomerParams struct {
 	Name        string
 	PhoneWA     string
 	Email       *string
-	Instagram   *string
+	Socials     []domain.Social
 	Address     *string
 	City        *string
 	District    *string
@@ -36,11 +37,11 @@ type CustomerParams struct {
 
 func (r *CustomerRepo) Create(ctx context.Context, q db.Querier, p CustomerParams) (*domain.Customer, error) {
 	return collectOne[domain.Customer](ctx, q, "customer", `
-		INSERT INTO customers (code, name, phone_wa, email, instagram, address, city,
+		INSERT INTO customers (code, name, phone_wa, email, socials, address, city,
 		                       district, subdistrict, province, postal_code, notes)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING `+customerColumns,
-		p.Code, p.Name, p.PhoneWA, p.Email, p.Instagram, p.Address, p.City,
+		p.Code, p.Name, p.PhoneWA, p.Email, socialsJSON(p.Socials), p.Address, p.City,
 		p.District, p.Subdistrict, p.Province, p.PostalCode, p.Notes)
 }
 
@@ -109,12 +110,12 @@ func (r *CustomerRepo) List(ctx context.Context, q db.Querier, p pagination.Para
 func (r *CustomerRepo) Update(ctx context.Context, q db.Querier, id uuid.UUID, p CustomerParams) (*domain.Customer, error) {
 	return collectOne[domain.Customer](ctx, q, "customer", `
 		UPDATE customers
-		SET name = $2, phone_wa = $3, email = $4, instagram = $5, address = $6,
+		SET name = $2, phone_wa = $3, email = $4, socials = $5, address = $6,
 		    city = $7, district = $8, subdistrict = $9, province = $10,
 		    postal_code = $11, notes = $12
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+customerColumns,
-		id, p.Name, p.PhoneWA, p.Email, p.Instagram, p.Address, p.City,
+		id, p.Name, p.PhoneWA, p.Email, socialsJSON(p.Socials), p.Address, p.City,
 		p.District, p.Subdistrict, p.Province, p.PostalCode, p.Notes)
 }
 
@@ -151,4 +152,20 @@ func (r *CustomerRepo) Stats(ctx context.Context, q db.Querier, id uuid.UUID) (*
 			to_char(max(order_date), 'YYYY-MM-DD')             AS last_order_at
 		FROM orders
 		WHERE customer_id = $1`, id)
+}
+
+// socialsJSON menyiapkan daftar akun untuk kolom JSONB.
+//
+// Slice nil ditulis sebagai array kosong, bukan null: kolomnya NOT NULL, dan
+// membiarkan null lolos berarti setiap pembacaan berikutnya harus mengurus dua
+// bentuk kosong yang berbeda.
+func socialsJSON(list []domain.Social) []byte {
+	if list == nil {
+		list = []domain.Social{}
+	}
+	data, err := json.Marshal(list)
+	if err != nil {
+		return []byte("[]")
+	}
+	return data
 }

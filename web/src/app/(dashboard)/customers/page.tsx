@@ -24,13 +24,14 @@ import {
 } from "@/hooks/use-master";
 import { ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
+import { SocialFields, labelPlatform } from "@/components/social-fields";
 import type { Customer } from "@/types/api";
 
 const EMPTY_FORM: CustomerPayload = {
   name: "",
   phone_wa: "",
   email: "",
-  instagram: "",
+  socials: [],
   address: "",
   city: "",
   district: "",
@@ -68,7 +69,7 @@ export default function CustomersPage() {
       name: customer.name,
       phone_wa: customer.phone_wa,
       email: customer.email ?? "",
-      instagram: customer.instagram ?? "",
+      socials: customer.socials ?? [],
       address: customer.address ?? "",
       city: customer.city ?? "",
       district: customer.district ?? "",
@@ -89,7 +90,6 @@ export default function CustomersPage() {
     const payload: CustomerPayload = {
       ...form,
       email: form.email || null,
-      instagram: form.instagram || null,
       address: form.address || null,
       city: form.city || null,
       district: form.district || null,
@@ -202,6 +202,17 @@ export default function CustomersPage() {
                 {customer.email && (
                   <p className="text-xs text-muted-foreground">{customer.email}</p>
                 )}
+              
+                {/* Akun sosialnya ikut ditampilkan: dari daftar inilah admin
+                    memutuskan lewat mana customer ini dihubungi, dan membuka
+                    detailnya dulu untuk itu adalah satu klik yang tidak perlu. */}
+                {customer.socials.length > 0 && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {customer.socials
+                      .map((akun) => `${labelPlatform(akun.platform)} ${akun.handle}`)
+                      .join(" · ")}
+                  </p>
+                )}
               </TD>
               <TD className="hidden max-w-xs lg:table-cell">
                 <p className="truncate text-sm">{customer.address || "—"}</p>
@@ -302,12 +313,10 @@ export default function CustomersPage() {
             />
           </Field>
 
-          <Field label="Instagram" htmlFor="instagram">
-            <Input
-              id="instagram"
-              value={form.instagram ?? ""}
-              onChange={(event) => setForm({ ...form, instagram: event.target.value })}
-              placeholder="@username"
+          <Field label="Media sosial" className="sm:col-span-2">
+            <SocialFields
+              value={form.socials ?? []}
+              onChange={(socials) => setForm({ ...form, socials })}
             />
           </Field>
 

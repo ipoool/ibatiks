@@ -29,7 +29,7 @@ type CustomerInput struct {
 	Name        string
 	PhoneWA     string
 	Email       *string
-	Instagram   *string
+	Socials     []domain.Social
 	Address     *string
 	City        *string
 	District    *string
@@ -47,8 +47,13 @@ func (s *CustomerService) Create(ctx context.Context, in CustomerInput) (*domain
 		})
 	}
 
+	socials, err := bersihkanSocials(in.Socials)
+	if err != nil {
+		return nil, err
+	}
+
 	var customer *domain.Customer
-	err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+	err = db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
 		// Nomor diambil di dalam transaksi yang sama dengan insert-nya, supaya
 		// dua admin yang menyimpan bersamaan tidak mendapat kode kembar.
 		code, err := docnum.Next(ctx, tx, docnum.Customer, time.Now().Year())
@@ -61,7 +66,7 @@ func (s *CustomerService) Create(ctx context.Context, in CustomerInput) (*domain
 			Name:        strings.TrimSpace(in.Name),
 			PhoneWA:     phone,
 			Email:       trimPtr(in.Email),
-			Instagram:   trimPtr(in.Instagram),
+			Socials:     socials,
 			Address:     trimPtr(in.Address),
 			City:        trimPtr(in.City),
 			District:    trimPtr(in.District),
@@ -101,11 +106,16 @@ func (s *CustomerService) Update(ctx context.Context, id uuid.UUID, in CustomerI
 		})
 	}
 
+	socials, err := bersihkanSocials(in.Socials)
+	if err != nil {
+		return nil, err
+	}
+
 	return s.customers.Update(ctx, s.pool, id, repository.CustomerParams{
 		Name:        strings.TrimSpace(in.Name),
 		PhoneWA:     phone,
 		Email:       trimPtr(in.Email),
-		Instagram:   trimPtr(in.Instagram),
+		Socials:     socials,
 		Address:     trimPtr(in.Address),
 		City:        trimPtr(in.City),
 		District:    trimPtr(in.District),
@@ -136,4 +146,30 @@ func trimPtr(v *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+/*
+ * bersihkanSocials membuang baris kosong dan menolak platform yang tidak
+ * dikenal.
+ *
+ * Baris kosong muncul dari formulir: admin menekan "Tambah akun" lalu berpindah
+ * pikiran, dan barisnya tertinggal tanpa isi. Menyimpannya berarti daftar akun
+ * yang penuh baris hampa, dan tidak ada yang tahu itu bekas apa.
+ */
+func bersihkanSocials(list []domain.Social) ([]domain.Social, error) {
+	hasil := make([]domain.Social, 0, len(list))
+	for _, akun := range list {
+		platform := strings.ToLower(strings.TrimSpace(akun.Platform))
+		handle := strings.TrimSpace(akun.Handle)
+		if handle == "" {
+			continue
+		}
+		if !domain.IsValidSocialPlatform(platform) {
+			return nil, domain.Validation("platform media sosial tidak dikenal", map[string]string{
+				"socials": "pilih: " + strings.Join(domain.SocialPlatforms, ", "),
+			})
+		}
+		hasil = append(hasil, domain.Social{Platform: platform, Handle: handle})
+	}
+	return hasil, nil
 }

@@ -8,15 +8,41 @@ import (
 	"github.com/google/uuid"
 )
 
+// Social adalah satu akun media sosial customer.
+//
+// Handle disimpan apa adanya seperti diketik admin, termasuk tanda "@" kalau
+// ada. Menormalkannya berarti menebak: sebagian platform memakai "@", sebagian
+// tidak, dan yang salah tebak menghasilkan tautan yang tidak pernah terbuka.
+type Social struct {
+	Platform string `json:"platform"`
+	Handle   string `json:"handle"`
+}
+
+// SocialPlatforms adalah platform yang bisa dipilih. Sengaja daftar tertutup:
+// salah ketik satu huruf pada nama platform membuat ikon dan tautannya meleset,
+// dan tulisannya tetap terlihat wajar sekilas.
+var SocialPlatforms = []string{
+	"instagram", "tiktok", "facebook", "lainnya",
+}
+
+func IsValidSocialPlatform(p string) bool {
+	for _, valid := range SocialPlatforms {
+		if valid == p {
+			return true
+		}
+	}
+	return false
+}
+
 type Customer struct {
-	ID        uuid.UUID `db:"id"          json:"id"`
-	Code      string    `db:"code"        json:"code"`
-	Name      string    `db:"name"        json:"name"`
-	PhoneWA   string    `db:"phone_wa"    json:"phone_wa"`
-	Email     *string   `db:"email"       json:"email"`
-	Instagram *string   `db:"instagram"   json:"instagram"`
-	Address   *string   `db:"address"     json:"address"`
-	City      *string   `db:"city"        json:"city"`
+	ID      uuid.UUID `db:"id"          json:"id"`
+	Code    string    `db:"code"        json:"code"`
+	Name    string    `db:"name"        json:"name"`
+	PhoneWA string    `db:"phone_wa"    json:"phone_wa"`
+	Email   *string   `db:"email"       json:"email"`
+	Socials []Social  `db:"socials"     json:"socials"`
+	Address *string   `db:"address"     json:"address"`
+	City    *string   `db:"city"        json:"city"`
 	// District = kecamatan, Subdistrict = kelurahan/desa.
 	District    *string    `db:"district"    json:"district"`
 	Subdistrict *string    `db:"subdistrict" json:"subdistrict"`

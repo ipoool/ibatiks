@@ -52,6 +52,8 @@ Kolom `shipping_fee` pada permintaan edit order bertipe penunjuk. Kalau bertipe 
 
 Dulu dasarnya `qty_received`, diisi lewat layar "Cocokkan Barang" tersendiri. Layar itu dilepas: angkanya sudah ada di data pembelian, dan meminta orang mengetiknya ulang berarti satu angka yang sama disimpan dua kali dan bisa berbeda. Sisanya justru berbahaya — selama belum dicocokkan, `qty_received` masih nol, jadi item berstatus `partial` tertagih **nol rupiah** kalau ada jalur lain yang memanggil `RecalculateTotals` lebih dulu (menetapkan ongkir saat mengemas, misalnya). Kolom `qty_received` ditinggalkan di database untuk baris lama dan tidak lagi ditulis siapa pun.
 
+**Akun media sosial customer disimpan sebagai JSONB di kolom `customers.socials`,** bukan tabel tersendiri. Isinya selalu dibaca sebagai satu kesatuan bersama customernya, tidak pernah diagregasi maupun jadi syarat penyaringan — tabel terpisah berarti join pada tiap pembacaan customer untuk data yang tidak pernah butuh dijoin. Daftar platformnya tertutup (`domain.SocialPlatforms`) dan divalidasi di service, bukan lewat CHECK constraint: pesan galat dari constraint tidak bisa menyebut baris keberapa yang salah. Handle disimpan apa adanya termasuk tanda "@" — sebagian platform memakainya, sebagian tidak, dan menormalkannya berarti menebak.
+
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
 
 **Menghapus trip membuang seluruh riwayat di dalamnya**, dan dua hal menghalanginya — keduanya soal kenyataan di luar aplikasi, bukan kerapian data:

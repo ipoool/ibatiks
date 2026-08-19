@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/ipoool/jastipin/backend/internal/domain"
 	"github.com/ipoool/jastipin/backend/internal/http/request"
 	"github.com/ipoool/jastipin/backend/internal/http/response"
 	"github.com/ipoool/jastipin/backend/internal/pkg/pagination"
@@ -17,18 +18,34 @@ func NewCustomerHandler(customers *service.CustomerService) *CustomerHandler {
 	return &CustomerHandler{customers: customers}
 }
 
+type socialRequest struct {
+	Platform string `json:"platform" validate:"required,oneof=instagram tiktok facebook lainnya"`
+	Handle   string `json:"handle"`
+}
+
+// socials memindahkan bentuk permintaan ke bentuk domain. Barisnya tidak
+// disaring di sini — service yang membuang yang kosong, supaya aturannya satu
+// tempat dan berlaku dari mana pun customer disimpan.
+func socials(list []socialRequest) []domain.Social {
+	hasil := make([]domain.Social, 0, len(list))
+	for _, akun := range list {
+		hasil = append(hasil, domain.Social{Platform: akun.Platform, Handle: akun.Handle})
+	}
+	return hasil
+}
+
 type customerRequest struct {
-	Name        string  `json:"name"        validate:"required,min=2,max=120"`
-	PhoneWA     string  `json:"phone_wa"    validate:"required,min=8,max=20"`
-	Email       *string `json:"email"       validate:"omitempty,email"`
-	Instagram   *string `json:"instagram"`
-	Address     *string `json:"address"`
-	City        *string `json:"city"`
-	District    *string `json:"district"`
-	Subdistrict *string `json:"subdistrict"`
-	Province    *string `json:"province"`
-	PostalCode  *string `json:"postal_code"`
-	Notes       *string `json:"notes"`
+	Name        string          `json:"name"        validate:"required,min=2,max=120"`
+	PhoneWA     string          `json:"phone_wa"    validate:"required,min=8,max=20"`
+	Email       *string         `json:"email"       validate:"omitempty,email"`
+	Socials     []socialRequest `json:"socials" validate:"omitempty,dive"`
+	Address     *string         `json:"address"`
+	City        *string         `json:"city"`
+	District    *string         `json:"district"`
+	Subdistrict *string         `json:"subdistrict"`
+	Province    *string         `json:"province"`
+	PostalCode  *string         `json:"postal_code"`
+	Notes       *string         `json:"notes"`
 }
 
 func (req customerRequest) toInput() service.CustomerInput {
@@ -36,7 +53,7 @@ func (req customerRequest) toInput() service.CustomerInput {
 		Name:        req.Name,
 		PhoneWA:     req.PhoneWA,
 		Email:       req.Email,
-		Instagram:   req.Instagram,
+		Socials:     socials(req.Socials),
 		Address:     req.Address,
 		City:        req.City,
 		District:    req.District,

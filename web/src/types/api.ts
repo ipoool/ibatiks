@@ -73,13 +73,21 @@ export interface Session {
 
 // --- Customer --------------------------------------------------------------
 
+/** Platform media sosial yang bisa disimpan untuk seorang customer. */
+export type SocialPlatform = "instagram" | "tiktok" | "facebook" | "lainnya";
+
+export interface Social {
+  platform: SocialPlatform;
+  handle: string;
+}
+
 export interface Customer {
   id: string;
   code: string;
   name: string;
   phone_wa: string;
   email: string | null;
-  instagram: string | null;
+  socials: Social[];
   address: string | null;
   city: string | null;
   /** Kecamatan. */

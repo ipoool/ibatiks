@@ -540,7 +540,7 @@ function ChannelSalesReport() {
         isLoading={isLoading}
         isEmpty={!isLoading && (data?.length ?? 0) === 0}
         emptyTitle="Belum ada penjualan"
-        emptyDescription="Isi kolom asal order saat mencatat pesanan supaya rekap ini terisi."
+        emptyDescription="Isi kolom channel saat mencatat pesanan supaya rekap ini terisi."
         head={
           <TR>
             <TH className="w-32">Channel</TH>
