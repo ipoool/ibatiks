@@ -39,11 +39,14 @@ export function useDashboard() {
   });
 }
 
-export function useTripProfit(tripId: string | undefined, enabled = true) {
+/**
+ * Laporan laba-rugi. Tanpa tripId, seluruh trip dijumlahkan jadi satu laporan —
+ * itu keadaan yang sah, jadi kuerinya tidak lagi menunggu adanya trip.
+ */
+export function useTripProfit(tripId?: string) {
   return useQuery({
-    queryKey: reportKeys.tripProfit(tripId ?? ""),
-    queryFn: () => api.get<TripProfitReport>(`/reports/trips/${tripId}/profit`),
-    enabled: Boolean(tripId) && enabled,
+    queryKey: reportKeys.tripProfit(tripId ?? "semua"),
+    queryFn: () => api.get<TripProfitReport>(`/reports/profit${buildQuery({ trip_id: tripId })}`),
   });
 }
 

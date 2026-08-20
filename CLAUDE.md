@@ -54,6 +54,8 @@ Dulu dasarnya `qty_received`, diisi lewat layar "Cocokkan Barang" tersendiri. La
 
 **Akun media sosial customer disimpan sebagai JSONB di kolom `customers.socials`,** bukan tabel tersendiri. Isinya selalu dibaca sebagai satu kesatuan bersama customernya, tidak pernah diagregasi maupun jadi syarat penyaringan — tabel terpisah berarti join pada tiap pembacaan customer untuk data yang tidak pernah butuh dijoin. Daftar platformnya tertutup (`domain.SocialPlatforms`) dan divalidasi di service, bukan lewat CHECK constraint: pesan galat dari constraint tidak bisa menyebut baris keberapa yang salah. Handle disimpan apa adanya termasuk tanda "@" — sebagian platform memakainya, sebagian tidak, dan menormalkannya berarti menebak.
 
+**Laporan laba-rugi melayani satu trip dan seluruh trip lewat satu kueri.** Penyaringnya `($1::uuid IS NULL OR trip_id = $1)` di `TripFinancials` dan `ExpenseBreakdown`; `trip_id` nil berarti semuanya dijumlahkan. Menggandakan kuerinya untuk kasus "semua trip" berarti dua definisi laba yang harus dijaga tetap sama, dan cepat atau lambat salah satunya tertinggal saat rumusnya berubah. Identitas trip pada hasilnya kosong saat lintas trip — tidak ada satu trip yang bisa disebut.
+
 **Snapshot historis.** `order_items` menyimpan salinan nama dan harga produk; `orders` menyimpan salinan alamat kirim. Mengedit master data tidak boleh mengubah dokumen lama.
 
 **Menghapus trip membuang seluruh riwayat di dalamnya**, dan dua hal menghalanginya — keduanya soal kenyataan di luar aplikasi, bukan kerapian data:

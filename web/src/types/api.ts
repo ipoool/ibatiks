@@ -142,7 +142,8 @@ export interface Product {
 
 /** Riwayat harga sebuah produk pada satu trip. */
 export interface ProductPriceHistory {
-  trip_id: string;
+  /** Kosong saat laporannya mencakup seluruh trip. */
+  trip_id: string | null;
   trip_code: string;
   trip_title: string;
   country: string;

@@ -40,13 +40,20 @@ type TripFinancials struct {
 // TripFinancials menghitung seluruh angka keuangan satu trip dalam sekali
 // query. Dipisah per CTE supaya tiap komponen bisa dibaca dan diverifikasi
 // sendiri-sendiri saat angka laporan terasa aneh.
-func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID uuid.UUID) (*TripFinancials, error) {
+// TripFinancials merangkum angka keuangan sebuah trip, atau seluruh trip
+// sekaligus bila tripID nil.
+//
+// Penyaringnya ditulis sebagai `($1::uuid IS NULL OR trip_id = $1)` supaya satu
+// kueri melayani keduanya. Menggandakan kuerinya untuk kasus "semua trip"
+// berarti dua definisi laba yang harus dijaga tetap sama — dan cepat atau
+// lambat salah satunya tertinggal saat rumusnya berubah.
+func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID *uuid.UUID) (*TripFinancials, error) {
 	return collectOne[TripFinancials](ctx, q, "laporan trip", `
 		WITH trip_orders AS (
 			-- Order draft dan batal tidak dihitung sebagai omzet.
 			SELECT id, customer_id, total, shipping_fee, discount, paid_amount, balance_due
 			FROM orders
-			WHERE trip_id = $1 AND status <> 'cancelled'
+			WHERE ($1::uuid IS NULL OR trip_id = $1) AND status <> 'cancelled'
 		),
 		order_totals AS (
 			SELECT
@@ -78,15 +85,15 @@ func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID uu
 				COALESCE(sum(pa.qty * pa.unit_cost_idr), 0)   AS surplus_stock_value
 			FROM purchase_allocations pa
 			JOIN purchases pu ON pu.id = pa.purchase_id
-			WHERE pu.trip_id = $1 AND pa.order_item_id IS NULL
+			WHERE ($1::uuid IS NULL OR pu.trip_id = $1) AND pa.order_item_id IS NULL
 		),
 		expenses AS (
 			SELECT COALESCE(sum(amount), 0) AS trip_expenses
-			FROM trip_expenses WHERE trip_id = $1
+			FROM trip_expenses WHERE ($1::uuid IS NULL OR trip_id = $1)
 		),
 		purchase_total AS (
 			SELECT COALESCE(sum(total_cost_idr), 0) AS purchase_total
-			FROM purchases WHERE trip_id = $1
+			FROM purchases WHERE ($1::uuid IS NULL OR trip_id = $1)
 		),
 		shipping AS (
 			SELECT COALESCE(sum(s.shipping_cost), 0) AS shipping_cost_paid
@@ -103,11 +110,11 @@ func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID uu
 		     shipping sh, surplus su, ordered_qty oq`, tripID)
 }
 
-func (r *ReportRepo) ExpenseBreakdown(ctx context.Context, q db.Querier, tripID uuid.UUID) ([]domain.ExpenseBreakdown, error) {
+func (r *ReportRepo) ExpenseBreakdown(ctx context.Context, q db.Querier, tripID *uuid.UUID) ([]domain.ExpenseBreakdown, error) {
 	return collectRows[domain.ExpenseBreakdown](ctx, q, `
 		SELECT category, sum(amount) AS amount
 		FROM trip_expenses
-		WHERE trip_id = $1
+		WHERE ($1::uuid IS NULL OR trip_id = $1)
 		GROUP BY category
 		ORDER BY sum(amount) DESC`, tripID)
 }

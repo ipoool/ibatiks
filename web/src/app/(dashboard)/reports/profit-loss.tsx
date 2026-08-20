@@ -7,7 +7,7 @@ import { DetailRow, ErrorState } from "@/components/ui/page";
 import { StatCard } from "@/components/ui/stat-card";
 import { useTripProfit } from "@/hooks/use-reports";
 import { formatIDR, formatNumber, toNumber } from "@/lib/utils";
-import type { ExpenseCategory, Trip } from "@/types/api";
+import type { ExpenseCategory } from "@/types/api";
 
 const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   tiket: "Tiket pesawat",
@@ -18,8 +18,16 @@ const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   lainnya: "Lainnya",
 };
 
-export function TripProfit({ trip }: { trip: Trip }) {
-  const { data: report, isLoading, error } = useTripProfit(trip.id);
+/**
+ * Laporan laba-rugi, satu trip atau seluruhnya sekaligus.
+ *
+ * Dulu hanya ada sebagai tab di detail trip, jadi laba seluruh usaha tidak
+ * pernah bisa dibaca dalam satu layar — harus dibuka trip demi trip lalu
+ * dijumlah sendiri. Tata letaknya sengaja tidak diubah: yang berpindah cuma
+ * tempatnya, dan orang yang sudah hafal susunannya tidak perlu belajar lagi.
+ */
+export function ProfitLossReport({ tripId }: { tripId?: string }) {
+  const { data: report, isLoading, error } = useTripProfit(tripId);
 
   if (isLoading) {
     return (
@@ -41,7 +49,9 @@ export function TripProfit({ trip }: { trip: Trip }) {
   return (
     <>
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Laporan laba trip</h2>
+        <h2 className="text-lg font-semibold">
+          {report.trip_code ? `Laba trip ${report.trip_code}` : "Laba seluruh trip"}
+        </h2>
         <p className="text-sm text-muted-foreground">
           Dihitung dari omzet order, HPP belanja yang benar-benar terjadi, dan biaya perjalanan.
         </p>

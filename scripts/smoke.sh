@@ -279,15 +279,22 @@ ok "order untuk trip ini ditutup"
 ORDER_A_STATE="$(api GET "/orders/$ORDER_A_ID")"
 expect "$(jq -r '.data.status' <<<"$ORDER_A_STATE")" "dp_paid" "status order A tetap Diproses setelah belanja"
 
-# Ongkir hanya punya satu sumber: kurir. Tanpa RAJAONGKIR_API_KEY, permintaan
-# estimasi ditolak dengan alasannya, bukan dijawab angka tebakan — dulu di sini
-# ada tabel tarif yang diam-diam menutupi keadaan itu.
+# Ongkir hanya punya satu sumber: kurir. Pada database yang baru direset, kurir
+# belum bisa menjawab — entah karena API key-nya belum diisi, entah karena kota
+# asal di Pengaturan masih kosong. Yang diuji di sini adalah permintaannya
+# ditolak dengan alasan yang bisa ditindaklanjuti, bukan dijawab angka tebakan;
+# dulu ada tabel tarif yang diam-diam menutupi keadaan itu.
+#
+# Pesannya tidak dipatok pada satu kalimat: mana dari dua sebab itu yang muncul
+# bergantung pada isi .env mesin yang menjalankan, dan mematoknya membuat smoke
+# gagal begitu seseorang mengisi API key-nya — kegagalan yang tidak menandakan
+# apa pun soal aplikasinya.
 EST_STATUS="$(curl -s -o /tmp/smoke-estimate.json -w '%{http_code}' -X POST \
   "$API/orders/$ORDER_A_ID/shipping-estimate" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"weight_gram":900,"length_cm":40,"width_cm":30,"height_cm":25}')"
-expect "$EST_STATUS" "409" "estimasi ongkir ditolak saat kurir belum terhubung"
-expect "$(jq -r '.error.message | contains("RAJAONGKIR_API_KEY")' /tmp/smoke-estimate.json)" "true" \
+expect "$EST_STATUS" "409" "estimasi ongkir ditolak saat kurir belum bisa menjawab"
+expect "$(jq -r '.error.message | test("RAJAONGKIR_API_KEY|kota asal")' /tmp/smoke-estimate.json)" "true" \
   "penolakannya menyebutkan apa yang harus dibereskan"
 rm -f /tmp/smoke-estimate.json
 
@@ -369,7 +376,7 @@ api POST "/trips/$TRIP/expenses" '{"category":"bagasi","description":"Extra bagg
 api POST "/trips/$TRIP/expenses" '{"category":"transport","description":"Kereta bandara","amount":"150000"}' >/dev/null
 ok "biaya trip dicatat (Rp1.000.000)"
 
-REPORT="$(api GET "/reports/trips/$TRIP/profit")"
+REPORT="$(api GET "/reports/profit?trip_id=$TRIP")"
 
 # Omzet  = order A (335.000) + order B (260.000)          = 595.000
 # HPP    = 4 unit produk A (400.000) + 1 produk B (50.000) = 450.000

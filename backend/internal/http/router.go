@@ -292,7 +292,7 @@ func NewRouter(d RouterDeps) http.Handler {
 				// Laporan laba-rugi hanya untuk owner.
 				reports.Group(func(financial chi.Router) {
 					financial.Use(ownerOnly)
-					financial.Get("/trips/{id}/profit", d.Handlers.Reports.TripProfit)
+					financial.Get("/profit", d.Handlers.Reports.TripProfit)
 					financial.Get("/orders", d.Handlers.Reports.OrderProfits)
 				})
 			})

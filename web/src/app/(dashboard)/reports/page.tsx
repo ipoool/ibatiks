@@ -24,6 +24,8 @@ import {
   useReceivables,
 } from "@/hooks/use-reports";
 import { useTrips } from "@/hooks/use-trips";
+
+import { ProfitLossReport } from "./profit-loss";
 import { formatDate, formatIDR, formatNumber, toNumber } from "@/lib/utils";
 
 export default function ReportsPage() {
@@ -48,6 +50,7 @@ export default function ReportsPage() {
           <TabsTrigger value="customer">Per Customer</TabsTrigger>
           <TabsTrigger value="channel">Per Channel</TabsTrigger>
           <TabsTrigger value="piutang">Piutang</TabsTrigger>
+          {canSeeMargin && <TabsTrigger value="laba">Profit / Loss</TabsTrigger>}
           {canSeeMargin && <TabsTrigger value="profit">Profit per Order</TabsTrigger>}
           <TabsTrigger value="produk">Performa Produk</TabsTrigger>
         </TabsList>
@@ -64,6 +67,11 @@ export default function ReportsPage() {
           <ReceivablesReport />
         </TabsContent>
         {canSeeMargin && (
+          <TabsContent value="laba">
+            <ProfitLossTab />
+          </TabsContent>
+        )}
+        {canSeeMargin && (
           <TabsContent value="profit">
             <OrderProfitReport />
           </TabsContent>
@@ -72,6 +80,38 @@ export default function ReportsPage() {
           <ProductSalesReport />
         </TabsContent>
       </Tabs>
+    </>
+  );
+}
+
+/**
+ * Laba-rugi beserta penyaring tripnya.
+ *
+ * Penyaringnya memakai pola yang sama dengan tab lain di halaman ini, jadi
+ * "Semua trip" berarti hal yang sama di mana pun ia muncul.
+ */
+function ProfitLossTab() {
+  const [tripId, setTripId] = useState("");
+  const { data: trips } = useTrips({ per_page: 100 });
+
+  const tripOptions = (trips?.items ?? []).map((trip) => ({
+    value: trip.id,
+    label: `${trip.code} · ${trip.title}`,
+  }));
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterSelect
+          value={tripId}
+          onChange={setTripId}
+          allLabel="Semua trip"
+          options={tripOptions}
+          className="sm:w-64"
+        />
+      </div>
+
+      <ProfitLossReport tripId={tripId || undefined} />
     </>
   );
 }

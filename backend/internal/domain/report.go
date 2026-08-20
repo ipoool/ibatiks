@@ -21,11 +21,14 @@ import (
 // stok itu terjual. Nilainya tetap ditampilkan sebagai SurplusStockValue agar
 // arus kas trip tetap terbaca.
 type TripProfitReport struct {
-	TripID   uuid.UUID `json:"trip_id"`
-	TripCode string    `json:"trip_code"`
-	Title    string    `json:"title"`
-	Country  string    `json:"country"`
-	Status   string    `json:"status"`
+	// Kosong saat laporannya mencakup seluruh trip: tidak ada satu trip yang
+	// bisa disebut, dan mengarang salah satunya lebih menyesatkan daripada
+	// membiarkannya kosong.
+	TripID   *uuid.UUID `json:"trip_id"`
+	TripCode string     `json:"trip_code"`
+	Title    string     `json:"title"`
+	Country  string     `json:"country"`
+	Status   string     `json:"status"`
 
 	Revenue      decimal.Decimal `json:"revenue"`        // total order yang dihitung sebagai omzet
 	COGS         decimal.Decimal `json:"cogs"`           // HPP riil barang yang dipesan

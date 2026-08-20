@@ -35,10 +35,18 @@ func NewReportService(
 // Angka mentahnya diambil dari database, tapi penjumlahan akhir dikerjakan di
 // sini supaya definisi laba tetap terbaca sebagai kode, bukan tersembunyi di
 // dalam SQL yang panjang.
-func (s *ReportService) TripProfit(ctx context.Context, tripID uuid.UUID) (*domain.TripProfitReport, error) {
-	trip, err := s.trips.GetByID(ctx, s.pool, tripID)
-	if err != nil {
-		return nil, err
+// tripID nil berarti seluruh trip dijumlahkan jadi satu laporan.
+func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*domain.TripProfitReport, error) {
+	// Identitas trip hanya diambil kalau memang satu trip yang diminta.
+	// Memaksakan pembacaan trip saat laporannya lintas trip berarti satu kueri
+	// yang hasilnya dibuang.
+	var trip *domain.Trip
+	if tripID != nil {
+		var err error
+		trip, err = s.trips.GetByID(ctx, s.pool, *tripID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fin, err := s.reports.TripFinancials(ctx, s.pool, tripID)
@@ -63,12 +71,7 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID uuid.UUID) (*doma
 		margin = netProfit.Div(fin.Revenue).Mul(decimal.NewFromInt(100)).Round(2)
 	}
 
-	return &domain.TripProfitReport{
-		TripID:   trip.ID,
-		TripCode: trip.Code,
-		Title:    trip.Title,
-		Country:  trip.Country,
-		Status:   trip.Status,
+	laporan := &domain.TripProfitReport{
 
 		Revenue:      money.RoundRupiah(fin.Revenue),
 		COGS:         money.RoundRupiah(fin.COGS),
@@ -95,7 +98,17 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID uuid.UUID) (*doma
 		ItemQty:       fin.ItemQty,
 
 		ExpenseBreakdown: breakdown,
-	}, nil
+	}
+
+	if trip != nil {
+		laporan.TripID = &trip.ID
+		laporan.TripCode = trip.Code
+		laporan.Title = trip.Title
+		laporan.Country = trip.Country
+		laporan.Status = trip.Status
+	}
+
+	return laporan, nil
 }
 
 func (s *ReportService) OrderProfits(ctx context.Context, p pagination.Params, tripID *uuid.UUID) ([]domain.OrderProfit, int64, error) {

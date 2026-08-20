@@ -30,8 +30,13 @@ func (h *ReportHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 // TripProfit adalah laporan inti: berapa untung sebuah perjalanan.
+//
+// Tanpa trip_id, seluruh trip dijumlahkan jadi satu laporan. Bentuk jawabannya
+// sama persis untuk keduanya supaya satu tampilan bisa melayani dua-duanya —
+// yang berbeda hanya identitas tripnya, yang memang tidak ada saat semuanya
+// dijumlahkan.
 func (h *ReportHandler) TripProfit(w http.ResponseWriter, r *http.Request) {
-	tripID, err := request.UUIDParam(r, "id")
+	tripID, err := request.UUIDQuery(r, "trip_id")
 	if err != nil {
 		response.Error(w, r, err)
 		return

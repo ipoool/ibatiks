@@ -17,7 +17,6 @@ import { TripCatalog } from "./trip-catalog";
 import { TripDeleteButton } from "./trip-delete-button";
 import { TripExpenses } from "./trip-expenses";
 import { TripOrders } from "./trip-orders";
-import { TripProfit } from "./trip-profit";
 import { TripShopping } from "./trip-shopping";
 import { TripStatusActions } from "./trip-status-actions";
 
@@ -105,7 +104,6 @@ export default function TripDetailPage() {
           <TabsTrigger value="order">Order</TabsTrigger>
           <TabsTrigger value="belanja">Belanja</TabsTrigger>
           <TabsTrigger value="biaya">Biaya</TabsTrigger>
-          <TabsTrigger value="profit">Profit / Loss</TabsTrigger>
         </TabsList>
 
         <TabsContent value="katalog">
@@ -119,9 +117,6 @@ export default function TripDetailPage() {
         </TabsContent>
         <TabsContent value="biaya">
           <TripExpenses trip={trip} />
-        </TabsContent>
-        <TabsContent value="profit">
-          <TripProfit trip={trip} />
         </TabsContent>
       </Tabs>
 
