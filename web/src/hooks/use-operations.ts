@@ -334,6 +334,7 @@ export function usePackOrder(orderId: string) {
       height_cm?: number;
       /** Ongkir yang ditagihkan; dikosongkan berarti tidak ikut diubah. */
       shipping_fee?: string;
+      insurance_fee?: string;
       notes?: string | null;
     }) => api.post<Shipment>(`/orders/${orderId}/pack`, payload),
     onSuccess: () => invalidateShipmentRelated(queryClient),

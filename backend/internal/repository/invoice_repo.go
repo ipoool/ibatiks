@@ -175,7 +175,7 @@ func (r *InvoiceRepo) SyncAmountsFromOrder(ctx context.Context, q db.Querier, or
 // --- Pengiriman ------------------------------------------------------------
 
 const shipmentColumns = `id, order_id, courier, service, tracking_number, weight_gram,
-	                     length_cm, width_cm, height_cm, estimated_cost, shipping_cost,
+	                     length_cm, width_cm, height_cm, estimated_cost, insurance_fee, shipping_cost,
 	                     status, packed_at, packed_by, shipped_at, delivered_at,
 	                     customer_notified_at, notes, created_at, updated_at`
 
@@ -192,6 +192,7 @@ type PackParams struct {
 	WidthCM       int
 	HeightCM      int
 	EstimatedCost decimal.Decimal
+	InsuranceFee  decimal.Decimal
 	Notes         *string
 	PackedBy      *uuid.UUID
 }
@@ -201,8 +202,8 @@ type PackParams struct {
 func (r *ShipmentRepo) Pack(ctx context.Context, q db.Querier, p PackParams) (*domain.Shipment, error) {
 	return collectOne[domain.Shipment](ctx, q, "pengiriman", `
 		INSERT INTO shipments (order_id, courier, service, weight_gram, length_cm, width_cm,
-		                       height_cm, estimated_cost, notes, status, packed_at, packed_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ready', now(), $10)
+		                       height_cm, estimated_cost, insurance_fee, notes, status, packed_at, packed_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ready', now(), $11)
 		ON CONFLICT (order_id) DO UPDATE
 		SET courier        = EXCLUDED.courier,
 		    service        = EXCLUDED.service,
@@ -211,13 +212,14 @@ func (r *ShipmentRepo) Pack(ctx context.Context, q db.Querier, p PackParams) (*d
 		    width_cm       = EXCLUDED.width_cm,
 		    height_cm      = EXCLUDED.height_cm,
 		    estimated_cost = EXCLUDED.estimated_cost,
+		    insurance_fee  = EXCLUDED.insurance_fee,
 		    notes          = EXCLUDED.notes,
 		    status         = CASE WHEN shipments.status = 'packing' THEN 'ready' ELSE shipments.status END,
 		    packed_at      = COALESCE(shipments.packed_at, now()),
 		    packed_by      = COALESCE(shipments.packed_by, EXCLUDED.packed_by)
 		RETURNING `+shipmentColumns,
 		p.OrderID, p.Courier, p.Service, p.WeightGram, p.LengthCM, p.WidthCM,
-		p.HeightCM, p.EstimatedCost, p.Notes, p.PackedBy)
+		p.HeightCM, p.EstimatedCost, p.InsuranceFee, p.Notes, p.PackedBy)
 }
 
 func (r *ShipmentRepo) GetByOrder(ctx context.Context, q db.Querier, orderID uuid.UUID) (*domain.Shipment, error) {

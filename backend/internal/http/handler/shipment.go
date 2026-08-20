@@ -52,7 +52,10 @@ type packRequest struct {
 	// ShippingFee diisi saat admin memilih layanan kurir. Dikosongkan berarti
 	// ukuran paketnya saja yang disimpan, ongkir di order tidak disentuh.
 	ShippingFee *decimal.Decimal `json:"shipping_fee"`
-	Notes       *string          `json:"notes"`
+	// InsuranceFee adalah premi asuransi kiriman, diketik admin dari struk
+	// kurir; RajaOngkir tidak mengembalikan angka ini.
+	InsuranceFee decimal.Decimal `json:"insurance_fee"`
+	Notes        *string         `json:"notes"`
 }
 
 // Pack menandai order sudah dikemas atas nama customer.
@@ -70,14 +73,15 @@ func (h *ShipmentHandler) Pack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shipment, err := h.shipments.Pack(r.Context(), orderID, service.PackInput{
-		Courier:     req.Courier,
-		Service:     req.Service,
-		WeightGram:  req.WeightGram,
-		LengthCM:    req.LengthCM,
-		WidthCM:     req.WidthCM,
-		HeightCM:    req.HeightCM,
-		ShippingFee: req.ShippingFee,
-		Notes:       req.Notes,
+		Courier:      req.Courier,
+		Service:      req.Service,
+		WeightGram:   req.WeightGram,
+		LengthCM:     req.LengthCM,
+		WidthCM:      req.WidthCM,
+		HeightCM:     req.HeightCM,
+		InsuranceFee: req.InsuranceFee,
+		ShippingFee:  req.ShippingFee,
+		Notes:        req.Notes,
 	}, middleware.UserIDFrom(r.Context()))
 	if err != nil {
 		response.Error(w, r, err)

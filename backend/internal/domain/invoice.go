@@ -104,16 +104,20 @@ func IsValidShipmentStatus(s string) bool {
 var JNEServices = []string{"REG", "YES", "OKE", "JTR"}
 
 type Shipment struct {
-	ID                 uuid.UUID       `db:"id"                   json:"id"`
-	OrderID            uuid.UUID       `db:"order_id"             json:"order_id"`
-	Courier            string          `db:"courier"              json:"courier"`
-	Service            string          `db:"service"              json:"service"`
-	TrackingNumber     *string         `db:"tracking_number"      json:"tracking_number"`
-	WeightGram         int             `db:"weight_gram"          json:"weight_gram"`
-	LengthCM           int             `db:"length_cm"            json:"length_cm"`
-	WidthCM            int             `db:"width_cm"             json:"width_cm"`
-	HeightCM           int             `db:"height_cm"            json:"height_cm"`
-	EstimatedCost      decimal.Decimal `db:"estimated_cost"       json:"estimated_cost"`
+	ID             uuid.UUID       `db:"id"                   json:"id"`
+	OrderID        uuid.UUID       `db:"order_id"             json:"order_id"`
+	Courier        string          `db:"courier"              json:"courier"`
+	Service        string          `db:"service"              json:"service"`
+	TrackingNumber *string         `db:"tracking_number"      json:"tracking_number"`
+	WeightGram     int             `db:"weight_gram"          json:"weight_gram"`
+	LengthCM       int             `db:"length_cm"            json:"length_cm"`
+	WidthCM        int             `db:"width_cm"             json:"width_cm"`
+	HeightCM       int             `db:"height_cm"            json:"height_cm"`
+	EstimatedCost  decimal.Decimal `db:"estimated_cost"       json:"estimated_cost"`
+	// InsuranceFee adalah premi asuransi kiriman. Disimpan terpisah supaya
+	// rincian ongkir tetap bisa dijawab, sementara yang ditagihkan ke customer
+	// tetap satu angka di orders.shipping_fee.
+	InsuranceFee       decimal.Decimal `db:"insurance_fee"        json:"insurance_fee"`
 	ShippingCost       decimal.Decimal `db:"shipping_cost"        json:"shipping_cost"`
 	Status             string          `db:"status"               json:"status"`
 	PackedAt           *time.Time      `db:"packed_at"            json:"packed_at"`
@@ -180,6 +184,10 @@ type ShippingQueueItem struct {
 	ShipmentNotes  *string    `db:"shipment_notes"  json:"shipment_notes"`
 	PackedAt       *time.Time `db:"packed_at"       json:"packed_at"`
 	ShippedAt      *time.Time `db:"shipped_at"      json:"shipped_at"`
+	// InsuranceFee adalah premi asuransi kiriman. Ikut ditampilkan di dialog
+	// kemas supaya admin melihat rincian yang tersimpan, bukan cuma
+	// gabungannya di ongkir order.
+	InsuranceFee *decimal.Decimal `db:"insurance_fee"        json:"insurance_fee"`
 	// ShippingCost adalah ongkos yang benar-benar dibayar ke kurir, diisi saat
 	// resi dicatat. Dipisah dari ShippingFee karena toko boleh menanggung
 	// selisihnya.

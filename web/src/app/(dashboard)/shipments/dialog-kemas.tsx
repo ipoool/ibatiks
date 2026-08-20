@@ -68,6 +68,18 @@ export function DialogKemas({
   const [ongkirManual, setOngkirManual] = useState(
     toNumber(item.shipping_fee) > 0 ? String(toNumber(item.shipping_fee)) : "",
   );
+  /*
+   * Premi asuransi kiriman. Diketik sendiri, bukan dihitung sistem: balasan
+   * RajaOngkir hanya berisi nama kurir, layanan, ongkos, dan estimasi tiba —
+   * tidak ada data asuransi sama sekali. Menanam rumus premi di kode berarti
+   * angka yang tidak pernah ikut berubah saat kurir mengubah tarifnya, persis
+   * alasan tabel tarif ongkir dulu dilepas.
+   */
+  const [pakaiAsuransi, setPakaiAsuransi] = useState(toNumber(item.insurance_fee) > 0);
+  const [premi, setPremi] = useState(
+    toNumber(item.insurance_fee) > 0 ? String(toNumber(item.insurance_fee)) : "",
+  );
+
   const [terpilih, setTerpilih] = useState<ShippingOption | null>(
     item.courier && toNumber(item.shipping_fee) > 0
       ? {
@@ -85,6 +97,9 @@ export function DialogKemas({
 
   // Yang tersimpan: layanan yang dipilih kalau ada, kalau tidak angka ketikan.
   const ongkirTersimpan = terpilih ? String(toNumber(terpilih.cost)) : ongkirManual.trim();
+  // Dicentang tapi kosong berarti nol, bukan "tidak diubah".
+  const premiTersimpan = pakaiAsuransi ? String(toNumber(premi)) : "0";
+  const totalDitagihkan = toNumber(ongkirTersimpan) + toNumber(premiTersimpan);
 
   function ambilPilihan() {
     if (form.weight_gram <= 0) {
@@ -125,6 +140,7 @@ export function DialogKemas({
         // Dikosongkan berarti admin baru menyimpan ukuran paketnya; ongkir di
         // order dibiarkan apa adanya.
         shipping_fee: ongkirTersimpan || undefined,
+        insurance_fee: premiTersimpan,
         notes: form.notes || null,
       },
       {
@@ -292,6 +308,50 @@ export function DialogKemas({
           placeholder="42000"
         />
       </Field>
+
+      {/*
+       * Asuransi kiriman. Preminya diketik dari struk kurir, bukan dihitung
+       * sistem: RajaOngkir tidak mengembalikan data asuransi sama sekali, dan
+       * menanam rumus premi di sini berarti angka yang diam-diam meleset begitu
+       * kurir mengubah tarifnya.
+       */}
+      <div className="space-y-2">
+        <label className="flex cursor-pointer items-center gap-2">
+          <Checkbox
+            checked={pakaiAsuransi}
+            onCheckedChange={(nilai) => setPakaiAsuransi(nilai === true)}
+          />
+          <span className="text-sm font-medium">Pakai asuransi kiriman</span>
+        </label>
+
+        {pakaiAsuransi && (
+          <Field
+            label="Premi asuransi (Rp)"
+            htmlFor="kemas_premi"
+            hint="Angka dari struk atau aplikasi kurir. Ditambahkan ke ongkir yang ditagihkan ke customer."
+          >
+            <Input
+              id="kemas_premi"
+              type="number"
+              min="0"
+              step="any"
+              value={premi}
+              onChange={(event) => setPremi(event.target.value)}
+              placeholder="5000"
+            />
+          </Field>
+        )}
+
+        {/* Yang masuk ke tagihan customer adalah gabungannya, jadi angka itu
+            yang ditampilkan — bukan dua angka yang harus dijumlah sendiri. */}
+        {totalDitagihkan > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Ditagihkan ke customer: <span className="font-medium">{formatIDR(totalDitagihkan)}</span>
+            {toNumber(premiTersimpan) > 0 &&
+              ` (ongkir ${formatIDR(ongkirTersimpan)} + asuransi ${formatIDR(premiTersimpan)})`}
+          </p>
+        )}
+      </div>
 
       {/* Daftar periksa isi paket. Ditaruh sebelum catatan supaya urutannya
           mengikuti pekerjaannya: hitung barangnya dulu, baru tulis catatan. */}

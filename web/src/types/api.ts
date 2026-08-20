@@ -504,6 +504,7 @@ export interface Shipment {
   width_cm: number;
   height_cm: number;
   estimated_cost: Money;
+  insurance_fee: Money;
   shipping_cost: Money;
   status: ShipmentStatus;
   packed_at: string | null;
@@ -613,6 +614,8 @@ export interface ShippingQueueItem {
   packed_at: string | null;
   shipped_at: string | null;
   /** Ongkos yang benar-benar dibayar ke kurir, diisi saat resi dicatat. */
+  /** Premi asuransi kiriman, diketik admin dari struk kurir. */
+  insurance_fee: Money | null;
   shipping_cost: Money | null;
   customer_notified_at: string | null;
 }

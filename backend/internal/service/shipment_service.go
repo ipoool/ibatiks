@@ -97,6 +97,11 @@ type PackInput struct {
 	// memilih layanan kurir. Nil berarti admin baru menyimpan ukuran paketnya
 	// dan belum menetapkan ongkir — nilai di order tidak disentuh.
 	ShippingFee *decimal.Decimal
+	// InsuranceFee adalah premi asuransi kiriman, diketik admin dari struk
+	// kurir. Kurir tidak mengembalikannya lewat API — balasan RajaOngkir hanya
+	// berisi nama kurir, layanan, ongkos, dan estimasi tiba — jadi tidak ada
+	// angka yang bisa dihitung sistem tanpa menebak.
+	InsuranceFee decimal.Decimal
 	// Dimensi kardus dalam sentimeter. Boleh dikosongkan; kalau diisi, ongkir
 	// dihitung memakai berat volumetrik bila hasilnya lebih besar dari berat asli.
 	LengthCM int
@@ -136,6 +141,11 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 				"shipping_fee": "harus 0 atau lebih",
 			})
 		}
+		if in.InsuranceFee.IsNegative() {
+			return domain.Validation("premi asuransi tidak valid", map[string]string{
+				"insurance_fee": "harus 0 atau lebih",
+			})
+		}
 
 		// Estimasi ongkir disimpan bersama data kemasan supaya admin punya
 		// pembanding saat memasukkan ongkir yang sebenarnya dibayar nanti.
@@ -165,6 +175,7 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 			WidthCM:       in.WidthCM,
 			HeightCM:      in.HeightCM,
 			EstimatedCost: estimated,
+			InsuranceFee:  in.InsuranceFee,
 			Notes:         trimPtr(in.Notes),
 			PackedBy:      nullableUUID(actorID),
 		})
@@ -183,21 +194,28 @@ func (s *ShipmentService) Pack(ctx context.Context, orderID uuid.UUID, in PackIn
 		// dp_required sengaja tidak ikut dihitung ulang: DP sudah disepakati
 		// dan besar kemungkinan sudah dibayar, jadi menaikkannya belakangan
 		// berarti customer tiba-tiba dianggap kurang bayar.
-		if in.ShippingFee != nil && !in.ShippingFee.Equal(order.ShippingFee) {
-			if _, err := s.orders.SetShippingFee(ctx, tx, orderID, *in.ShippingFee); err != nil {
-				return err
-			}
-			diperbarui, err := s.orders.RecalculateTotals(ctx, tx, orderID)
-			if err != nil {
-				return err
-			}
-			// Customer yang sudah membayar lunas sebelum paketnya ditimbang
-			// kini kembali punya sisa tagihan sebesar ongkirnya. Tanpa langkah
-			// ini ordernya tetap berlabel Pembayaran Lunas, ikut masuk antrean
-			// siap kirim, dan barangnya berangkat sementara ongkirnya tidak
-			// pernah tertagih.
-			if err := reconcileOrderStatus(ctx, tx, s.orders, diperbarui); err != nil {
-				return err
+		// Premi asuransi menyatu dengan ongkir saat ditagihkan: invoice dan label
+		// membaca satu angka dari orders.shipping_fee, dan memecahnya jadi dua
+		// baris tagihan berarti mengubah bentuk dokumen yang sudah dipegang
+		// customer. Rinciannya tetap tersimpan di baris kemasan.
+		if in.ShippingFee != nil {
+			ditagihkan := in.ShippingFee.Add(in.InsuranceFee)
+			if !ditagihkan.Equal(order.ShippingFee) {
+				if _, err := s.orders.SetShippingFee(ctx, tx, orderID, ditagihkan); err != nil {
+					return err
+				}
+				diperbarui, err := s.orders.RecalculateTotals(ctx, tx, orderID)
+				if err != nil {
+					return err
+				}
+				// Customer yang sudah membayar lunas sebelum paketnya ditimbang
+				// kini kembali punya sisa tagihan sebesar ongkirnya. Tanpa langkah
+				// ini ordernya tetap berlabel Pembayaran Lunas, ikut masuk antrean
+				// siap kirim, dan barangnya berangkat sementara ongkirnya tidak
+				// pernah tertagih.
+				if err := reconcileOrderStatus(ctx, tx, s.orders, diperbarui); err != nil {
+					return err
+				}
 			}
 		}
 

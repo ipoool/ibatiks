@@ -298,6 +298,7 @@ func (r *OrderRepo) ListForShipping(
 			s.notes                AS shipment_notes,
 			s.packed_at            AS packed_at,
 			s.shipped_at           AS shipped_at,
+			s.insurance_fee        AS insurance_fee,
 			s.shipping_cost        AS shipping_cost,
 			s.customer_notified_at AS customer_notified_at%s%s
 		-- Diurutkan dari yang paling baru dicatat, bukan dari tanggal ordernya.
