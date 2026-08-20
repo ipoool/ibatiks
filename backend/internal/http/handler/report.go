@@ -42,7 +42,57 @@ func (h *ReportHandler) TripProfit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, err := h.reports.TripProfit(r.Context(), tripID)
+	from, err := request.DateQuery(r, "from")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	to, err := request.DateQuery(r, "to")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	/*
+	 * Ekspornya satu baris per trip, bukan satu baris berisi angka gabungan
+	 * yang sudah terbaca di layar. Yang dibawa ke spreadsheet biasanya untuk
+	 * membandingkan trip — dan angka gabungannya tinggal dijumlah sendiri di
+	 * sana, sementara pemecahannya tidak bisa dibalik.
+	 */
+	if r.URL.Query().Get("format") == "csv" {
+		rows, err := h.reports.TripProfitRows(r.Context(), tripID, from, to)
+		if err != nil {
+			response.Error(w, r, err)
+			return
+		}
+
+		writeCSV(w, r, "laba-rugi", []string{
+			"kode_trip", "trip", "negara", "status",
+			"jumlah_order", "customer", "qty",
+			"omzet", "hpp", "laba_kotor", "biaya_perjalanan", "laba_bersih", "margin_persen",
+			"modal_keluar", "uang_masuk", "sisa_tagihan",
+			"ongkir_ditagihkan", "ongkir_dibayar", "diskon",
+			"surplus_qty", "surplus_nilai",
+		}, func(write func([]string) error) error {
+			for _, t := range rows {
+				if err := write([]string{
+					t.TripCode, t.Title, t.Country, t.Status,
+					strconv.Itoa(t.OrderCount), strconv.Itoa(t.CustomerCount), strconv.Itoa(t.ItemQty),
+					t.Revenue.String(), t.COGS.String(), t.GrossProfit.String(),
+					t.TripExpenses.String(), t.NetProfit.String(), t.MarginPct.String(),
+					t.TotalCapitalOut.String(), t.PaymentReceived.String(), t.Outstanding.String(),
+					t.ShippingFeeCollected.String(), t.ShippingCostPaid.String(), t.DiscountGiven.String(),
+					strconv.Itoa(t.SurplusStockQty), t.SurplusStockValue.String(),
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return
+	}
+
+	report, err := h.reports.TripProfit(r.Context(), tripID, from, to)
 	if err != nil {
 		response.Error(w, r, err)
 		return

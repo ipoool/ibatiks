@@ -36,7 +36,7 @@ func NewReportService(
 // sini supaya definisi laba tetap terbaca sebagai kode, bukan tersembunyi di
 // dalam SQL yang panjang.
 // tripID nil berarti seluruh trip dijumlahkan jadi satu laporan.
-func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*domain.TripProfitReport, error) {
+func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID, from, to *time.Time) (*domain.TripProfitReport, error) {
 	// Identitas trip hanya diambil kalau memang satu trip yang diminta.
 	// Memaksakan pembacaan trip saat laporannya lintas trip berarti satu kueri
 	// yang hasilnya dibuang.
@@ -49,11 +49,11 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*dom
 		}
 	}
 
-	fin, err := s.reports.TripFinancials(ctx, s.pool, tripID)
+	fin, err := s.reports.TripFinancials(ctx, s.pool, tripID, from, to)
 	if err != nil {
 		return nil, err
 	}
-	breakdown, err := s.reports.ExpenseBreakdown(ctx, s.pool, tripID)
+	breakdown, err := s.reports.ExpenseBreakdown(ctx, s.pool, tripID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*dom
 	// lebih dari satu trip.
 	byTrip := []domain.TripExpenseBreakdown{}
 	if tripID == nil {
-		byTrip, err = s.reports.ExpenseBreakdownByTrip(ctx, s.pool)
+		byTrip, err = s.reports.ExpenseBreakdownByTrip(ctx, s.pool, from, to)
 		if err != nil {
 			return nil, err
 		}
@@ -120,6 +120,48 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*dom
 	}
 
 	return laporan, nil
+}
+
+/*
+ * TripProfitRows menyusun satu baris laporan untuk tiap trip, dipakai ekspor CSV.
+ *
+ * Sengaja memanggil TripProfit berulang alih-alih satu kueri yang
+ * mengelompokkan per trip: definisi labanya jadi persis sama dengan yang
+ * terbaca di layar. Satu kueri gabungan berarti rumus kedua yang harus dijaga
+ * tetap sama, dan selisih beberapa rupiah antara layar dan berkas ekspor adalah
+ * jenis kesalahan yang paling lama tidak ketahuan.
+ *
+ * Trip yang tidak punya kegiatan apa pun pada periode itu dilewati — barisnya
+ * hanya akan berisi nol dan menutupi trip yang benar-benar berjalan.
+ */
+func (s *ReportService) TripProfitRows(ctx context.Context, tripID *uuid.UUID, from, to *time.Time) ([]domain.TripProfitReport, error) {
+	if tripID != nil {
+		laporan, err := s.TripProfit(ctx, tripID, from, to)
+		if err != nil {
+			return nil, err
+		}
+		return []domain.TripProfitReport{*laporan}, nil
+	}
+
+	trips, _, err := s.trips.List(ctx, s.pool, pagination.Params{Page: 1, PerPage: pagination.ExportPerPage}, "")
+	if err != nil {
+		return nil, err
+	}
+
+	hasil := make([]domain.TripProfitReport, 0, len(trips))
+	for i := range trips {
+		laporan, err := s.TripProfit(ctx, &trips[i].ID, from, to)
+		if err != nil {
+			return nil, err
+		}
+		if laporan.OrderCount == 0 &&
+			laporan.TripExpenses.IsZero() &&
+			laporan.TotalCapitalOut.IsZero() {
+			continue
+		}
+		hasil = append(hasil, *laporan)
+	}
+	return hasil, nil
 }
 
 func (s *ReportService) OrderProfits(ctx context.Context, p pagination.Params, tripID *uuid.UUID) ([]domain.OrderProfit, int64, error) {

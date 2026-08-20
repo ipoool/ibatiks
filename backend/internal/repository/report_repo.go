@@ -41,19 +41,26 @@ type TripFinancials struct {
 // query. Dipisah per CTE supaya tiap komponen bisa dibaca dan diverifikasi
 // sendiri-sendiri saat angka laporan terasa aneh.
 // TripFinancials merangkum angka keuangan sebuah trip, atau seluruh trip
-// sekaligus bila tripID nil.
+// sekaligus bila tripID nil. Rentang tanggalnya opsional.
 //
 // Penyaringnya ditulis sebagai `($1::uuid IS NULL OR trip_id = $1)` supaya satu
 // kueri melayani keduanya. Menggandakan kuerinya untuk kasus "semua trip"
 // berarti dua definisi laba yang harus dijaga tetap sama — dan cepat atau
 // lambat salah satunya tertinggal saat rumusnya berubah.
-func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID *uuid.UUID) (*TripFinancials, error) {
+//
+// Tiap bagian disaring dengan tanggalnya sendiri: order pakai order_date,
+// belanja pakai purchase_date, biaya perjalanan pakai spent_at. Memakai satu
+// tanggal untuk semuanya berarti belanja bulan lalu untuk order bulan ini
+// masuk ke periode yang salah, dan labanya berpindah bulan tanpa sebab.
+func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID *uuid.UUID, from, to *time.Time) (*TripFinancials, error) {
 	return collectOne[TripFinancials](ctx, q, "laporan trip", `
 		WITH trip_orders AS (
 			-- Order draft dan batal tidak dihitung sebagai omzet.
 			SELECT id, customer_id, total, shipping_fee, discount, paid_amount, balance_due
 			FROM orders
 			WHERE ($1::uuid IS NULL OR trip_id = $1) AND status <> 'cancelled'
+			  AND ($2::date IS NULL OR order_date >= $2)
+			  AND ($3::date IS NULL OR order_date <= $3)
 		),
 		order_totals AS (
 			SELECT
@@ -86,14 +93,22 @@ func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID *u
 			FROM purchase_allocations pa
 			JOIN purchases pu ON pu.id = pa.purchase_id
 			WHERE ($1::uuid IS NULL OR pu.trip_id = $1) AND pa.order_item_id IS NULL
+			  AND ($2::date IS NULL OR pu.purchase_date >= $2)
+			  AND ($3::date IS NULL OR pu.purchase_date <= $3)
 		),
 		expenses AS (
 			SELECT COALESCE(sum(amount), 0) AS trip_expenses
-			FROM trip_expenses WHERE ($1::uuid IS NULL OR trip_id = $1)
+			FROM trip_expenses
+			WHERE ($1::uuid IS NULL OR trip_id = $1)
+			  AND ($2::date IS NULL OR spent_at >= $2)
+			  AND ($3::date IS NULL OR spent_at <= $3)
 		),
 		purchase_total AS (
 			SELECT COALESCE(sum(total_cost_idr), 0) AS purchase_total
-			FROM purchases WHERE ($1::uuid IS NULL OR trip_id = $1)
+			FROM purchases
+			WHERE ($1::uuid IS NULL OR trip_id = $1)
+			  AND ($2::date IS NULL OR purchase_date >= $2)
+			  AND ($3::date IS NULL OR purchase_date <= $3)
 		),
 		shipping AS (
 			SELECT COALESCE(sum(s.shipping_cost), 0) AS shipping_cost_paid
@@ -107,21 +122,23 @@ func (r *ReportRepo) TripFinancials(ctx context.Context, q db.Querier, tripID *u
 			su.surplus_stock_qty, su.surplus_stock_value,
 			ot.order_count, ot.customer_count, oq.item_qty
 		FROM order_totals ot, cogs cg, expenses ex, purchase_total pt,
-		     shipping sh, surplus su, ordered_qty oq`, tripID)
+		     shipping sh, surplus su, ordered_qty oq`, tripID, from, to)
 }
 
-func (r *ReportRepo) ExpenseBreakdown(ctx context.Context, q db.Querier, tripID *uuid.UUID) ([]domain.ExpenseBreakdown, error) {
+func (r *ReportRepo) ExpenseBreakdown(ctx context.Context, q db.Querier, tripID *uuid.UUID, from, to *time.Time) ([]domain.ExpenseBreakdown, error) {
 	return collectRows[domain.ExpenseBreakdown](ctx, q, `
 		SELECT category, sum(amount) AS amount
 		FROM trip_expenses
 		WHERE ($1::uuid IS NULL OR trip_id = $1)
+		  AND ($2::date IS NULL OR spent_at >= $2)
+		  AND ($3::date IS NULL OR spent_at <= $3)
 		GROUP BY category
-		ORDER BY sum(amount) DESC`, tripID)
+		ORDER BY sum(amount) DESC`, tripID, from, to)
 }
 
 // ExpenseBreakdownByTrip memecah biaya perjalanan per trip, lalu per kategori
 // di dalamnya. Hanya trip yang benar-benar punya biaya yang muncul.
-func (r *ReportRepo) ExpenseBreakdownByTrip(ctx context.Context, q db.Querier) ([]domain.TripExpenseBreakdown, error) {
+func (r *ReportRepo) ExpenseBreakdownByTrip(ctx context.Context, q db.Querier, from, to *time.Time) ([]domain.TripExpenseBreakdown, error) {
 	type baris struct {
 		TripID   uuid.UUID       `db:"trip_id"`
 		TripCode string          `db:"trip_code"`
@@ -141,8 +158,10 @@ func (r *ReportRepo) ExpenseBreakdownByTrip(ctx context.Context, q db.Querier) (
 			sum(e.amount) AS amount
 		FROM trip_expenses e
 		JOIN trips t ON t.id = e.trip_id
+		WHERE ($1::date IS NULL OR e.spent_at >= $1)
+		  AND ($2::date IS NULL OR e.spent_at <= $2)
 		GROUP BY t.id, t.code, t.title, e.category
-		ORDER BY sum(sum(e.amount)) OVER (PARTITION BY t.id) DESC, t.code, sum(e.amount) DESC`)
+		ORDER BY sum(sum(e.amount)) OVER (PARTITION BY t.id) DESC, t.code, sum(e.amount) DESC`, from, to)
 	if err != nil {
 		return nil, err
 	}

@@ -43,10 +43,10 @@ export function useDashboard() {
  * Laporan laba-rugi. Tanpa tripId, seluruh trip dijumlahkan jadi satu laporan —
  * itu keadaan yang sah, jadi kuerinya tidak lagi menunggu adanya trip.
  */
-export function useTripProfit(tripId?: string) {
+export function useTripProfit(params: { trip_id?: string; from?: string; to?: string } = {}) {
   return useQuery({
-    queryKey: reportKeys.tripProfit(tripId ?? "semua"),
-    queryFn: () => api.get<TripProfitReport>(`/reports/profit${buildQuery({ trip_id: tripId })}`),
+    queryKey: [...reportKeys.tripProfit(params.trip_id ?? "semua"), params.from ?? "", params.to ?? ""],
+    queryFn: () => api.get<TripProfitReport>(`/reports/profit${buildQuery({ ...params })}`),
   });
 }
 

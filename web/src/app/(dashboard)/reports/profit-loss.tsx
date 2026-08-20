@@ -26,8 +26,16 @@ const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
  * dijumlah sendiri. Tata letaknya sengaja tidak diubah: yang berpindah cuma
  * tempatnya, dan orang yang sudah hafal susunannya tidak perlu belajar lagi.
  */
-export function ProfitLossReport({ tripId }: { tripId?: string }) {
-  const { data: report, isLoading, error } = useTripProfit(tripId);
+export function ProfitLossReport({
+  tripId,
+  from,
+  to,
+}: {
+  tripId?: string;
+  from?: string;
+  to?: string;
+}) {
+  const { data: report, isLoading, error } = useTripProfit({ trip_id: tripId, from, to });
 
   if (isLoading) {
     return (

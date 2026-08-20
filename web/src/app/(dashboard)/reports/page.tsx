@@ -9,6 +9,7 @@ import { FilterSelect } from "@/components/filter-select";
 import { useHasRole } from "@/components/layout/user-context";
 import { OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ErrorState, PageHeader } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
@@ -92,12 +93,16 @@ export default function ReportsPage() {
  */
 function ProfitLossTab() {
   const [tripId, setTripId] = useState("");
+  // Bulan disimpan sebagai "2026-08"; kosong berarti seluruh periode.
+  const [bulan, setBulan] = useState("");
   const { data: trips } = useTrips({ per_page: 100 });
 
   const tripOptions = (trips?.items ?? []).map((trip) => ({
     value: trip.id,
     label: `${trip.code} · ${trip.title}`,
   }));
+
+  const periode = rentangBulan(bulan);
 
   return (
     <>
@@ -109,11 +114,65 @@ function ProfitLossTab() {
           options={tripOptions}
           className="sm:w-64"
         />
+
+        {/* Input bulan bawaan browser: pemilih bulannya sudah disediakan sistem,
+            dan menyusun dropdown bulan-tahun sendiri hanya menambah dua kolom
+            yang harus dijaga tetap sinkron. */}
+        <Input
+          type="month"
+          aria-label="Bulan"
+          value={bulan}
+          onChange={(event) => setBulan(event.target.value)}
+          className="sm:w-44"
+        />
+        {bulan && (
+          <Button variant="ghost" size="sm" onClick={() => setBulan("")}>
+            Semua bulan
+          </Button>
+        )}
+
+        <Button variant="outline" size="sm" asChild className="sm:ml-auto">
+          <a
+            href={csvUrl("/reports/profit", {
+              trip_id: tripId || undefined,
+              from: periode?.from,
+              to: periode?.to,
+            })}
+            download
+          >
+            <Download />
+            Ekspor CSV
+          </a>
+        </Button>
       </div>
 
-      <ProfitLossReport tripId={tripId || undefined} />
+      <p className="text-sm text-muted-foreground">
+        Order dihitung menurut tanggal order, belanja menurut tanggal belanja, dan biaya
+        perjalanan menurut tanggal pengeluarannya.{" "}
+        <span className="text-muted-foreground/80">
+          Berkas CSV-nya satu baris per trip, jadi angkanya bisa dibandingkan antar trip.
+        </span>
+      </p>
+
+      <ProfitLossReport tripId={tripId || undefined} from={periode?.from} to={periode?.to} />
     </>
   );
+}
+
+/**
+ * Mengubah "2026-08" menjadi rentang tanggal awal dan akhir bulannya.
+ *
+ * Hari terakhir dihitung lewat tanggal 0 bulan berikutnya, jadi Februari dan
+ * tahun kabisat ikut benar tanpa daftar jumlah hari yang harus dijaga sendiri.
+ */
+function rentangBulan(bulan: string): { from: string; to: string } | undefined {
+  const cocok = /^(\d{4})-(\d{2})$/.exec(bulan);
+  if (!cocok) return undefined;
+
+  const tahun = Number(cocok[1]);
+  const ke = Number(cocok[2]);
+  const akhir = new Date(tahun, ke, 0).getDate();
+  return { from: `${bulan}-01`, to: `${bulan}-${String(akhir).padStart(2, "0")}` };
 }
 
 function ReceivablesReport() {
