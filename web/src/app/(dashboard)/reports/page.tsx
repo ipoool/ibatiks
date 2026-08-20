@@ -9,7 +9,6 @@ import { FilterSelect } from "@/components/filter-select";
 import { useHasRole } from "@/components/layout/user-context";
 import { OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ErrorState, PageHeader } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
@@ -24,6 +23,7 @@ import {
   useProductSales,
   useReceivables,
 } from "@/hooks/use-reports";
+import { useFilterBulan } from "@/components/filter-bulan";
 import { useTrips } from "@/hooks/use-trips";
 
 import { ProfitLossReport } from "./profit-loss";
@@ -93,16 +93,13 @@ export default function ReportsPage() {
  */
 function ProfitLossTab() {
   const [tripId, setTripId] = useState("");
-  // Bulan disimpan sebagai "2026-08"; kosong berarti seluruh periode.
-  const [bulan, setBulan] = useState("");
+  const { periode, kendali: filterBulan } = useFilterBulan();
   const { data: trips } = useTrips({ per_page: 100 });
 
   const tripOptions = (trips?.items ?? []).map((trip) => ({
     value: trip.id,
     label: `${trip.code} · ${trip.title}`,
   }));
-
-  const periode = rentangBulan(bulan);
 
   return (
     <>
@@ -115,28 +112,16 @@ function ProfitLossTab() {
           className="sm:w-64"
         />
 
-        {/* Input bulan bawaan browser: pemilih bulannya sudah disediakan sistem,
-            dan menyusun dropdown bulan-tahun sendiri hanya menambah dua kolom
-            yang harus dijaga tetap sinkron. */}
-        <Input
-          type="month"
-          aria-label="Bulan"
-          value={bulan}
-          onChange={(event) => setBulan(event.target.value)}
-          className="sm:w-44"
-        />
-        {bulan && (
-          <Button variant="ghost" size="sm" onClick={() => setBulan("")}>
-            Semua bulan
-          </Button>
-        )}
+        {filterBulan}
+
+        {filterBulan}
 
         <Button variant="outline" size="sm" asChild className="sm:ml-auto">
           <a
             href={csvUrl("/reports/profit", {
               trip_id: tripId || undefined,
-              from: periode?.from,
-              to: periode?.to,
+              from: periode.from,
+              to: periode.to,
             })}
             download
           >
@@ -154,30 +139,16 @@ function ProfitLossTab() {
         </span>
       </p>
 
-      <ProfitLossReport tripId={tripId || undefined} from={periode?.from} to={periode?.to} />
+      <ProfitLossReport tripId={tripId || undefined} from={periode.from} to={periode.to} />
     </>
   );
 }
 
-/**
- * Mengubah "2026-08" menjadi rentang tanggal awal dan akhir bulannya.
- *
- * Hari terakhir dihitung lewat tanggal 0 bulan berikutnya, jadi Februari dan
- * tahun kabisat ikut benar tanpa daftar jumlah hari yang harus dijaga sendiri.
- */
-function rentangBulan(bulan: string): { from: string; to: string } | undefined {
-  const cocok = /^(\d{4})-(\d{2})$/.exec(bulan);
-  if (!cocok) return undefined;
-
-  const tahun = Number(cocok[1]);
-  const ke = Number(cocok[2]);
-  const akhir = new Date(tahun, ke, 0).getDate();
-  return { from: `${bulan}-01`, to: `${bulan}-${String(akhir).padStart(2, "0")}` };
-}
 
 function ReceivablesReport() {
   const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useReceivables({ page });
+  const { periode, kendali: filterBulan } = useFilterBulan();
+  const { data, isLoading, error } = useReceivables({ page, ...periode });
 
   const totalOutstanding =
     data?.items.reduce((sum, item) => sum + toNumber(item.balance_due), 0) ?? 0;
@@ -187,11 +158,13 @@ function ReceivablesReport() {
       <ErrorState error={error} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">{filterBulan}</div>
+
         <p className="text-sm text-muted-foreground">
           Order yang masih punya sisa tagihan, diurutkan dari yang paling lama menunggu.
         </p>
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/receivables")} download>
+          <a href={csvUrl("/reports/receivables", { ...periode })} download>
             <Download />
             Ekspor CSV
           </a>
@@ -306,7 +279,12 @@ function OrderProfitReport() {
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
     trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
-  const { data, isLoading, error } = useOrderProfits({ page, trip_id: tripId || undefined });
+  const { periode, kendali: filterBulan } = useFilterBulan();
+  const { data, isLoading, error } = useOrderProfits({
+    page,
+    trip_id: tripId || undefined,
+    ...periode,
+  });
 
   return (
     <>
@@ -324,8 +302,10 @@ function OrderProfitReport() {
           className="sm:w-64"
         />
 
+        {filterBulan}
+
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/orders", { trip_id: tripId || undefined })} download>
+          <a href={csvUrl("/reports/orders", { trip_id: tripId || undefined, ...periode })} download>
             <Download />
             Ekspor CSV
           </a>
@@ -404,7 +384,12 @@ function ProductSalesReport() {
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
     trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
-  const { data, isLoading, error } = useProductSales({ trip_id: tripId || undefined, limit: 50 });
+  const { periode, kendali: filterBulan } = useFilterBulan();
+  const { data, isLoading, error } = useProductSales({
+    trip_id: tripId || undefined,
+    limit: 50,
+    ...periode,
+  });
 
   return (
     <>
@@ -421,8 +406,10 @@ function ProductSalesReport() {
           className="sm:w-64"
         />
 
+        {filterBulan}
+
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/products", { trip_id: tripId || undefined, limit: 200 })} download>
+          <a href={csvUrl("/reports/products", { trip_id: tripId || undefined, limit: 200, ...periode })} download>
             <Download />
             Ekspor CSV
           </a>
@@ -485,7 +472,9 @@ function CustomerSalesReport() {
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
     trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
+  const { periode, kendali: filterBulan } = useFilterBulan();
   const { data, isLoading, error } = useCustomerSales({
+    ...periode,
     page,
     trip_id: tripId || undefined,
   });
@@ -506,8 +495,10 @@ function CustomerSalesReport() {
           className="sm:w-64"
         />
 
+        {filterBulan}
+
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/customers", { trip_id: tripId || undefined })} download>
+          <a href={csvUrl("/reports/customers", { trip_id: tripId || undefined, ...periode })} download>
             <Download />
             Ekspor CSV
           </a>
@@ -601,7 +592,8 @@ function ChannelSalesReport() {
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
     trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
-  const { data, isLoading, error } = useChannelSales({ trip_id: tripId || undefined });
+  const { periode, kendali: filterBulan } = useFilterBulan();
+  const { data, isLoading, error } = useChannelSales({ trip_id: tripId || undefined, ...periode });
 
   const totalRevenue = data?.reduce((sum, row) => sum + toNumber(row.revenue), 0) ?? 0;
   const totalOrders = data?.reduce((sum, row) => sum + row.order_count, 0) ?? 0;
@@ -621,8 +613,10 @@ function ChannelSalesReport() {
           className="sm:w-64"
         />
 
+        {filterBulan}
+
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/channels", { trip_id: tripId || undefined })} download>
+          <a href={csvUrl("/reports/channels", { trip_id: tripId || undefined, ...periode })} download>
             <Download />
             Ekspor CSV
           </a>

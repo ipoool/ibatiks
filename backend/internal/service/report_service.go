@@ -164,21 +164,21 @@ func (s *ReportService) TripProfitRows(ctx context.Context, tripID *uuid.UUID, f
 	return hasil, nil
 }
 
-func (s *ReportService) OrderProfits(ctx context.Context, p pagination.Params, tripID *uuid.UUID) ([]domain.OrderProfit, int64, error) {
-	return s.reports.OrderProfits(ctx, s.pool, p, tripID)
+func (s *ReportService) OrderProfits(ctx context.Context, p pagination.Params, tripID *uuid.UUID, from, to *time.Time) ([]domain.OrderProfit, int64, error) {
+	return s.reports.OrderProfits(ctx, s.pool, p, tripID, from, to)
 }
 
-func (s *ReportService) Receivables(ctx context.Context, p pagination.Params) ([]domain.Receivable, int64, error) {
-	return s.reports.Receivables(ctx, s.pool, p)
+func (s *ReportService) Receivables(ctx context.Context, p pagination.Params, from, to *time.Time) ([]domain.Receivable, int64, error) {
+	return s.reports.Receivables(ctx, s.pool, p, from, to)
 }
 
-func (s *ReportService) CustomerSales(ctx context.Context, p pagination.Params, tripID *uuid.UUID) ([]domain.CustomerSales, int64, error) {
-	return s.reports.CustomerSales(ctx, s.pool, p, tripID)
+func (s *ReportService) CustomerSales(ctx context.Context, p pagination.Params, tripID *uuid.UUID, from, to *time.Time) ([]domain.CustomerSales, int64, error) {
+	return s.reports.CustomerSales(ctx, s.pool, p, tripID, from, to)
 }
 
 // CustomerSalesByChannel memecah rekap customer menjadi per kanal, untuk ekspor.
-func (s *ReportService) CustomerSalesByChannel(ctx context.Context, tripID *uuid.UUID) ([]domain.CustomerChannelSales, error) {
-	return s.reports.CustomerSalesByChannel(ctx, s.pool, tripID)
+func (s *ReportService) CustomerSalesByChannel(ctx context.Context, tripID *uuid.UUID, from, to *time.Time) ([]domain.CustomerChannelSales, error) {
+	return s.reports.CustomerSalesByChannel(ctx, s.pool, tripID, from, to)
 }
 
 // ChannelSales merangkum penjualan per kanal dan menambahkan porsi omzet tiap

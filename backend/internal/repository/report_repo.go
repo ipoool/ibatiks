@@ -195,7 +195,7 @@ func (r *ReportRepo) ExpenseBreakdownByTrip(ctx context.Context, q db.Querier, f
 // OrderProfits menghitung margin tiap order. Order yang HPP-nya belum tercatat
 // akan tampil dengan cogs 0, yang justru berguna sebagai penanda bahwa
 // pembelian untuk order itu belum diinput.
-func (r *ReportRepo) OrderProfits(ctx context.Context, q db.Querier, p pagination.Params, tripID *uuid.UUID) ([]domain.OrderProfit, int64, error) {
+func (r *ReportRepo) OrderProfits(ctx context.Context, q db.Querier, p pagination.Params, tripID *uuid.UUID, from, to *time.Time) ([]domain.OrderProfit, int64, error) {
 	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
@@ -207,6 +207,14 @@ func (r *ReportRepo) OrderProfits(ctx context.Context, q db.Querier, p paginatio
 		args = append(args, "%"+p.Search+"%")
 		n := len(args)
 		conditions = append(conditions, fmt.Sprintf("(o.order_number ILIKE $%d OR c.name ILIKE $%d)", n, n))
+	}
+	if from != nil {
+		args = append(args, *from)
+		conditions = append(conditions, fmt.Sprintf("o.order_date >= $%d", len(args)))
+	}
+	if to != nil {
+		args = append(args, *to)
+		conditions = append(conditions, fmt.Sprintf("o.order_date <= $%d", len(args)))
 	}
 	where := buildWhere(conditions)
 
@@ -252,7 +260,7 @@ func (r *ReportRepo) OrderProfits(ctx context.Context, q db.Querier, p paginatio
 
 // Receivables mendaftar order yang masih punya sisa tagihan, diurutkan dari
 // yang paling lama menunggak.
-func (r *ReportRepo) Receivables(ctx context.Context, q db.Querier, p pagination.Params) ([]domain.Receivable, int64, error) {
+func (r *ReportRepo) Receivables(ctx context.Context, q db.Querier, p pagination.Params, from, to *time.Time) ([]domain.Receivable, int64, error) {
 	conditions := []string{"o.balance_due > 0", "o.status <> 'cancelled'"}
 	args := []any{}
 
@@ -260,6 +268,14 @@ func (r *ReportRepo) Receivables(ctx context.Context, q db.Querier, p pagination
 		args = append(args, "%"+p.Search+"%")
 		n := len(args)
 		conditions = append(conditions, fmt.Sprintf("(o.order_number ILIKE $%d OR c.name ILIKE $%d)", n, n))
+	}
+	if from != nil {
+		args = append(args, *from)
+		conditions = append(conditions, fmt.Sprintf("o.order_date >= $%d", len(args)))
+	}
+	if to != nil {
+		args = append(args, *to)
+		conditions = append(conditions, fmt.Sprintf("o.order_date <= $%d", len(args)))
 	}
 	where := buildWhere(conditions)
 
@@ -347,7 +363,7 @@ func (r *ReportRepo) ProductSales(ctx context.Context, q db.Querier, limit int, 
 // CustomerSales merangkum belanja tiap customer. HPP diambil dari alokasi
 // pembelian yang nyata, sama seperti laporan lainnya, supaya angka profitnya
 // konsisten di seluruh aplikasi.
-func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p pagination.Params, tripID *uuid.UUID) ([]domain.CustomerSales, int64, error) {
+func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p pagination.Params, tripID *uuid.UUID, from, to *time.Time) ([]domain.CustomerSales, int64, error) {
 	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
@@ -359,6 +375,14 @@ func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p paginati
 		args = append(args, "%"+p.Search+"%")
 		n := len(args)
 		conditions = append(conditions, fmt.Sprintf("(c.name ILIKE $%d OR c.phone_wa ILIKE $%d)", n, n))
+	}
+	if from != nil {
+		args = append(args, *from)
+		conditions = append(conditions, fmt.Sprintf("o.order_date >= $%d", len(args)))
+	}
+	if to != nil {
+		args = append(args, *to)
+		conditions = append(conditions, fmt.Sprintf("o.order_date <= $%d", len(args)))
 	}
 	where := buildWhere(conditions)
 
@@ -421,13 +445,21 @@ func (r *ReportRepo) CustomerSales(ctx context.Context, q db.Querier, p paginati
 // Tanpa paginasi: hasilnya dipakai untuk ekspor CSV, dan ekspor yang berhenti
 // di halaman pertama diam-diam kehilangan sebagian besar datanya tanpa ada
 // tanda apa pun di berkasnya.
-func (r *ReportRepo) CustomerSalesByChannel(ctx context.Context, q db.Querier, tripID *uuid.UUID) ([]domain.CustomerChannelSales, error) {
+func (r *ReportRepo) CustomerSalesByChannel(ctx context.Context, q db.Querier, tripID *uuid.UUID, from, to *time.Time) ([]domain.CustomerChannelSales, error) {
 	conditions := []string{"o.status <> 'cancelled'"}
 	args := []any{}
 
 	if tripID != nil {
 		args = append(args, *tripID)
 		conditions = append(conditions, fmt.Sprintf("o.trip_id = $%d", len(args)))
+	}
+	if from != nil {
+		args = append(args, *from)
+		conditions = append(conditions, fmt.Sprintf("o.order_date >= $%d", len(args)))
+	}
+	if to != nil {
+		args = append(args, *to)
+		conditions = append(conditions, fmt.Sprintf("o.order_date <= $%d", len(args)))
 	}
 	where := buildWhere(conditions)
 

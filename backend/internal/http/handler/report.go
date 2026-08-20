@@ -114,7 +114,18 @@ func (h *ReportHandler) OrderProfits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profits, total, err := h.reports.OrderProfits(r.Context(), p, tripID)
+	from, err := request.DateQuery(r, "from")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	to, err := request.DateQuery(r, "to")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	profits, total, err := h.reports.OrderProfits(r.Context(), p, tripID, from, to)
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -150,7 +161,18 @@ func (h *ReportHandler) Receivables(w http.ResponseWriter, r *http.Request) {
 		p = p.ForExport()
 	}
 
-	receivables, total, err := h.reports.Receivables(r.Context(), p)
+	from, err := request.DateQuery(r, "from")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	to, err := request.DateQuery(r, "to")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	receivables, total, err := h.reports.Receivables(r.Context(), p, from, to)
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -189,6 +211,17 @@ func (h *ReportHandler) CustomerSales(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	from, err := request.DateQuery(r, "from")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	to, err := request.DateQuery(r, "to")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
 	/*
 	 * Ekspor dipecah per kanal asal order, jadi satu customer bisa muncul lebih
 	 * dari sekali. Di layar satu baris per customer sudah menjawab siapa
@@ -201,7 +234,7 @@ func (h *ReportHandler) CustomerSales(w http.ResponseWriter, r *http.Request) {
 	 * sebagian besar datanya tanpa tanda apa pun di berkasnya.
 	 */
 	if r.URL.Query().Get("format") == "csv" {
-		rows, err := h.reports.CustomerSalesByChannel(r.Context(), tripID)
+		rows, err := h.reports.CustomerSalesByChannel(r.Context(), tripID, from, to)
 		if err != nil {
 			response.Error(w, r, err)
 			return
@@ -232,7 +265,7 @@ func (h *ReportHandler) CustomerSales(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, total, err := h.reports.CustomerSales(r.Context(), p, tripID)
+	rows, total, err := h.reports.CustomerSales(r.Context(), p, tripID, from, to)
 	if err != nil {
 		response.Error(w, r, err)
 		return

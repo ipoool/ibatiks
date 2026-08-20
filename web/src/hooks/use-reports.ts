@@ -50,14 +50,14 @@ export function useTripProfit(params: { trip_id?: string; from?: string; to?: st
   });
 }
 
-export function useOrderProfits(params: ListParams & { trip_id?: string }) {
+export function useOrderProfits(params: ListParams & { trip_id?: string; from?: string; to?: string }) {
   return useQuery({
     queryKey: reportKeys.orderProfits(params),
     queryFn: () => api.list<OrderProfit>(`/reports/orders${buildQuery({ ...params })}`),
   });
 }
 
-export function useReceivables(params: ListParams) {
+export function useReceivables(params: ListParams & { from?: string; to?: string }) {
   return useQuery({
     queryKey: reportKeys.receivables(params),
     queryFn: () => api.list<Receivable>(`/reports/receivables${buildQuery({ ...params })}`),
@@ -65,7 +65,7 @@ export function useReceivables(params: ListParams) {
 }
 
 /** Rekap penjualan per customer. */
-export function useCustomerSales(params: ListParams & { trip_id?: string }) {
+export function useCustomerSales(params: ListParams & { trip_id?: string; from?: string; to?: string }) {
   return useQuery({
     queryKey: reportKeys.customers(params),
     queryFn: () => api.list<CustomerSales>(`/reports/customers${buildQuery({ ...params })}`),
