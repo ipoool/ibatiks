@@ -1,6 +1,6 @@
 "use client";
 
-import { History, MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, History, MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +14,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { DialogDetailCustomer } from "./dialog-detail-customer";
 import { DialogRiwayatOrder } from "./dialog-riwayat-order";
 import { useDebounced } from "@/hooks/use-debounced";
 import {
@@ -52,6 +53,7 @@ export default function CustomersPage() {
   const [form, setForm] = useState<CustomerPayload>(EMPTY_FORM);
   const [deleting, setDeleting] = useState<Customer | null>(null);
   const [riwayat, setRiwayat] = useState<Customer | null>(null);
+  const [detail, setDetail] = useState<Customer | null>(null);
 
   const { data, isLoading, error } = useCustomers({ page, q: debouncedSearch });
   const save = useSaveCustomer(editing?.id);
@@ -226,6 +228,18 @@ export default function CustomersPage() {
               </TD>
               <TD>
                 <div className="flex justify-end gap-1">
+                  {/* Detail dibuka sebagai bacaan, bukan lewat dialog Ubah:
+                      memakai formulir penyuntingan untuk sekadar membaca berarti
+                      tombol Simpan yang sewaktu-waktu tertekan. */}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tooltip="Detail customer"
+                    onClick={() => setDetail(customer)}
+                  >
+                    <Eye />
+                    <span className="sr-only">Detail customer</span>
+                  </Button>
                   {/* Riwayat dibuka dari daftar, bukan dari halaman tersendiri:
                       pertanyaannya muncul justru saat sedang menelusuri nama. */}
                   <Tooltip>
@@ -266,6 +280,8 @@ export default function CustomersPage() {
         {riwayat && (
           <DialogRiwayatOrder customer={riwayat} onClose={() => setRiwayat(null)} />
         )}
+
+        {detail && <DialogDetailCustomer customer={detail} onClose={() => setDetail(null)} />}
       </div>
 
       <FormDialog

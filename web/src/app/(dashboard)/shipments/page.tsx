@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Package, Printer, Radar, Truck } from "lucide-react";
+import { MessageCircle, Package, PackageOpen, Printer, Radar, Truck } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useState } from "react";
@@ -24,6 +24,7 @@ import { useTrips } from "@/hooks/use-trips";
 import { formatIDR, formatNumber, toNumber } from "@/lib/utils";
 import type { ShippingQueueItem, ShippingStage } from "@/types/api";
 
+import { DialogDetailKemasan } from "./dialog-detail-kemasan";
 import { DialogKemas } from "./dialog-kemas";
 import { DialogResi } from "./dialog-resi";
 
@@ -58,6 +59,7 @@ export default function ShipmentsPage() {
     null,
   );
   const [resiTarget, setResiTarget] = useState<ShippingQueueItem | null>(null);
+  const [detailTarget, setDetailTarget] = useState<ShippingQueueItem | null>(null);
   const debouncedSearch = useDebounced(search);
 
   const { data: trips } = useTrips({ per_page: 100 });
@@ -143,6 +145,7 @@ export default function ShipmentsPage() {
               item={item}
               onKemas={() => setKemasTarget(item)}
               onResi={() => setResiTarget(item)}
+              onDetail={() => setDetailTarget(item)}
             />
           ))}
         </DataTable>
@@ -155,6 +158,9 @@ export default function ShipmentsPage() {
       )}
       {resiTarget && (
         <DialogResi item={resiTarget} onClose={() => setResiTarget(null)} />
+      )}
+      {detailTarget && (
+        <DialogDetailKemasan item={detailTarget} onClose={() => setDetailTarget(null)} />
       )}
     </>
   );
@@ -221,10 +227,12 @@ function BarisPengiriman({
   item,
   onKemas,
   onResi,
+  onDetail,
 }: {
   item: ShippingQueueItem;
   onKemas: () => void;
   onResi: () => void;
+  onDetail: () => void;
 }) {
   const sudahDikemas = (item.weight_gram ?? 0) > 0;
   const ongkirTerisi = toNumber(item.shipping_fee) > 0;
@@ -317,6 +325,22 @@ function BarisPengiriman({
       <TD className="text-right">
         <div className="flex items-center justify-end gap-1">
           {/* Label dicetak saat mengemas, jadi tombolnya duduk di baris ini. */}
+          {/* Order yang sudah diserahkan ke kurir tidak lagi punya tombol Kemas —
+              barangnya di jalan dan mengubah beratnya tidak mengubah apa pun
+              selain catatan toko. Angkanya masih sering ditanya, jadi disediakan
+              sebagai bacaan. */}
+          {sudahDikirim && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              tooltip="Detail data kemasan"
+              onClick={onDetail}
+            >
+              <PackageOpen />
+              <span className="sr-only">Detail data kemasan</span>
+            </Button>
+          )}
+
           <Button variant="ghost" size="icon-sm" tooltip="Cetak label" asChild>
             <a href={labelUrl(item.order_id)} target="_blank" rel="noopener noreferrer">
               <Printer />
