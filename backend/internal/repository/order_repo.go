@@ -300,7 +300,12 @@ func (r *OrderRepo) ListForShipping(
 			s.shipped_at           AS shipped_at,
 			s.shipping_cost        AS shipping_cost,
 			s.customer_notified_at AS customer_notified_at%s%s
-		ORDER BY o.order_date DESC, o.order_number DESC
+		-- Diurutkan dari yang paling baru dicatat, bukan dari tanggal ordernya.
+		-- Tanggal order boleh diketik sendiri dan sering dimundurkan atau
+		-- dimajukan; mengurutkannya dari situ membuat order yang baru saja masuk
+		-- mendarat di tengah daftar, dan orang yang baru mencatatnya mengira
+		-- ordernya tidak terbentuk.
+		ORDER BY o.created_at DESC
 		LIMIT $%d OFFSET $%d`, from, where, len(args)-1, len(args))
 
 	items, err := collectRows[domain.ShippingQueueItem](ctx, q, query, args...)

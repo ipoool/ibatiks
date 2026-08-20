@@ -4,7 +4,11 @@ import { Download, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FilterSelect } from "@/components/filter-select";
 import { useHasRole } from "@/components/layout/user-context";
 import { OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
@@ -51,8 +55,12 @@ export default function ReportsPage() {
           <TabsTrigger value="customer">Per Customer</TabsTrigger>
           <TabsTrigger value="channel">Per Channel</TabsTrigger>
           <TabsTrigger value="piutang">Piutang</TabsTrigger>
-          {canSeeMargin && <TabsTrigger value="laba">Profit / Loss</TabsTrigger>}
-          {canSeeMargin && <TabsTrigger value="profit">Profit per Order</TabsTrigger>}
+          {canSeeMargin && (
+            <TabsTrigger value="laba">Profit / Loss</TabsTrigger>
+          )}
+          {canSeeMargin && (
+            <TabsTrigger value="profit">Profit per Order</TabsTrigger>
+          )}
           <TabsTrigger value="produk">Performa Produk</TabsTrigger>
         </TabsList>
 
@@ -103,20 +111,23 @@ function ProfitLossTab() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterSelect
-          value={tripId}
-          onChange={setTripId}
-          allLabel="Semua trip"
-          options={tripOptions}
-          className="sm:w-64"
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Penyaring dikelompokkan sendiri: sebagai anak langsung dari
+            baris berjustify-between, tiap penyaring terdorong saling menjauh
+            dan kolom bulannya melayang jauh dari trip yang menyertainya. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterSelect
+            value={tripId}
+            onChange={setTripId}
+            allLabel="Semua trip"
+            options={tripOptions}
+            className="sm:w-64"
+          />
 
-        {filterBulan}
+          {filterBulan}
+        </div>
 
-        {filterBulan}
-
-        <Button variant="outline" size="sm" asChild className="sm:ml-auto">
+        <Button variant="outline" size="sm" asChild>
           <a
             href={csvUrl("/reports/profit", {
               trip_id: tripId || undefined,
@@ -132,18 +143,22 @@ function ProfitLossTab() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Order dihitung menurut tanggal order, belanja menurut tanggal belanja, dan biaya
-        perjalanan menurut tanggal pengeluarannya.{" "}
+        Order dihitung menurut tanggal order, belanja menurut tanggal belanja,
+        dan biaya perjalanan menurut tanggal pengeluarannya.{" "}
         <span className="text-muted-foreground/80">
-          Berkas CSV-nya satu baris per trip, jadi angkanya bisa dibandingkan antar trip.
+          Berkas CSV-nya satu baris per trip, jadi angkanya bisa dibandingkan
+          antar trip.
         </span>
       </p>
 
-      <ProfitLossReport tripId={tripId || undefined} from={periode.from} to={periode.to} />
+      <ProfitLossReport
+        tripId={tripId || undefined}
+        from={periode.from}
+        to={periode.to}
+      />
     </>
   );
 }
-
 
 function ReceivablesReport() {
   const [page, setPage] = useState(1);
@@ -160,9 +175,6 @@ function ReceivablesReport() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">{filterBulan}</div>
 
-        <p className="text-sm text-muted-foreground">
-          Order yang masih punya sisa tagihan, diurutkan dari yang paling lama menunggu.
-        </p>
         <Button variant="outline" size="sm" asChild>
           <a href={csvUrl("/reports/receivables", { ...periode })} download>
             <Download />
@@ -171,13 +183,21 @@ function ReceivablesReport() {
         </Button>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Order yang masih punya sisa tagihan, diurutkan dari yang paling lama
+        menunggu.
+      </p>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Total piutang (halaman ini)"
           value={formatIDR(totalOutstanding)}
           tone={totalOutstanding > 0 ? "warning" : "success"}
         />
-        <StatCard label="Jumlah order menunggak" value={formatNumber(data?.meta.total ?? 0)} />
+        <StatCard
+          label="Jumlah order menunggak"
+          value={formatNumber(data?.meta.total ?? 0)}
+        />
       </div>
 
       <div>
@@ -218,14 +238,19 @@ function ReceivablesReport() {
                     kolomnya disembunyikan — dua hal itu yang menentukan siapa
                     yang perlu ditagih lebih dulu. */}
                 <p className="mt-1 text-xs text-muted-foreground sm:hidden">
-                  {item.customer_name} · {formatNumber(item.days_outstanding)} hari
+                  {item.customer_name} · {formatNumber(item.days_outstanding)}{" "}
+                  hari
                 </p>
               </TD>
               <TD className="hidden sm:table-cell">
                 <p className="text-sm font-medium">{item.customer_name}</p>
-                <p className="text-xs text-muted-foreground">{item.customer_phone}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.customer_phone}
+                </p>
               </TD>
-              <TD className="tabular hidden text-right lg:table-cell">{formatIDR(item.total)}</TD>
+              <TD className="tabular hidden text-right lg:table-cell">
+                {formatIDR(item.total)}
+              </TD>
               <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatIDR(item.paid_amount)}
               </TD>
@@ -233,10 +258,18 @@ function ReceivablesReport() {
                 {formatIDR(item.balance_due)}
               </TD>
               <TD className="tabular hidden text-right sm:table-cell">
-                <span className={item.days_outstanding > 14 ? "font-medium text-destructive" : ""}>
+                <span
+                  className={
+                    item.days_outstanding > 14
+                      ? "font-medium text-destructive"
+                      : ""
+                  }
+                >
                   {formatNumber(item.days_outstanding)} hari
                 </span>
-                <p className="text-xs text-muted-foreground">{formatDate(item.order_date)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(item.order_date)}
+                </p>
               </TD>
               {/* Menagih adalah tindakan, bukan keterangan customer, jadi
                   tempatnya di kolom aksi bersama tombol baris lain. */}
@@ -278,7 +311,10 @@ function OrderProfitReport() {
 
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
-    trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
+    trips?.items.map((trip) => ({
+      value: trip.id,
+      label: `${trip.code} — ${trip.title}`,
+    })) ?? [];
   const { periode, kendali: filterBulan } = useFilterBulan();
   const { data, isLoading, error } = useOrderProfits({
     page,
@@ -291,21 +327,32 @@ function OrderProfitReport() {
       <ErrorState error={error} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterSelect
-          value={tripId}
-          onChange={(value) => {
-            setTripId(value);
-            setPage(1);
-          }}
-          allLabel="Semua trip"
-          options={tripOptions}
-          className="sm:w-64"
-        />
+        {/* Penyaring dikelompokkan sendiri: sebagai anak langsung dari
+            baris berjustify-between, tiap penyaring terdorong saling menjauh
+            dan kolom bulannya melayang jauh dari trip yang menyertainya. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterSelect
+            value={tripId}
+            onChange={(value) => {
+              setTripId(value);
+              setPage(1);
+            }}
+            allLabel="Semua trip"
+            options={tripOptions}
+            className="sm:w-64"
+          />
 
-        {filterBulan}
+          {filterBulan}
+        </div>
 
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/orders", { trip_id: tripId || undefined, ...periode })} download>
+          <a
+            href={csvUrl("/reports/orders", {
+              trip_id: tripId || undefined,
+              ...periode,
+            })}
+            download
+          >
             <Download />
             Ekspor CSV
           </a>
@@ -313,8 +360,8 @@ function OrderProfitReport() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        HPP diambil dari biaya belanja yang benar-benar dialokasikan ke order. Order yang HPP-nya
-        masih nol berarti pembeliannya belum diinput.
+        HPP diambil dari biaya belanja yang benar-benar dialokasikan ke order.
+        Order yang HPP-nya masih nol berarti pembeliannya belum diinput.
       </p>
 
       <div>
@@ -351,9 +398,13 @@ function OrderProfitReport() {
                   <p className="text-xs text-muted-foreground">
                     {item.trip_code} · {formatDate(item.order_date)}
                   </p>
-                  <p className="text-xs text-muted-foreground sm:hidden">{item.customer_name}</p>
+                  <p className="text-xs text-muted-foreground sm:hidden">
+                    {item.customer_name}
+                  </p>
                 </TD>
-                <TD className="hidden text-sm sm:table-cell">{item.customer_name}</TD>
+                <TD className="hidden text-sm sm:table-cell">
+                  {item.customer_name}
+                </TD>
                 <TD className="tabular hidden text-right sm:table-cell">
                   {formatIDR(item.revenue)}
                 </TD>
@@ -367,7 +418,9 @@ function OrderProfitReport() {
                 >
                   {formatIDR(item.profit)}
                 </TD>
-                <TD className="tabular text-right text-sm">{item.margin_percent}%</TD>
+                <TD className="tabular text-right text-sm">
+                  {item.margin_percent}%
+                </TD>
               </TR>
             );
           })}
@@ -383,7 +436,10 @@ function ProductSalesReport() {
   const [tripId, setTripId] = useState("");
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
-    trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
+    trips?.items.map((trip) => ({
+      value: trip.id,
+      label: `${trip.code} — ${trip.title}`,
+    })) ?? [];
   const { periode, kendali: filterBulan } = useFilterBulan();
   const { data, isLoading, error } = useProductSales({
     trip_id: tripId || undefined,
@@ -396,20 +452,32 @@ function ProductSalesReport() {
       <ErrorState error={error} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterSelect
-          value={tripId}
-          onChange={(value) => {
-            setTripId(value);
-          }}
-          allLabel="Semua trip"
-          options={tripOptions}
-          className="sm:w-64"
-        />
+        {/* Penyaring dikelompokkan sendiri: sebagai anak langsung dari
+            baris berjustify-between, tiap penyaring terdorong saling menjauh
+            dan kolom bulannya melayang jauh dari trip yang menyertainya. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterSelect
+            value={tripId}
+            onChange={(value) => {
+              setTripId(value);
+            }}
+            allLabel="Semua trip"
+            options={tripOptions}
+            className="sm:w-64"
+          />
 
-        {filterBulan}
+          {filterBulan}
+        </div>
 
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/products", { trip_id: tripId || undefined, limit: 200, ...periode })} download>
+          <a
+            href={csvUrl("/reports/products", {
+              trip_id: tripId || undefined,
+              limit: 200,
+              ...periode,
+            })}
+            download
+          >
             <Download />
             Ekspor CSV
           </a>
@@ -443,11 +511,15 @@ function ProductSalesReport() {
                   {item.category_name ? ` · ${item.category_name}` : ""}
                 </p>
               </TD>
-              <TD className="tabular text-right font-medium">{formatNumber(item.qty_sold)}</TD>
+              <TD className="tabular text-right font-medium">
+                {formatNumber(item.qty_sold)}
+              </TD>
               <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatNumber(item.order_count)}
               </TD>
-              <TD className="tabular hidden text-right sm:table-cell">{formatIDR(item.revenue)}</TD>
+              <TD className="tabular hidden text-right sm:table-cell">
+                {formatIDR(item.revenue)}
+              </TD>
               <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatIDR(item.cogs)}
               </TD>
@@ -471,7 +543,10 @@ function CustomerSalesReport() {
   const [tripId, setTripId] = useState("");
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
-    trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
+    trips?.items.map((trip) => ({
+      value: trip.id,
+      label: `${trip.code} — ${trip.title}`,
+    })) ?? [];
   const { periode, kendali: filterBulan } = useFilterBulan();
   const { data, isLoading, error } = useCustomerSales({
     ...periode,
@@ -484,21 +559,32 @@ function CustomerSalesReport() {
       <ErrorState error={error} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterSelect
-          value={tripId}
-          onChange={(value) => {
-            setTripId(value);
-            setPage(1);
-          }}
-          allLabel="Semua trip"
-          options={tripOptions}
-          className="sm:w-64"
-        />
+        {/* Penyaring dikelompokkan sendiri: sebagai anak langsung dari
+            baris berjustify-between, tiap penyaring terdorong saling menjauh
+            dan kolom bulannya melayang jauh dari trip yang menyertainya. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterSelect
+            value={tripId}
+            onChange={(value) => {
+              setTripId(value);
+              setPage(1);
+            }}
+            allLabel="Semua trip"
+            options={tripOptions}
+            className="sm:w-64"
+          />
 
-        {filterBulan}
+          {filterBulan}
+        </div>
 
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/customers", { trip_id: tripId || undefined, ...periode })} download>
+          <a
+            href={csvUrl("/reports/customers", {
+              trip_id: tripId || undefined,
+              ...periode,
+            })}
+            download
+          >
             <Download />
             Ekspor CSV
           </a>
@@ -506,12 +592,13 @@ function CustomerSalesReport() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Diurutkan dari pembelanja terbesar. Berguna untuk menentukan siapa yang layak dapat
-        prioritas slot atau harga khusus pada trip berikutnya.{" "}
+        Diurutkan dari pembelanja terbesar. Berguna untuk menentukan siapa yang
+        layak dapat prioritas slot atau harga khusus pada trip berikutnya.{" "}
         {/* Disebutkan supaya jumlah baris berkasnya tidak dikira keliru: satu
             customer yang memesan lewat dua kanal muncul dua kali. */}
         <span className="text-muted-foreground/80">
-          Berkas CSV-nya dipecah per channel, jadi satu customer bisa muncul lebih dari sekali.
+          Berkas CSV-nya dipecah per channel, jadi satu customer bisa muncul
+          lebih dari sekali.
         </span>
       </p>
 
@@ -528,7 +615,9 @@ function CustomerSalesReport() {
               <TH className="hidden w-20 text-right sm:table-cell">Order</TH>
               <TH className="hidden w-20 text-right lg:table-cell">Pcs</TH>
               <TH className="w-32 text-right">Omzet</TH>
-              <TH className="hidden w-32 text-right lg:table-cell">Rata-rata</TH>
+              <TH className="hidden w-32 text-right lg:table-cell">
+                Rata-rata
+              </TH>
               <TH className="hidden w-32 text-right sm:table-cell">Profit</TH>
               <TH className="hidden w-32 text-right sm:table-cell">Piutang</TH>
             </TR>
@@ -549,7 +638,9 @@ function CustomerSalesReport() {
                   <p className="text-xs text-muted-foreground">
                     {item.customer_code}
                     {item.city ? ` · ${item.city}` : ""}
-                    {item.last_order_at ? ` · terakhir ${formatDate(item.last_order_at)}` : ""}
+                    {item.last_order_at
+                      ? ` · terakhir ${formatDate(item.last_order_at)}`
+                      : ""}
                   </p>
                 </TD>
                 <TD className="tabular hidden text-right sm:table-cell">
@@ -558,7 +649,9 @@ function CustomerSalesReport() {
                 <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                   {formatNumber(item.item_qty)}
                 </TD>
-                <TD className="tabular text-right font-medium">{formatIDR(item.revenue)}</TD>
+                <TD className="tabular text-right font-medium">
+                  {formatIDR(item.revenue)}
+                </TD>
                 <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                   {formatIDR(item.avg_order_value)}
                 </TD>
@@ -571,7 +664,9 @@ function CustomerSalesReport() {
                 </TD>
                 <TD
                   className={`tabular hidden text-right sm:table-cell ${
-                    outstanding > 0 ? "font-medium text-amber-600" : "text-muted-foreground"
+                    outstanding > 0
+                      ? "font-medium text-amber-600"
+                      : "text-muted-foreground"
                   }`}
                 >
                   {formatIDR(item.outstanding)}
@@ -591,11 +686,18 @@ function ChannelSalesReport() {
   const [tripId, setTripId] = useState("");
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
-    trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
+    trips?.items.map((trip) => ({
+      value: trip.id,
+      label: `${trip.code} — ${trip.title}`,
+    })) ?? [];
   const { periode, kendali: filterBulan } = useFilterBulan();
-  const { data, isLoading, error } = useChannelSales({ trip_id: tripId || undefined, ...periode });
+  const { data, isLoading, error } = useChannelSales({
+    trip_id: tripId || undefined,
+    ...periode,
+  });
 
-  const totalRevenue = data?.reduce((sum, row) => sum + toNumber(row.revenue), 0) ?? 0;
+  const totalRevenue =
+    data?.reduce((sum, row) => sum + toNumber(row.revenue), 0) ?? 0;
   const totalOrders = data?.reduce((sum, row) => sum + row.order_count, 0) ?? 0;
 
   return (
@@ -603,20 +705,31 @@ function ChannelSalesReport() {
       <ErrorState error={error} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterSelect
-          value={tripId}
-          onChange={(value) => {
-            setTripId(value);
-          }}
-          allLabel="Semua trip"
-          options={tripOptions}
-          className="sm:w-64"
-        />
+        {/* Penyaring dikelompokkan sendiri: sebagai anak langsung dari
+            baris berjustify-between, tiap penyaring terdorong saling menjauh
+            dan kolom bulannya melayang jauh dari trip yang menyertainya. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterSelect
+            value={tripId}
+            onChange={(value) => {
+              setTripId(value);
+            }}
+            allLabel="Semua trip"
+            options={tripOptions}
+            className="sm:w-64"
+          />
 
-        {filterBulan}
+          {filterBulan}
+        </div>
 
         <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl("/reports/channels", { trip_id: tripId || undefined, ...periode })} download>
+          <a
+            href={csvUrl("/reports/channels", {
+              trip_id: tripId || undefined,
+              ...periode,
+            })}
+            download
+          >
             <Download />
             Ekspor CSV
           </a>
@@ -654,11 +767,15 @@ function ChannelSalesReport() {
               <TD>
                 <OrderSourceBadge source={row.order_source} />
               </TD>
-              <TD className="tabular text-right">{formatNumber(row.order_count)}</TD>
+              <TD className="tabular text-right">
+                {formatNumber(row.order_count)}
+              </TD>
               <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatNumber(row.customer_count)}
               </TD>
-              <TD className="tabular text-right font-medium">{formatIDR(row.revenue)}</TD>
+              <TD className="tabular text-right font-medium">
+                {formatIDR(row.revenue)}
+              </TD>
               <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
                 {formatIDR(row.avg_order_value)}
               </TD>
