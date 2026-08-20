@@ -157,6 +157,8 @@ export function useAdjustStock() {
 export interface InvoiceListParams extends ListParams {
   status?: string;
   type?: string;
+  from?: string;
+  to?: string;
 }
 
 export const invoiceKeys = {

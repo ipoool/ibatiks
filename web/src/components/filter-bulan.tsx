@@ -60,3 +60,60 @@ export function useFilterBulan(): { bulan: string; periode: Periode; kendali: Re
     ),
   };
 }
+
+/** Awal dan akhir bulan berjalan, dipakai sebagai rentang bawaan. */
+function bulanBerjalan(): Periode {
+  const kini = new Date();
+  const bulan = `${kini.getFullYear()}-${String(kini.getMonth() + 1).padStart(2, "0")}`;
+  return rentangBulan(bulan);
+}
+
+/**
+ * Penyaring rentang tanggal, bawaannya bulan berjalan.
+ *
+ * Dipakai daftar yang isinya menumpuk terus dan hampir selalu ditengok untuk
+ * periode berjalan — daftar invoice, misalnya. Bawaan yang menyaring memang
+ * berisiko membuat orang mengira datanya hilang, jadi tanggalnya selalu terlihat
+ * di layar dan ada tombol untuk melepasnya sekaligus.
+ */
+export function useFilterRentang(): { periode: Periode; kendali: React.ReactNode } {
+  const [rentang, setRentang] = useState<Periode>(bulanBerjalan);
+
+  const ubah = (bagian: keyof Periode) => (nilai: string) =>
+    setRentang({ ...rentang, [bagian]: nilai || undefined });
+
+  return {
+    periode: rentang,
+    kendali: (
+      <>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            aria-label="Tanggal mulai"
+            value={rentang.from ?? ""}
+            // Batas atas mengikuti tanggal akhir supaya rentang terbalik tidak
+            // pernah terbentuk — kosong hasilnya, dan tidak ada di layar yang
+            // menjelaskan kenapa.
+            max={rentang.to}
+            onChange={(event) => ubah("from")(event.target.value)}
+            className="sm:w-40"
+          />
+          <span className="text-sm text-muted-foreground">–</span>
+          <Input
+            type="date"
+            aria-label="Tanggal akhir"
+            value={rentang.to ?? ""}
+            min={rentang.from}
+            onChange={(event) => ubah("to")(event.target.value)}
+            className="sm:w-40"
+          />
+        </div>
+        {(rentang.from || rentang.to) && (
+          <Button variant="ghost" size="sm" onClick={() => setRentang({})}>
+            Semua tanggal
+          </Button>
+        )}
+      </>
+    ),
+  };
+}

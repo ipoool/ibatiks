@@ -53,8 +53,19 @@ func (h *InvoiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *InvoiceHandler) List(w http.ResponseWriter, r *http.Request) {
 	p := pagination.FromRequest(r)
 
+	from, err := request.DateQuery(r, "from")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	to, err := request.DateQuery(r, "to")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
 	invoices, total, err := h.invoices.List(r.Context(), p,
-		r.URL.Query().Get("status"), r.URL.Query().Get("type"))
+		r.URL.Query().Get("status"), r.URL.Query().Get("type"), from, to)
 	if err != nil {
 		response.Error(w, r, err)
 		return

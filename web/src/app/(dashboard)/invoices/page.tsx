@@ -13,6 +13,7 @@ import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
+import { useFilterRentang } from "@/components/filter-bulan";
 import { WAMessageDialog } from "@/components/wa-message-dialog";
 import { useDebounced } from "@/hooks/use-debounced";
 
@@ -49,18 +50,30 @@ export default function InvoicesPage() {
   const [messageId, setMessageId] = useState<string | null>(null);
   const [buatOpen, setBuatOpen] = useState(false);
   const [lunasTarget, setLunasTarget] = useState<Invoice | null>(null);
+  const { periode, kendali: filterTanggal } = useFilterRentang();
   const debouncedSearch = useDebounced(search);
 
-  const { data, isLoading, error } = useInvoices({ page, q: debouncedSearch, status, type });
+  const { data, isLoading, error } = useInvoices({
+    page,
+    q: debouncedSearch,
+    status,
+    type,
+    ...periode,
+  });
   const message = useInvoiceMessage(messageId ?? undefined, Boolean(messageId));
   const markSent = useMarkInvoiceSent();
   const voidInvoice = useVoidInvoice();
 
   async function handleVoid(invoice: Invoice) {
     await voidInvoice.mutateAsync(invoice.id, {
-      onSuccess: () => toast.success(`Invoice ${invoice.invoice_number} dibatalkan`),
+      onSuccess: () =>
+        toast.success(`Invoice ${invoice.invoice_number} dibatalkan`),
       onError: (error) => {
-        toast.error(error instanceof ApiError ? error.message : "Gagal membatalkan invoice");
+        toast.error(
+          error instanceof ApiError
+            ? error.message
+            : "Gagal membatalkan invoice",
+        );
       },
     });
   }
@@ -118,15 +131,35 @@ export default function InvoicesPage() {
           options={INVOICE_TYPE_FILTER}
           className="sm:w-44"
         />
+
+        {/* Rentang tanggal terbit, bawaannya bulan berjalan. Daftar invoice
+            menumpuk terus dan yang ditengok hampir selalu periode berjalan —
+            tapi bawaan yang menyaring bisa membuat orang mengira invoice lamanya
+            hilang, jadi tanggalnya selalu terlihat dan bisa dilepas sekaligus. */}
+        {filterTanggal}
       </div>
+
+      {(periode.from || periode.to) && (
+        <p className="text-sm text-muted-foreground">
+          Menampilkan invoice yang terbit pada rentang tanggal di atas.
+        </p>
+      )}
 
       <div>
         <DataTable
           columns={9}
           isLoading={isLoading}
           isEmpty={!isLoading && (data?.items.length ?? 0) === 0}
-          emptyTitle="Belum ada invoice"
-          emptyDescription="Invoice DP diterbitkan dari detail order; invoice pelunasan dari tombol Buat Invoice di atas."
+          emptyTitle={
+            periode.from || periode.to
+              ? "Tidak ada invoice pada rentang ini"
+              : "Belum ada invoice"
+          }
+          emptyDescription={
+            periode.from || periode.to
+              ? "Lebarkan rentang tanggalnya, atau tekan Semua tanggal."
+              : "Invoice DP diterbitkan dari detail order; invoice pelunasan dari tombol Buat Invoice di atas."
+          }
           head={
             <TR>
               <TH>Invoice</TH>
@@ -136,7 +169,9 @@ export default function InvoicesPage() {
               <TH className="hidden text-right lg:table-cell">Total</TH>
               <TH className="text-right">Sisa</TH>
               <TH className="hidden sm:table-cell">Status</TH>
-              <TH className="hidden text-right whitespace-nowrap sm:table-cell">Terbit</TH>
+              <TH className="hidden text-right whitespace-nowrap sm:table-cell">
+                Terbit
+              </TH>
               <TH className="text-right">Aksi</TH>
             </TR>
           }
@@ -152,16 +187,24 @@ export default function InvoicesPage() {
               <TR key={invoice.id}>
                 <TD className="whitespace-normal">
                   <div className="flex items-center gap-0.5">
-                    <span className="font-medium whitespace-nowrap">{invoice.invoice_number}</span>
-                    <CopyButton value={invoice.invoice_number} label="Nomor invoice" />
+                    <span className="font-medium whitespace-nowrap">
+                      {invoice.invoice_number}
+                    </span>
+                    <CopyButton
+                      value={invoice.invoice_number}
+                      label="Nomor invoice"
+                    />
                   </div>
                   {/* Jenis, tanggal terbit, customer, dan status dilipat ke sini
                       selama kolom masing-masing disembunyikan; tanpa itu daftar
                       invoice di ponsel tinggal deretan nomor tanpa penanda. */}
                   <p className="text-xs text-muted-foreground sm:hidden">
-                    {invoice.type === "dp" ? "DP" : "Pelunasan"} · {formatDate(invoice.issue_date)}
+                    {invoice.type === "dp" ? "DP" : "Pelunasan"} ·{" "}
+                    {formatDate(invoice.issue_date)}
                   </p>
-                  <p className="text-xs text-muted-foreground md:hidden">{invoice.customer_name}</p>
+                  <p className="text-xs text-muted-foreground md:hidden">
+                    {invoice.customer_name}
+                  </p>
                   <div className="mt-1 sm:hidden">
                     <InvoiceStatusBadge status={invoice.status} />
                   </div>
@@ -178,16 +221,23 @@ export default function InvoicesPage() {
                       {invoice.order_number}
                     </Link>
                     {invoice.order_number && (
-                      <CopyButton value={invoice.order_number} label="Nomor order" />
+                      <CopyButton
+                        value={invoice.order_number}
+                        label="Nomor order"
+                      />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">{invoice.trip_code}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {invoice.trip_code}
+                  </p>
                 </TD>
                 <TD className="hidden text-sm whitespace-normal md:table-cell">
                   {invoice.customer_name}
                 </TD>
                 <TD className="tabular hidden text-right font-medium lg:table-cell">
-                  {formatIDR(invoice.type === "dp" ? invoice.dp_amount : invoice.total)}
+                  {formatIDR(
+                    invoice.type === "dp" ? invoice.dp_amount : invoice.total,
+                  )}
                   {invoice.type === "dp" && (
                     <p className="text-xs font-normal text-muted-foreground">
                       dari {formatIDR(invoice.total)}
@@ -196,11 +246,17 @@ export default function InvoicesPage() {
                 </TD>
                 <TD
                   className={`tabular text-right ${
-                    toNumber(invoice.amount_due) > 0 ? "text-amber-600" : "text-muted-foreground"
+                    toNumber(invoice.amount_due) > 0
+                      ? "text-amber-600"
+                      : "text-muted-foreground"
                   }`}
                 >
                   {formatIDR(invoice.amount_due)}
-                  {overdue && <p className="text-xs font-medium text-destructive">lewat tempo</p>}
+                  {overdue && (
+                    <p className="text-xs font-medium text-destructive">
+                      lewat tempo
+                    </p>
+                  )}
                 </TD>
                 <TD className="hidden sm:table-cell">
                   <InvoiceStatusBadge status={invoice.status} />
@@ -210,8 +266,17 @@ export default function InvoicesPage() {
                 </TD>
                 <TD>
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon-sm" asChild tooltip="PDF">
-                      <a href={invoicePDFUrl(invoice.id)} target="_blank" rel="noopener noreferrer">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      asChild
+                      tooltip="PDF"
+                    >
+                      <a
+                        href={invoicePDFUrl(invoice.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <FileText />
                         <span className="sr-only">PDF</span>
                       </a>
@@ -231,18 +296,19 @@ export default function InvoicesPage() {
 
                     {/* Menandai lunas berarti mencatat uangnya masuk ke order,
                         bukan sekadar mengubah label barisnya. */}
-                    {invoice.status !== "void" && toNumber(invoice.amount_due) > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        tooltip="Catat pembayaran"
-                        className="text-emerald-600 hover:text-emerald-700"
-                        onClick={() => setLunasTarget(invoice)}
-                      >
-                        <Wallet />
-                        <span className="sr-only">Catat pembayaran</span>
-                      </Button>
-                    )}
+                    {invoice.status !== "void" &&
+                      toNumber(invoice.amount_due) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          tooltip="Catat pembayaran"
+                          className="text-emerald-600 hover:text-emerald-700"
+                          onClick={() => setLunasTarget(invoice)}
+                        >
+                          <Wallet />
+                          <span className="sr-only">Catat pembayaran</span>
+                        </Button>
+                      )}
 
                     {invoice.status !== "void" && invoice.status !== "paid" && (
                       <ConfirmButton
@@ -280,7 +346,10 @@ export default function InvoicesPage() {
       )}
 
       {lunasTarget && (
-        <DialogTandaiLunas invoice={lunasTarget} onClose={() => setLunasTarget(null)} />
+        <DialogTandaiLunas
+          invoice={lunasTarget}
+          onClose={() => setLunasTarget(null)}
+        />
       )}
 
       <WAMessageDialog

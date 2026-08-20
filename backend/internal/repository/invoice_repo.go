@@ -66,7 +66,7 @@ func (r *InvoiceRepo) ListByOrder(ctx context.Context, q db.Querier, orderID uui
 		`SELECT `+invoiceColumns+` FROM invoices WHERE order_id = $1 ORDER BY created_at DESC`, orderID)
 }
 
-func (r *InvoiceRepo) List(ctx context.Context, q db.Querier, p pagination.Params, status, invoiceType string) ([]domain.InvoiceListItem, int64, error) {
+func (r *InvoiceRepo) List(ctx context.Context, q db.Querier, p pagination.Params, status, invoiceType string, from, to *time.Time) ([]domain.InvoiceListItem, int64, error) {
 	conditions := []string{}
 	args := []any{}
 
@@ -83,6 +83,16 @@ func (r *InvoiceRepo) List(ctx context.Context, q db.Querier, p pagination.Param
 	if invoiceType != "" {
 		args = append(args, invoiceType)
 		conditions = append(conditions, fmt.Sprintf("i.type = $%d", len(args)))
+	}
+	// Disaring menurut tanggal terbit — itu tanggal milik invoice sendiri, dan
+	// itu pula yang tampil di kolom Terbit.
+	if from != nil {
+		args = append(args, *from)
+		conditions = append(conditions, fmt.Sprintf("i.issue_date >= $%d", len(args)))
+	}
+	if to != nil {
+		args = append(args, *to)
+		conditions = append(conditions, fmt.Sprintf("i.issue_date <= $%d", len(args)))
 	}
 	where := buildWhere(conditions)
 

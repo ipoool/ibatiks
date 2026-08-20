@@ -211,8 +211,8 @@ func (s *InvoiceService) Get(ctx context.Context, id uuid.UUID) (*domain.Invoice
 	return s.invoices.GetByID(ctx, s.pool, id)
 }
 
-func (s *InvoiceService) List(ctx context.Context, p pagination.Params, status, invoiceType string) ([]domain.InvoiceListItem, int64, error) {
-	return s.invoices.List(ctx, s.pool, p, status, invoiceType)
+func (s *InvoiceService) List(ctx context.Context, p pagination.Params, status, invoiceType string, from, to *time.Time) ([]domain.InvoiceListItem, int64, error) {
+	return s.invoices.List(ctx, s.pool, p, status, invoiceType, from, to)
 }
 
 func (s *InvoiceService) ListByOrder(ctx context.Context, orderID uuid.UUID) ([]domain.Invoice, error) {
