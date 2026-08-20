@@ -32,15 +32,58 @@ import { ApiError } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
 import type { Permission, User, UserRole } from "@/types/api";
 
-/** Kunci pengaturan yang punya form khusus, dikelompokkan agar mudah dibaca. */
+/*
+ * Kunci pengaturan yang punya form khusus, dikelompokkan agar mudah dibaca.
+ *
+ * Tiap isian membawa aturan validasinya sendiri. Nilai-nilai ini tercetak di
+ * invoice dan label paket yang dipegang customer, jadi salah ketik di sini tidak
+ * ketahuan sampai dokumennya sudah terkirim. Pesan galatnya berbahasa Indonesia
+ * lewat mekanisme yang sama seperti form lain (src/lib/validasi-bawaan.ts);
+ * `title` dipakai untuk menjelaskan pola yang diminta.
+ */
 const STORE_FIELDS = [
-  { key: "store_name", label: "Nama toko", hint: "Tampil di header invoice" },
-  { key: "store_phone", label: "Nomor WA toko", hint: "Format internasional, contoh 6281234567890" },
-  { key: "store_email", label: "Email toko" },
-  { key: "store_address", label: "Alamat toko" },
-  { key: "bank_account", label: "Rekening pembayaran", hint: "Tampil di invoice dan pesan penagihan" },
-  { key: "invoice_footer", label: "Catatan penutup invoice" },
-  { key: "invoice_due_days", label: "Jatuh tempo invoice (hari)" },
+  {
+    key: "store_name",
+    label: "Nama toko",
+    hint: "Tampil di header invoice",
+    required: true,
+    minLength: 2,
+    maxLength: 120,
+  },
+  {
+    key: "store_phone",
+    label: "Nomor WA toko",
+    hint: "Format internasional, contoh 6281234567890",
+    inputMode: "tel" as const,
+    // Angka saja, boleh diawali tanda plus. Sengaja tidak memaksa awalan 62:
+    // nomornya cuma dicetak di invoice dan label, bukan dijadikan tautan wa.me,
+    // dan menolak nomor yang sah karena bentuknya berbeda lebih merugikan.
+    pattern: "\\+?[0-9]{8,20}",
+    title: "Nomor WA hanya berisi angka, boleh diawali tanda +. Contoh: 6281234567890",
+  },
+  {
+    key: "store_email",
+    label: "Email toko",
+    type: "email" as const,
+    placeholder: "halo@tokokamu.id",
+  },
+  { key: "store_address", label: "Alamat toko", maxLength: 300 },
+  {
+    key: "bank_account",
+    label: "Rekening pembayaran",
+    hint: "Tampil di invoice dan pesan penagihan",
+    maxLength: 200,
+  },
+  { key: "invoice_footer", label: "Catatan penutup invoice", maxLength: 300 },
+  {
+    key: "invoice_due_days",
+    label: "Jatuh tempo invoice (hari)",
+    hint: "Dihitung sejak invoice terbit. Kosong atau tidak wajar dianggap 3 hari.",
+    type: "number" as const,
+    min: 0,
+    max: 365,
+    step: 1,
+  },
 ] as const;
 
 const TEMPLATE_FIELDS = [
@@ -132,6 +175,18 @@ interface SettingField {
   label: string;
   hint?: string;
   multiline: boolean;
+  /** Atribut validasi bawaan peramban; pesannya diterjemahkan oleh Input. */
+  type?: "email" | "number" | "text";
+  inputMode?: "tel" | "numeric";
+  pattern?: string;
+  title?: string;
+  placeholder?: string;
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  step?: number;
 }
 
 function SettingsForm({
@@ -195,6 +250,17 @@ function SettingsForm({
               ) : (
                 <Input
                   id={field.key}
+                  type={field.type}
+                  inputMode={field.inputMode}
+                  pattern={field.pattern}
+                  title={field.title}
+                  placeholder={field.placeholder}
+                  required={field.required}
+                  minLength={field.minLength}
+                  maxLength={field.maxLength}
+                  min={field.min}
+                  max={field.max}
+                  step={field.step}
                   value={valueOf(field.key)}
                   onChange={(event) => setEdits({ ...edits, [field.key]: event.target.value })}
                   disabled={isLoading}

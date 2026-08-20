@@ -61,6 +61,10 @@ export function pesanValidasi(el: Kolom): string {
     return `${sebut}belum sesuai format yang diminta.`;
   }
   if (v.patternMismatch) {
+    // `title` menjelaskan pola yang diminta. Tanpanya pesan pattern hanya bisa
+    // berbunyi "belum sesuai format" — benar, tapi tidak memberi tahu formatnya.
+    const penjelasan = el.getAttribute("title")?.trim();
+    if (penjelasan) return penjelasan;
     return `${sebut}belum sesuai format yang diminta.`;
   }
   if (v.tooShort) {

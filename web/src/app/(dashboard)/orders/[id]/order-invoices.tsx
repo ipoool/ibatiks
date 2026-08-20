@@ -7,7 +7,13 @@ import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { InvoiceStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Field } from "@/components/ui/field";
@@ -42,7 +48,10 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
   const create = useCreateInvoice(order.id);
   const markSent = useMarkInvoiceSent();
   const voidInvoice = useVoidInvoice();
-  const message = useInvoiceMessage(messageInvoiceId ?? undefined, Boolean(messageInvoiceId));
+  const message = useInvoiceMessage(
+    messageInvoiceId ?? undefined,
+    Boolean(messageInvoiceId),
+  );
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -61,7 +70,11 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
           setMessageInvoiceId(invoice.id);
         },
         onError: (error) => {
-          toast.error(error instanceof ApiError ? error.message : "Gagal menerbitkan invoice");
+          toast.error(
+            error instanceof ApiError
+              ? error.message
+              : "Gagal menerbitkan invoice",
+          );
         },
       },
     );
@@ -69,9 +82,14 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
 
   async function handleVoid(invoice: Invoice) {
     await voidInvoice.mutateAsync(invoice.id, {
-      onSuccess: () => toast.success(`Invoice ${invoice.invoice_number} dibatalkan`),
+      onSuccess: () =>
+        toast.success(`Invoice ${invoice.invoice_number} dibatalkan`),
       onError: (error) => {
-        toast.error(error instanceof ApiError ? error.message : "Gagal membatalkan invoice");
+        toast.error(
+          error instanceof ApiError
+            ? error.message
+            : "Gagal membatalkan invoice",
+        );
       },
     });
   }
@@ -120,11 +138,19 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
         ) : (
           <div className="divide-y divide-border">
             {order.invoices.map((invoice) => (
-              <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
+              <div
+                key={invoice.id}
+                className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3"
+              >
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{invoice.invoice_number}</span>
-                    <CopyButton value={invoice.invoice_number} label="Nomor invoice" />
+                    <span className="font-medium whitespace-nowrap">
+                      {invoice.invoice_number}
+                    </span>
+                    <CopyButton
+                      value={invoice.invoice_number}
+                      label="Nomor invoice"
+                    />
                     <InvoiceStatusBadge status={invoice.status} />
                     <span className="text-xs uppercase text-muted-foreground">
                       {invoice.type === "dp" ? "DP" : "Pelunasan"}
@@ -132,59 +158,81 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Terbit {formatDate(invoice.issue_date)}
-                    {invoice.due_date ? ` · jatuh tempo ${formatDate(invoice.due_date)}` : ""}
-                    {invoice.sent_at ? ` · dikirim ${formatDate(invoice.sent_at)}` : ""}
+                    {invoice.due_date
+                      ? ` · jatuh tempo ${formatDate(invoice.due_date)}`
+                      : ""}
+                    {invoice.sent_at
+                      ? ` · dikirim ${formatDate(invoice.sent_at)}`
+                      : ""}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Nominal di atas tombolnya, bukan sebaris.
+                    Kartu ini duduk di kolom yang menyempit begitu layarnya
+                    mengecil; nominal dan tiga tombol dalam satu baris membuat
+                    seluruh bloknya melompat ke bawah dan mendarat rata kiri,
+                    terbaca seperti tata letak yang rusak. Ditumpuk, blok ini
+                    tetap rata kanan di lebar mana pun. */}
+                <div className="ml-auto flex shrink-0 flex-col items-end gap-2">
                   <div className="text-right">
                     {/* Angka besar adalah yang ditagih invoice ini — pada
                         invoice DP itu uang mukanya, bukan total order — supaya
                         cocok dengan dokumen yang diterima customer. */}
                     <p className="tabular font-semibold">
-                      {formatIDR(invoice.type === "dp" ? invoice.dp_amount : invoice.total)}
+                      {formatIDR(
+                        invoice.type === "dp"
+                          ? invoice.dp_amount
+                          : invoice.total,
+                      )}
                     </p>
                     <p className="tabular text-xs text-muted-foreground">
                       {invoice.type === "dp" ? "DP dari " : "total "}
-                      {formatIDR(invoice.total)} · sisa {formatIDR(invoice.amount_due)}
+                      {formatIDR(invoice.total)} · sisa{" "}
+                      {formatIDR(invoice.amount_due)}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={invoicePDFUrl(invoice.id)} target="_blank" rel="noopener noreferrer">
-                      <FileText />
-                      PDF
-                    </a>
-                  </Button>
-                  {/* Invoice batal tidak lagi ditawarkan untuk dikirim maupun
-                      dibatalkan ulang; yang lunas juga ditolak backend. */}
-                  {invoice.status !== "void" && (
-                    <Button
-                      variant="success"
-                      size="sm"
-                      onClick={() => setMessageInvoiceId(invoice.id)}
-                    >
-                      <MessageCircle />
-                      Kirim
-                    </Button>
-                  )}
 
-                  {invoice.status !== "void" && invoice.status !== "paid" && (
-                    <ConfirmButton
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      title={`Batalkan invoice ${invoice.invoice_number}?`}
-                      description="Invoice ditandai batal dan tidak berlaku lagi sebagai tagihan. Dokumen PDF-nya tetap bisa dibuka sebagai jejak. Status order tidak ikut berubah, jadi invoice pengganti bisa langsung diterbitkan setelah ini."
-                      confirmLabel="Ya, batalkan invoice"
-                      destructive
-                      error={voidInvoice.error}
-                      onConfirm={() => handleVoid(invoice)}
-                    >
-                      <Ban />
-                      Batalkan
-                    </ConfirmButton>
-                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <a
+                        href={invoicePDFUrl(invoice.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <FileText />
+                        PDF
+                      </a>
+                    </Button>
+                    {/* Invoice batal tidak lagi ditawarkan untuk dikirim maupun
+                      dibatalkan ulang; yang lunas juga ditolak backend. */}
+                    {invoice.status !== "void" && (
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => setMessageInvoiceId(invoice.id)}
+                      >
+                        <MessageCircle />
+                        Kirim
+                      </Button>
+                    )}
+
+                    {invoice.status !== "void" && invoice.status !== "paid" && (
+                      <ConfirmButton
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        title={`Batalkan invoice ${invoice.invoice_number}?`}
+                        description="Invoice ditandai batal dan tidak berlaku lagi sebagai tagihan. Dokumen PDF-nya tetap bisa dibuka sebagai jejak. Status order tidak ikut berubah, jadi invoice pengganti bisa langsung diterbitkan setelah ini."
+                        confirmLabel="Ya, batalkan invoice"
+                        destructive
+                        error={voidInvoice.error}
+                        onConfirm={() => handleVoid(invoice)}
+                      >
+                        <Ban />
+                        Batalkan
+                      </ConfirmButton>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -212,16 +260,24 @@ export function OrderInvoices({ order }: { order: OrderDetail }) {
               id="due_date"
               type="date"
               value={form.due_date}
-              onChange={(event) => setForm({ ...form, due_date: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, due_date: event.target.value })
+              }
             />
           </Field>
 
-          <Field label="Catatan invoice" htmlFor="invoice_notes" className="sm:col-span-2">
+          <Field
+            label="Catatan invoice"
+            htmlFor="invoice_notes"
+            className="sm:col-span-2"
+          >
             <Textarea
               id="invoice_notes"
               rows={2}
               value={form.notes}
-              onChange={(event) => setForm({ ...form, notes: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, notes: event.target.value })
+              }
               placeholder="Muncul pada catatan invoice"
             />
           </Field>
