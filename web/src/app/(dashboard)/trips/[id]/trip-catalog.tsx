@@ -417,8 +417,8 @@ export function TripCatalog({ trip }: { trip: Trip }) {
             </Field>
           </div>
 
-          <Card className="bg-muted/50">
-            <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+          <Card className="bg-muted/50 py-0">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calculator className="size-4" />
                 Perkiraan harga

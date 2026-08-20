@@ -11,7 +11,11 @@ import { Field } from "@/components/ui/field";
 import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useFetchExchangeRate, useSaveTrip, type TripPayload } from "@/hooks/use-trips";
+import {
+  useFetchExchangeRate,
+  useSaveTrip,
+  type TripPayload,
+} from "@/hooks/use-trips";
 import { ApiError } from "@/lib/api";
 import { formatDateTime, toDateInput, todayInput } from "@/lib/utils";
 import type { Trip } from "@/types/api";
@@ -37,7 +41,11 @@ interface TripFormDialogProps {
   trip?: Trip;
 }
 
-export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps) {
+export function TripFormDialog({
+  open,
+  onOpenChange,
+  trip,
+}: TripFormDialogProps) {
   const router = useRouter();
   const save = useSaveTrip(trip?.id);
   const fetchRate = useFetchExchangeRate();
@@ -49,7 +57,9 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
         toast.success(`Kurs 1 ${result.from} = Rp${result.rate}`);
       },
       onError: (error) => {
-        toast.error(error instanceof ApiError ? error.message : "Gagal mengambil kurs");
+        toast.error(
+          error instanceof ApiError ? error.message : "Gagal mengambil kurs",
+        );
       },
     });
   }
@@ -119,21 +129,36 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
       className="sm:max-w-2xl"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Judul trip" htmlFor="title" required error={fieldError("title")} className="sm:col-span-2">
+        <Field
+          label="Judul trip"
+          htmlFor="title"
+          required
+          error={fieldError("title")}
+          className="sm:col-span-2"
+        >
           <Input
             id="title"
             value={form.title}
-            onChange={(event) => setForm({ ...form, title: event.target.value })}
+            onChange={(event) =>
+              setForm({ ...form, title: event.target.value })
+            }
             placeholder="Jastip Tokyo Maret 2026"
             required
           />
         </Field>
 
-        <Field label="Negara" htmlFor="country" required error={fieldError("country")}>
+        <Field
+          label="Negara"
+          htmlFor="country"
+          required
+          error={fieldError("country")}
+        >
           <Input
             id="country"
             value={form.country}
-            onChange={(event) => setForm({ ...form, country: event.target.value })}
+            onChange={(event) =>
+              setForm({ ...form, country: event.target.value })
+            }
             placeholder="Jepang"
             required
           />
@@ -148,54 +173,76 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
           />
         </Field>
 
-        <Field label="Tanggal berangkat" htmlFor="depart_date" required error={fieldError("depart_date")}>
-          <Input
-            id="depart_date"
-            type="date"
-            value={form.depart_date}
-            onChange={(event) => setForm({ ...form, depart_date: event.target.value })}
+        {/* Ketiga tanggal dalam satu baris. Pembungkusnya melebar penuh
+            (sm:col-span-2) lalu membaginya jadi tiga, jadi tiap isian dapat
+            sepertiga lebar form — bukan seperempat seperti kalau grid dibungkus
+            di dalam satu kolom grid. */}
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+          <Field
+            label="Tanggal berangkat"
+            htmlFor="depart_date"
             required
-          />
-        </Field>
+            error={fieldError("depart_date")}
+          >
+            <Input
+              id="depart_date"
+              type="date"
+              value={form.depart_date}
+              onChange={(event) =>
+                setForm({ ...form, depart_date: event.target.value })
+              }
+              required
+            />
+          </Field>
 
-        <Field label="Tanggal pulang" htmlFor="return_date" required error={fieldError("return_date")}>
-          <Input
-            id="return_date"
-            type="date"
-            /*
-             * Batasnya mengikuti tanggal berangkat supaya tanggal yang mundur
-             * ditolak saat dipilih, bukan setelah formnya dikirim. Backend
-             * tetap memeriksanya sendiri; ini hanya memindahkan penolakannya ke
-             * tempat admin masih ingat sedang mengisi apa.
-             */
-            min={form.depart_date || undefined}
-            value={form.return_date}
-            onChange={(event) => setForm({ ...form, return_date: event.target.value })}
+          <Field
+            label="Tanggal pulang"
+            htmlFor="return_date"
             required
-          />
-        </Field>
+            error={fieldError("return_date")}
+          >
+            <Input
+              id="return_date"
+              type="date"
+              /*
+               * Batasnya mengikuti tanggal berangkat supaya tanggal yang mundur
+               * ditolak saat dipilih, bukan setelah formnya dikirim. Backend
+               * tetap memeriksanya sendiri; ini hanya memindahkan penolakannya ke
+               * tempat admin masih ingat sedang mengisi apa.
+               */
+              min={form.depart_date || undefined}
+              value={form.return_date}
+              onChange={(event) =>
+                setForm({ ...form, return_date: event.target.value })
+              }
+              required
+            />
+          </Field>
 
-        <Field
-          label="Batas terima order"
-          htmlFor="order_deadline"
-          error={fieldError("order_deadline")}
-          hint="Kosongkan kalau tidak dibatasi. Harus di antara tanggal berangkat dan pulang."
-        >
-          <Input
-            id="order_deadline"
-            type="date"
-            /*
-             * Cerminan aturan backend: order diterima selama trip berjalan.
-             * Batasnya tidak boleh sebelum berangkat — belum ada apa pun untuk
-             * dibelanjakan — maupun setelah pulang, karena tripper sudah tidak
-             * di negara itu lagi.
-             */
-            min={form.depart_date || undefined}
-            max={form.return_date || undefined}
-            value={form.order_deadline ?? ""}
-            onChange={(event) => setForm({ ...form, order_deadline: event.target.value })}
-          />
-        </Field>
+          <Field
+            label="Batas terima order"
+            htmlFor="order_deadline"
+            error={fieldError("order_deadline")}
+            hint="Kosongkan kalau tidak dibatasi."
+          >
+            <Input
+              id="order_deadline"
+              type="date"
+              /*
+               * Cerminan aturan backend: order diterima selama trip berjalan.
+               * Batasnya tidak boleh sebelum berangkat — belum ada apa pun untuk
+               * dibelanjakan — maupun setelah pulang, karena tripper sudah tidak
+               * di negara itu lagi.
+               */
+              min={form.depart_date || undefined}
+              max={form.return_date || undefined}
+              value={form.order_deadline ?? ""}
+              onChange={(event) =>
+                setForm({ ...form, order_deadline: event.target.value })
+              }
+            />
+          </Field>
+        </div>
 
         {/*
           Satu baris penuh, bukan berbagi satu sel dengan kolom di sebelahnya.
@@ -205,7 +252,12 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
           ikut terpangkas.
         */}
         <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
-          <Field label="Mata uang" htmlFor="currency" required error={fieldError("currency")}>
+          <Field
+            label="Mata uang"
+            htmlFor="currency"
+            required
+            error={fieldError("currency")}
+          >
             <CurrencySelect
               id="currency"
               value={form.currency}
@@ -225,7 +277,9 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
               min="0.000001"
               step="any"
               value={form.exchange_rate}
-              onChange={(event) => setForm({ ...form, exchange_rate: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, exchange_rate: event.target.value })
+              }
               placeholder="108.5"
               required
             />
@@ -259,7 +313,8 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
 
             {fetchRate.data ? (
               <span className="text-xs text-muted-foreground">
-                Diambil {formatDateTime(fetchRate.data.fetched_at)} dari {fetchRate.data.source}
+                Diambil {formatDateTime(fetchRate.data.fetched_at)} dari{" "}
+                {fetchRate.data.source}
               </span>
             ) : (
               <span className="text-xs text-muted-foreground">
@@ -274,7 +329,9 @@ export function TripFormDialog({ open, onOpenChange, trip }: TripFormDialogProps
             id="notes"
             rows={2}
             value={form.notes ?? ""}
-            onChange={(event) => setForm({ ...form, notes: event.target.value })}
+            onChange={(event) =>
+              setForm({ ...form, notes: event.target.value })
+            }
             placeholder="Rencana toko yang dikunjungi, batas bagasi, dan lain-lain"
           />
         </Field>

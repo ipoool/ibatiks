@@ -283,7 +283,7 @@ export function TripShopping({ trip }: { trip: Trip }) {
             </Field>
           </div>
 
-          <Card className="bg-muted/50">
+          <Card className="bg-muted/50 py-0">
             <CardContent className="flex items-center justify-between py-3 text-sm">
               <span className="text-muted-foreground">Perkiraan total belanja</span>
               <span className="tabular font-semibold">

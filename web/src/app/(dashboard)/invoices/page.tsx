@@ -162,6 +162,7 @@ export default function InvoicesPage() {
           }
           head={
             <TR>
+              <TH className="hidden whitespace-nowrap sm:table-cell">Terbit</TH>
               <TH>Invoice</TH>
               <TH className="hidden sm:table-cell">Jenis</TH>
               <TH className="hidden xl:table-cell">Order</TH>
@@ -169,9 +170,6 @@ export default function InvoicesPage() {
               <TH className="hidden text-right lg:table-cell">Total</TH>
               <TH className="text-right">Sisa</TH>
               <TH className="hidden sm:table-cell">Status</TH>
-              <TH className="hidden text-right whitespace-nowrap sm:table-cell">
-                Terbit
-              </TH>
               <TH className="text-right">Aksi</TH>
             </TR>
           }
@@ -185,6 +183,9 @@ export default function InvoicesPage() {
 
             return (
               <TR key={invoice.id}>
+                <TD className="hidden text-sm whitespace-nowrap text-muted-foreground sm:table-cell">
+                  {formatDate(invoice.issue_date)}
+                </TD>
                 <TD className="whitespace-normal">
                   <div className="flex items-center gap-0.5">
                     <span className="font-medium whitespace-nowrap">
@@ -260,9 +261,6 @@ export default function InvoicesPage() {
                 </TD>
                 <TD className="hidden sm:table-cell">
                   <InvoiceStatusBadge status={invoice.status} />
-                </TD>
-                <TD className="hidden text-right text-sm whitespace-nowrap text-muted-foreground sm:table-cell">
-                  {formatDate(invoice.issue_date)}
                 </TD>
                 <TD>
                   <div className="flex justify-end gap-1">
