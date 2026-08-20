@@ -69,15 +69,35 @@ export function DialogKemas({
     toNumber(item.shipping_fee) > 0 ? String(toNumber(item.shipping_fee)) : "",
   );
   /*
+   * Ongkir punya dua sumber yang tidak boleh aktif bersamaan: daftar layanan
+   * dari kurir, atau angka yang diketik sendiri. Sebelumnya keduanya tampil
+   * berdampingan dan admin harus menyimpulkan sendiri mana yang dipakai —
+   * ditambah satu kalimat yang menjelaskan bahwa mengetik akan melepas pilihan
+   * di atasnya. Sekarang dipilih lewat satu centang, dan yang tidak dipakai
+   * tidak ditampilkan sama sekali.
+   *
+   * Bawaannya daftar kurir. Mengetik sendiri adalah jalan keluar saat kurir
+   * tidak bisa dijangkau, bukan cara yang biasa; kalau order ini sudah punya
+   * ongkir tanpa nama kurir, berarti dulu memang diketik dan modenya menyala.
+   */
+  const [ongkirManualAktif, setOngkirManualAktif] = useState(
+    toNumber(item.shipping_fee) > 0 && !item.courier,
+  );
+
+  /*
    * Premi asuransi kiriman. Diketik sendiri, bukan dihitung sistem: balasan
    * RajaOngkir hanya berisi nama kurir, layanan, ongkos, dan estimasi tiba —
    * tidak ada data asuransi sama sekali. Menanam rumus premi di kode berarti
    * angka yang tidak pernah ikut berubah saat kurir mengubah tarifnya, persis
    * alasan tabel tarif ongkir dulu dilepas.
    */
-  const [pakaiAsuransi, setPakaiAsuransi] = useState(toNumber(item.insurance_fee) > 0);
+  const [pakaiAsuransi, setPakaiAsuransi] = useState(
+    toNumber(item.insurance_fee) > 0,
+  );
   const [premi, setPremi] = useState(
-    toNumber(item.insurance_fee) > 0 ? String(toNumber(item.insurance_fee)) : "",
+    toNumber(item.insurance_fee) > 0
+      ? String(toNumber(item.insurance_fee))
+      : "",
   );
 
   const [terpilih, setTerpilih] = useState<ShippingOption | null>(
@@ -96,7 +116,9 @@ export function DialogKemas({
   const [pertama] = daftar;
 
   // Yang tersimpan: layanan yang dipilih kalau ada, kalau tidak angka ketikan.
-  const ongkirTersimpan = terpilih ? String(toNumber(terpilih.cost)) : ongkirManual.trim();
+  const ongkirTersimpan = terpilih
+    ? String(toNumber(terpilih.cost))
+    : ongkirManual.trim();
   // Dicentang tapi kosong berarti nol, bukan "tidak diubah".
   const premiTersimpan = pakaiAsuransi ? String(toNumber(premi)) : "0";
   const totalDitagihkan = toNumber(ongkirTersimpan) + toNumber(premiTersimpan);
@@ -145,11 +167,19 @@ export function DialogKemas({
       },
       {
         onSuccess: () => {
-          toast.success(ongkirTersimpan ? "Data kemasan dan ongkir tersimpan" : "Data kemasan tersimpan");
+          toast.success(
+            ongkirTersimpan
+              ? "Data kemasan dan ongkir tersimpan"
+              : "Data kemasan tersimpan",
+          );
           onClose();
         },
         onError: (err) => {
-          toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan data kemasan");
+          toast.error(
+            err instanceof ApiError
+              ? err.message
+              : "Gagal menyimpan data kemasan",
+          );
         },
       },
     );
@@ -216,98 +246,128 @@ export function DialogKemas({
         </Field>
       </div>
 
-      <Field label="Layanan kurir" hint="Ongkir yang ditagihkan ke customer diambil dari sini.">
-        <div className="space-y-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={ambilPilihan}
-            loading={options.isPending}
-            className="w-full sm:w-auto"
-          >
-            <Calculator />
-            Ambil daftar layanan
-          </Button>
+      {!ongkirManualAktif && (
+        <Field
+          label="Layanan kurir"
+          hint="Ongkir yang ditagihkan ke customer diambil dari sini."
+        >
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={ambilPilihan}
+              loading={options.isPending}
+              className="w-full sm:w-auto"
+            >
+              <Calculator />
+              Ambil daftar layanan
+            </Button>
 
-          {daftar.length > 0 && (
-            <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
-              {daftar.map((pilihan) => {
-                const aktif =
-                  terpilih?.courier === pilihan.courier && terpilih?.service === pilihan.service;
-                return (
-                  <li key={`${pilihan.courier}-${pilihan.service}`}>
-                    <button
-                      type="button"
-                      onClick={() => setTerpilih(pilihan)}
-                      className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
-                        aktif && "bg-accent",
-                      )}
-                    >
-                      <Check className={cn("size-4 shrink-0", aktif ? "opacity-100" : "opacity-0")} />
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium">
-                          {pilihan.courier} {pilihan.service}
-                        </span>
-                        {pilihan.etd && (
-                          <span className="block text-xs text-muted-foreground">
-                            estimasi {pilihan.etd}
-                          </span>
+            {daftar.length > 0 && (
+              <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
+                {daftar.map((pilihan) => {
+                  const aktif =
+                    terpilih?.courier === pilihan.courier &&
+                    terpilih?.service === pilihan.service;
+                  return (
+                    <li key={`${pilihan.courier}-${pilihan.service}`}>
+                      <button
+                        type="button"
+                        onClick={() => setTerpilih(pilihan)}
+                        className={cn(
+                          "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
+                          aktif && "bg-accent",
                         )}
-                      </span>
-                      <span className="tabular shrink-0 font-medium">
-                        {formatIDR(pilihan.cost)}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                      >
+                        <Check
+                          className={cn(
+                            "size-4 shrink-0",
+                            aktif ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium">
+                            {pilihan.courier} {pilihan.service}
+                          </span>
+                          {pilihan.etd && (
+                            <span className="block text-xs text-muted-foreground">
+                              estimasi {pilihan.etd}
+                            </span>
+                          )}
+                        </span>
+                        <span className="tabular shrink-0 font-medium">
+                          {formatIDR(pilihan.cost)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
-          {pertama?.source && (
-            <p className="text-xs text-muted-foreground">
-              Sumber angka: {pertama.source}
-              {pertama.destination && ` · tujuan ${pertama.destination}`}
-            </p>
-          )}
+            {pertama?.source && (
+              <p className="text-xs text-muted-foreground">
+                Sumber angka: {pertama.source}
+                {pertama.destination && ` · tujuan ${pertama.destination}`}
+              </p>
+            )}
 
-          {terpilih && (
-            <p className="text-sm">
-              Dipilih:{" "}
-              <span className="font-medium">
-                {terpilih.courier} {terpilih.service} · {formatIDR(terpilih.cost)}
-              </span>
-            </p>
-          )}
-        </div>
-      </Field>
+            {terpilih && (
+              <p className="text-sm">
+                Dipilih:{" "}
+                <span className="font-medium">
+                  {terpilih.courier} {terpilih.service} ·{" "}
+                  {formatIDR(terpilih.cost)}
+                </span>
+              </p>
+            )}
+          </div>
+        </Field>
+      )}
 
       {/*
        * Satu-satunya jaring pengaman sejak tabel tarif dilepas. Kurir sesekali
        * tidak bisa dihubungi, dan pengemasan tidak boleh berhenti karenanya —
        * angka dari struk konter lebih benar daripada tebakan mana pun.
        */}
-      <Field
-        label="Atau ketik ongkirnya sendiri (Rp)"
-        htmlFor="kemas_ongkir_manual"
-        hint="Dipakai kalau daftar layanan tidak bisa diambil. Mengetik di sini melepas pilihan layanan di atas."
-      >
-        <Input
-          id="kemas_ongkir_manual"
-          type="number"
-          min="0"
-          step="any"
-          value={ongkirManual}
-          onChange={(event) => {
-            setOngkirManual(event.target.value);
-            // Mengetik angka sendiri berarti melepas pilihan dari daftar;
-            // dua sumber angka yang aktif bersamaan hanya membingungkan.
-            setTerpilih(null);
-          }}
-          placeholder="42000"
-        />
-      </Field>
+      <div className="space-y-2">
+        <label className="flex cursor-pointer items-center gap-2">
+          <Checkbox
+            checked={ongkirManualAktif}
+            onCheckedChange={(nilai) => {
+              const aktif = nilai === true;
+              setOngkirManualAktif(aktif);
+              // Yang ditinggalkan ikut dikosongkan supaya tidak ada angka
+              // tersembunyi dari mode sebelumnya yang diam-diam ikut tersimpan.
+              if (aktif) setTerpilih(null);
+              else setOngkirManual("");
+            }}
+          />
+          <span className="text-sm font-medium">Ketik ongkir sendiri</span>
+        </label>
+
+        {ongkirManualAktif ? (
+          <Field
+            label="Ongkir (Rp)"
+            htmlFor="kemas_ongkir_manual"
+            hint="Angka dari struk atau aplikasi kurir. Dipakai kalau daftar layanan tidak bisa diambil."
+          >
+            <Input
+              id="kemas_ongkir_manual"
+              type="number"
+              min="0"
+              step="any"
+              value={ongkirManual}
+              onChange={(event) => setOngkirManual(event.target.value)}
+              placeholder="42000"
+            />
+          </Field>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Nyalakan kalau daftar layanan di atas tidak bisa diambil.
+          </p>
+        )}
+      </div>
 
       {/*
        * Asuransi kiriman. Preminya diketik dari struk kurir, bukan dihitung
@@ -346,7 +406,8 @@ export function DialogKemas({
             yang ditampilkan — bukan dua angka yang harus dijumlah sendiri. */}
         {totalDitagihkan > 0 && (
           <p className="text-xs text-muted-foreground">
-            Ditagihkan ke customer: <span className="font-medium">{formatIDR(totalDitagihkan)}</span>
+            Ditagihkan ke customer:{" "}
+            <span className="font-medium">{formatIDR(totalDitagihkan)}</span>
             {toNumber(premiTersimpan) > 0 &&
               ` (ongkir ${formatIDR(ongkirTersimpan)} + asuransi ${formatIDR(premiTersimpan)})`}
           </p>
@@ -362,8 +423,8 @@ export function DialogKemas({
           <p className="text-sm text-muted-foreground">Memuat daftar barang…</p>
         ) : daftarItem.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Daftar barang tidak bisa dimuat. Pengecekan dilewati supaya paket yang sudah siap
-            tetap bisa dicatat.
+            Daftar barang tidak bisa dimuat. Pengecekan dilewati supaya paket
+            yang sudah siap tetap bisa dicatat.
           </p>
         ) : (
           <>
@@ -382,7 +443,9 @@ export function DialogKemas({
                       }
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium">{baris.product_name}</span>
+                      <span className="block text-sm font-medium">
+                        {baris.product_name}
+                      </span>
                       {/* Yang perlu dihitung adalah yang benar-benar terbeli,
                           bukan yang dulu dipesan — dan bedanya justru yang
                           paling gampang terlewat saat mengemas. */}
@@ -404,8 +467,9 @@ export function DialogKemas({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Centang tiap barang setelah dihitung fisiknya. Tombol Simpan terbuka setelah
-                semuanya dicek ({formatNumber(jumlahDicek)} dari {formatNumber(daftarItem.length)}).
+                Centang tiap barang setelah dihitung fisiknya. Tombol Simpan
+                terbuka setelah semuanya dicek ({formatNumber(jumlahDicek)} dari{" "}
+                {formatNumber(daftarItem.length)}).
               </p>
             )}
           </>
