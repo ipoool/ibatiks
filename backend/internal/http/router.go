@@ -218,6 +218,7 @@ func NewRouter(d RouterDeps) http.Handler {
 
 				orders.Get("/{id}/shipment", d.Handlers.Shipments.GetByOrder)
 				orders.Post("/{id}/pack", d.Handlers.Shipments.Pack)
+				orders.Get("/{id}/tracking", d.Handlers.Shipments.Track)
 				orders.Post("/{id}/ship", d.Handlers.Shipments.Ship)
 				orders.Post("/{id}/delivered", d.Handlers.Shipments.MarkDelivered)
 				orders.Get("/{id}/shipment-message", d.Handlers.Shipments.Message)

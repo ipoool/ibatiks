@@ -833,3 +833,21 @@ export interface UploadResult {
   size: number;
   original_name: string;
 }
+
+/** Posisi paket menurut kurir, hasil pelacakan nomor resi. */
+export interface TrackingInfo {
+  waybill_number: string;
+  courier: string;
+  status: string;
+  delivered: boolean;
+  received_by: string;
+  history: TrackingStep[];
+  /** Benar bila pengecekan inilah yang memindahkan ordernya ke Selesai. */
+  order_completed: boolean;
+}
+
+export interface TrackingStep {
+  description: string;
+  city: string;
+  at: string;
+}

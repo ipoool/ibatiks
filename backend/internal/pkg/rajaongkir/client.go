@@ -4,6 +4,7 @@
 //
 //	GET  destination/domestic-destination?search=…  mencari ID tujuan
 //	POST calculate/domestic-cost                    menghitung ongkir
+//	POST track/waybill                              melacak resi yang sudah ada
 //
 // Keduanya memakai header "key" berisi API key, dan membungkus jawabannya dalam
 // amplop {meta, data}. Kode status HTTP tidak selalu bisa dipercaya sendirian —
@@ -149,6 +150,68 @@ func (c *Client) DomesticCost(ctx context.Context, origin, destination, weightGr
 		return nil, err
 	}
 	return out.Data, nil
+}
+
+// Waybill adalah hasil pelacakan sebuah resi.
+//
+// Bentuk balasan pelacakan tidak seragam antar kurir, jadi yang dibaca hanya
+// bagian yang benar-benar dibutuhkan dan sisanya dibiarkan. Field yang tidak
+// ada akan bernilai kosong, bukan membuat seluruh pembacaan gagal — laporan
+// posisi paket yang sebagian terbaca masih berguna, sedangkan galat parsing
+// tidak berguna sama sekali.
+type Waybill struct {
+	Delivered bool `json:"delivered"`
+	Summary   struct {
+		Status       string `json:"status"`
+		CourierName  string `json:"courier_name"`
+		WaybillNo    string `json:"waybill_number"`
+		ServiceCode  string `json:"service_code"`
+		ShipperName  string `json:"shipper_name"`
+		ReceiverName string `json:"receiver_name"`
+	} `json:"summary"`
+	DeliveryStatus struct {
+		Status      string `json:"status"`
+		PODReceiver string `json:"pod_receiver"`
+		PODDate     string `json:"pod_date"`
+		PODTime     string `json:"pod_time"`
+	} `json:"delivery_status"`
+	Manifest []struct {
+		Description string `json:"manifest_description"`
+		Date        string `json:"manifest_date"`
+		Time        string `json:"manifest_time"`
+		City        string `json:"city_name"`
+	} `json:"manifest"`
+}
+
+// TrackWaybill menanyakan posisi sebuah resi ke kurir lewat RajaOngkir.
+//
+// Resi yang baru saja diserahkan sering belum dikenali sistem kurir; dalam
+// keadaan itu RajaOngkir menjawab "Invalid Awb". Pemanggil yang membedakan
+// "salah ketik" dari "belum masuk sistem" harus melihat pesannya, bukan sekadar
+// menganggap resinya palsu.
+func (c *Client) TrackWaybill(ctx context.Context, awb, courier string) (*Waybill, error) {
+	awb = strings.TrimSpace(awb)
+	courier = strings.ToLower(strings.TrimSpace(courier))
+	if awb == "" || courier == "" {
+		return nil, fmt.Errorf("rajaongkir: nomor resi dan kurir wajib diisi")
+	}
+
+	form := url.Values{}
+	form.Set("awb", awb)
+	form.Set("courier", courier)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/track/waybill", strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	var out amplop[Waybill]
+	if err := c.kirim(req, &out); err != nil {
+		return nil, err
+	}
+	return &out.Data, nil
 }
 
 func (c *Client) kirim(req *http.Request, out any) error {

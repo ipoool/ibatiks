@@ -58,6 +58,22 @@ type packRequest struct {
 	Notes        *string         `json:"notes"`
 }
 
+// Track menanyakan posisi paket ke kurir lewat nomor resi yang tersimpan.
+func (h *ShipmentHandler) Track(w http.ResponseWriter, r *http.Request) {
+	orderID, err := request.UUIDParam(r, "id")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	info, err := h.shipments.Track(r.Context(), orderID, middleware.UserIDFrom(r.Context()))
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, info)
+}
+
 // Pack menandai order sudah dikemas atas nama customer.
 func (h *ShipmentHandler) Pack(w http.ResponseWriter, r *http.Request) {
 	orderID, err := request.UUIDParam(r, "id")

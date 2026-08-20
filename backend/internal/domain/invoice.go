@@ -215,3 +215,27 @@ func IsValidShippingStage(s string) bool {
 		return false
 	}
 }
+
+// TrackingInfo adalah posisi paket menurut kurir.
+//
+// Resi tidak pernah bisa diterbitkan dari sini — kurir yang membuatnya saat
+// menerima fisik paketnya. Yang bisa ditanyakan hanya posisi resi yang sudah
+// dipegang, dan itulah yang dipakai untuk menandai order Selesai tanpa admin
+// harus mengeceknya satu per satu di situs kurir.
+type TrackingInfo struct {
+	WaybillNumber string         `json:"waybill_number"`
+	Courier       string         `json:"courier"`
+	Status        string         `json:"status"`
+	Delivered     bool           `json:"delivered"`
+	ReceivedBy    string         `json:"received_by"`
+	History       []TrackingStep `json:"history"`
+	// OrderCompleted benar bila pengecekan ini yang membuat ordernya berpindah
+	// ke Selesai, supaya UI bisa menyebutkannya alih-alih diam-diam berubah.
+	OrderCompleted bool `json:"order_completed"`
+}
+
+type TrackingStep struct {
+	Description string `json:"description"`
+	City        string `json:"city"`
+	At          string `json:"at"`
+}

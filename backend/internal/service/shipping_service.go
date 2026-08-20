@@ -238,6 +238,15 @@ func (s *ShippingService) lengkapiAlamat(ctx context.Context, orderID uuid.UUID,
 // --- Layanan tarif kurir ----------------------------------------------------
 
 // SearchDestinations mencari kota/kecamatan tujuan di layanan kurir.
+// TrackWaybill melacak resi lewat penyedia yang terpasang.
+func (s *ShippingService) TrackWaybill(ctx context.Context, awb, courier string) (*domain.TrackingInfo, error) {
+	if s.costs == nil {
+		return nil, domain.InvalidState(
+			"RajaOngkir belum terhubung — isi RAJAONGKIR_API_KEY di server")
+	}
+	return s.costs.TrackWaybill(ctx, awb, courier)
+}
+
 func (s *ShippingService) SearchDestinations(ctx context.Context, q string) ([]domain.ShippingDestination, error) {
 	if s.costs == nil {
 		return []domain.ShippingDestination{}, nil

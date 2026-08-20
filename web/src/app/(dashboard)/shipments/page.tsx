@@ -1,10 +1,12 @@
 "use client";
 
-import { ExternalLink, MessageCircle, Package, Printer, Truck } from "lucide-react";
+import { MessageCircle, Package, Printer, Radar, Truck } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useState } from "react";
 
 import { CopyButton } from "@/components/copy-button";
+import { ApiError } from "@/lib/api";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { FilterSelect } from "@/components/filter-select";
 import { OrderStatusBadge } from "@/components/status-badge";
@@ -12,9 +14,12 @@ import { ShippingInfoButton } from "@/components/shipping-info";
 import { Button } from "@/components/ui/button";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDebounced } from "@/hooks/use-debounced";
-import { labelUrl, useShippingQueue } from "@/hooks/use-operations";
+import {
+  useTrackOrder,
+  labelUrl,
+  useShippingQueue,
+} from "@/hooks/use-operations";
 import { useTrips } from "@/hooks/use-trips";
 import { formatIDR, formatNumber, toNumber } from "@/lib/utils";
 import type { ShippingQueueItem, ShippingStage } from "@/types/api";
@@ -49,13 +54,18 @@ export default function ShipmentsPage() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState<ShippingStage | "">("");
   const [tripId, setTripId] = useState("");
-  const [kemasTarget, setKemasTarget] = useState<ShippingQueueItem | null>(null);
+  const [kemasTarget, setKemasTarget] = useState<ShippingQueueItem | null>(
+    null,
+  );
   const [resiTarget, setResiTarget] = useState<ShippingQueueItem | null>(null);
   const debouncedSearch = useDebounced(search);
 
   const { data: trips } = useTrips({ per_page: 100 });
   const tripOptions =
-    trips?.items.map((trip) => ({ value: trip.id, label: `${trip.code} — ${trip.title}` })) ?? [];
+    trips?.items.map((trip) => ({
+      value: trip.id,
+      label: `${trip.code} — ${trip.title}`,
+    })) ?? [];
 
   const { data, isLoading, error } = useShippingQueue({
     page,
@@ -143,8 +153,67 @@ export default function ShipmentsPage() {
       {kemasTarget && (
         <DialogKemas item={kemasTarget} onClose={() => setKemasTarget(null)} />
       )}
-      {resiTarget && <DialogResi item={resiTarget} onClose={() => setResiTarget(null)} />}
+      {resiTarget && (
+        <DialogResi item={resiTarget} onClose={() => setResiTarget(null)} />
+      )}
     </>
+  );
+}
+
+/**
+ * Menanyakan posisi paket ke kurir lewat resi yang tersimpan.
+ *
+ * Menggantikan tautan ke situs JNE yang dulu ada di sini: tautan itu selalu
+ * menuju JNE apa pun kurirnya, dan tetap menuntut orang menyalin resinya sendiri
+ * lalu membaca hasilnya di tab lain. Sekarang jawabannya muncul di baris yang
+ * sama, dan order yang sudah diterima customer ikut ditandai Selesai tanpa ada
+ * yang perlu mengurusnya.
+ */
+function TombolLacak({ item }: { item: ShippingQueueItem }) {
+  const lacak = useTrackOrder(item.order_id);
+
+  function handleClick() {
+    lacak.mutate(undefined, {
+      onSuccess: (info) => {
+        if (info.order_completed) {
+          toast.success(
+            `${item.order_number} ditandai Selesai — paket sudah diterima`,
+          );
+        } else {
+          toast.info(
+            info.status || "Kurir belum memberi keterangan posisi paket",
+          );
+        }
+      },
+      onError: (err) => {
+        // Pesan kurir diteruskan apa adanya. "Invalid Awb" berarti resinya belum
+        // dikenali — entah salah ketik, entah belum masuk sistem kurir — dan
+        // keduanya butuh tindakan yang berbeda dari tim toko.
+        toast.error(
+          err instanceof ApiError ? err.message : "Gagal melacak paket",
+        );
+      },
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        tooltip="Cek posisi paket"
+        loading={lacak.isPending}
+        onClick={handleClick}
+      >
+        <Radar />
+        <span className="sr-only">Cek posisi paket</span>
+      </Button>
+      {lacak.data?.status && (
+        <span className="text-xs text-muted-foreground">
+          {lacak.data.status}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -189,9 +258,13 @@ function BarisPengiriman({
         <OrderStatusBadge status={item.order_status} settled={lunas} />
       </TD>
 
-      <TD className="hidden whitespace-normal md:table-cell">{item.customer_name}</TD>
+      <TD className="hidden whitespace-normal md:table-cell">
+        {item.customer_name}
+      </TD>
 
-      <TD className="hidden text-sm text-muted-foreground xl:table-cell">{item.trip_code}</TD>
+      <TD className="hidden text-sm text-muted-foreground xl:table-cell">
+        {item.trip_code}
+      </TD>
 
       <TD className="hidden whitespace-normal sm:table-cell">
         <p className="font-medium">{item.recipient_name}</p>
@@ -202,7 +275,8 @@ function BarisPengiriman({
         {sudahDikemas ? (
           <>
             <p>
-              {formatNumber((item.weight_gram ?? 0) / 1000)} kg · {formatNumber(item.total_qty)} pcs
+              {formatNumber((item.weight_gram ?? 0) / 1000)} kg ·{" "}
+              {formatNumber(item.total_qty)} pcs
             </p>
             <p className="text-xs text-muted-foreground">
               {item.courier} {item.service}
@@ -224,21 +298,10 @@ function BarisPengiriman({
       <TD>
         {sudahDikirim ? (
           <div className="flex items-center gap-1.5">
-            <span className="tabular font-mono text-sm">{item.tracking_number}</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <a
-                  href="https://www.jne.co.id/tracking-package"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <ExternalLink className="size-3.5" />
-                  <span className="sr-only">Lacak paket</span>
-                </a>
-              </TooltipTrigger>
-              <TooltipContent>Lacak paket</TooltipContent>
-            </Tooltip>
+            <span className="tabular font-mono text-sm">
+              {item.tracking_number}
+            </span>
+            <TombolLacak item={item} />
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">belum ada</span>
@@ -254,23 +317,26 @@ function BarisPengiriman({
       <TD className="text-right">
         <div className="flex items-center justify-end gap-1">
           {/* Label dicetak saat mengemas, jadi tombolnya duduk di baris ini. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" asChild>
-                <a href={labelUrl(item.order_id)} target="_blank" rel="noopener noreferrer">
-                  <Printer />
-                  <span className="sr-only">Cetak label</span>
-                </a>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Cetak label</TooltipContent>
-          </Tooltip>
+          <Button variant="ghost" size="icon-sm" tooltip="Cetak label" asChild>
+            <a href={labelUrl(item.order_id)} target="_blank" rel="noopener noreferrer">
+              <Printer />
+              <span className="sr-only">Cetak label</span>
+            </a>
+          </Button>
 
           {!sudahDikirim && (
-            <Button size="sm" variant={ongkirTerisi ? "outline" : "default"} onClick={onKemas}>
+            <Button
+              size="sm"
+              variant={ongkirTerisi ? "outline" : "default"}
+              onClick={onKemas}
+            >
               <Package />
-              <span className="hidden sm:inline">{sudahDikemas ? "Ubah" : "Kemas"}</span>
-              <span className="sr-only sm:hidden">Data kemasan {item.order_number}</span>
+              <span className="hidden sm:inline">
+                {sudahDikemas ? "Ubah" : "Kemas"}
+              </span>
+              <span className="sr-only sm:hidden">
+                Data kemasan {item.order_number}
+              </span>
             </Button>
           )}
 
@@ -283,7 +349,9 @@ function BarisPengiriman({
             <Button size="sm" onClick={onResi}>
               <Truck />
               <span className="hidden sm:inline">Kirim</span>
-              <span className="sr-only sm:hidden">Input resi {item.order_number}</span>
+              <span className="sr-only sm:hidden">
+                Input resi {item.order_number}
+              </span>
             </Button>
           )}
         </div>

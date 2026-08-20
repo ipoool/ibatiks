@@ -380,6 +380,43 @@ func (s *ShipmentService) MarkDelivered(ctx context.Context, orderID uuid.UUID, 
 	return shipment, nil
 }
 
+/*
+ * Track menanyakan posisi paket ke kurir, dan menandai ordernya Selesai bila
+ * kurir menyatakan paketnya sudah diterima.
+ *
+ * Perpindahan status dilakukan lewat MarkDelivered yang sudah ada, bukan jalur
+ * sendiri: aturan transisinya, penanda waktu, dan catatan auditnya jadi sama
+ * persis dengan yang dipakai saat admin menandainya manual.
+ *
+ * Kurir yang menjawab "resi tidak dikenal" bukan berarti admin salah ketik.
+ * Resi yang baru diserahkan sering belum masuk sistem kurir sampai beberapa jam
+ * kemudian, jadi galatnya diteruskan apa adanya dan tidak ada yang dibatalkan.
+ */
+func (s *ShipmentService) Track(ctx context.Context, orderID uuid.UUID, actorID uuid.UUID) (*domain.TrackingInfo, error) {
+	shipment, err := s.shipments.GetByOrder(ctx, s.pool, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if shipment.TrackingNumber == nil || strings.TrimSpace(*shipment.TrackingNumber) == "" {
+		return nil, domain.InvalidState("paket belum punya nomor resi untuk dilacak")
+	}
+
+	info, err := s.shipping.TrackWaybill(ctx, *shipment.TrackingNumber, shipment.Courier)
+	if err != nil {
+		return nil, err
+	}
+
+	// Hanya menandai Selesai kalau kurir benar-benar menyatakannya, dan hanya
+	// kalau ordernya memang masih dalam perjalanan.
+	if info.Delivered && shipment.Status != domain.ShipmentDelivered {
+		if _, err := s.MarkDelivered(ctx, orderID, actorID); err != nil {
+			return nil, err
+		}
+		info.OrderCompleted = true
+	}
+	return info, nil
+}
+
 type UpdateShipmentInput struct {
 	Courier        string
 	Service        string

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strings"
 
@@ -31,6 +32,9 @@ type CostProvider interface {
 	// termurah tidak selalu yang dipilih, karena customer kadang minta layanan
 	// yang lebih cepat.
 	QuoteOptions(ctx context.Context, in CostQuoteInput) ([]CostQuote, error)
+	// TrackWaybill melacak resi yang sudah ada. Kurir yang menerbitkan resi,
+	// bukan API ini — yang bisa ditanyakan hanya posisi resi yang sudah dipegang.
+	TrackWaybill(ctx context.Context, awb, courier string) (*domain.TrackingInfo, error)
 	// SearchDestination mencari daftar tujuan yang cocok dengan kata kunci.
 	// Dipakai menu Pengaturan untuk memilih kota asal pengiriman — asal yang
 	// keliru membuat seluruh perhitungan ongkir meleset, jadi tim toko harus
@@ -216,6 +220,57 @@ func pilihOngkir(pilihan []CostQuote, courier, service string) *CostQuote {
 // Dicoba dari yang paling spesifik ke yang paling umum: kode pos menunjuk satu
 // kelurahan, sementara nama kota saja bisa menunjuk puluhan kecamatan. Hasil
 // yang ketemu disimpan supaya alamat yang sama tidak dicari dua kali.
+/*
+ * TrackWaybill menanyakan posisi paket ke kurir lewat RajaOngkir.
+ *
+ * Bentuk balasan pelacakan berbeda-beda antar kurir, jadi yang dibaca hanya
+ * bagian yang benar-benar dipakai dan sisanya dibiarkan. Status "terkirim"
+ * hanya diakui kalau kurir menyatakannya sendiri — lewat penanda delivered atau
+ * kata "delivered" pada statusnya. Menebaknya dari riwayat perjalanan berarti
+ * order bisa ditandai Selesai padahal paketnya masih di jalan.
+ */
+func (p *rajaOngkirProvider) TrackWaybill(ctx context.Context, awb, courier string) (*domain.TrackingInfo, error) {
+	if !p.client.Enabled() {
+		return nil, domain.InvalidState(
+			"RajaOngkir belum terhubung — isi RAJAONGKIR_API_KEY di server")
+	}
+
+	hasil, err := p.client.TrackWaybill(ctx, awb, courier)
+	if err != nil {
+		// Penolakan dari kurir diteruskan apa adanya. "Invalid Awb" memberi tahu
+		// tim toko bahwa resinya belum dikenali — entah salah ketik, entah belum
+		// masuk sistem kurir — sementara "terjadi kesalahan pada server" tidak
+		// memberi tahu apa pun.
+		var ro *rajaongkir.Error
+		if errors.As(err, &ro) {
+			return nil, domain.InvalidState("%s menolak permintaan: %s", p.Name(), ro.Message)
+		}
+		return nil, err
+	}
+
+	status := strings.TrimSpace(hasil.DeliveryStatus.Status)
+	if status == "" {
+		status = strings.TrimSpace(hasil.Summary.Status)
+	}
+
+	info := &domain.TrackingInfo{
+		WaybillNumber: awb,
+		Courier:       courier,
+		Status:        status,
+		Delivered:     hasil.Delivered || strings.EqualFold(status, "delivered"),
+		ReceivedBy:    strings.TrimSpace(hasil.DeliveryStatus.PODReceiver),
+		History:       make([]domain.TrackingStep, 0, len(hasil.Manifest)),
+	}
+	for _, m := range hasil.Manifest {
+		info.History = append(info.History, domain.TrackingStep{
+			Description: strings.TrimSpace(m.Description),
+			City:        strings.TrimSpace(m.City),
+			At:          strings.TrimSpace(m.Date + " " + m.Time),
+		})
+	}
+	return info, nil
+}
+
 func (p *rajaOngkirProvider) resolveDestination(ctx context.Context, in CostQuoteInput) (*domain.ShippingDestination, error) {
 	kandidat := make([]string, 0, 4)
 	tambah := func(v string) {

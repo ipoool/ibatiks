@@ -17,6 +17,7 @@ import type {
   ShippingDestination,
   ShippingEstimate,
   ShippingOption,
+  TrackingInfo,
   ShippingProviderInfo,
   ShippingQueueItem,
   ShippingStage,
@@ -319,6 +320,24 @@ function invalidateShipmentRelated(queryClient: ReturnType<typeof useQueryClient
   queryClient.invalidateQueries({ queryKey: shipmentKeys.all });
   queryClient.invalidateQueries({ queryKey: ["orders"] });
   queryClient.invalidateQueries({ queryKey: ["reports"] });
+}
+
+/**
+ * Melacak posisi paket lewat resi yang tersimpan.
+ *
+ * Dibuat sebagai mutation, bukan query: pengecekannya memakai kuota RajaOngkir,
+ * jadi hanya berjalan saat admin memintanya — bukan tiap kali daftarnya dibuka.
+ */
+export function useTrackOrder(orderId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api.get<TrackingInfo>(`/orders/${orderId}/tracking`),
+    onSuccess: (info) => {
+      // Statusnya bisa berubah jadi Selesai di server, jadi daftarnya disegarkan.
+      if (info.order_completed) invalidateShipmentRelated(queryClient);
+    },
+  });
 }
 
 export function usePackOrder(orderId: string) {
