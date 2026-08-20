@@ -343,7 +343,7 @@ export function DialogKemas({
               else setOngkirManual("");
             }}
           />
-          <span className="text-sm font-medium">Ketik ongkir sendiri</span>
+          <span className="text-sm font-medium">Manual Ongkir</span>
         </label>
 
         {ongkirManualAktif ? (
