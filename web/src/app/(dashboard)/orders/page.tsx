@@ -151,6 +151,7 @@ export default function OrdersPage() {
           }
           head={
             <TR>
+              <TH className="hidden whitespace-nowrap sm:table-cell">Tanggal</TH>
               <TH className="min-w-32">Order</TH>
               <TH className="hidden min-w-32 md:table-cell">Customer</TH>
               <TH className="hidden min-w-28 xl:table-cell">Trip</TH>
@@ -158,12 +159,14 @@ export default function OrdersPage() {
               <TH className="w-28 text-right">Total</TH>
               <TH className="hidden w-28 text-right sm:table-cell">Sisa Bayar</TH>
               <TH className="w-28">Status</TH>
-              <TH className="hidden text-right whitespace-nowrap sm:table-cell">Tanggal</TH>
             </TR>
           }
         >
           {data?.items.map((order) => (
             <TR key={order.id}>
+              <TD className="hidden text-sm whitespace-nowrap text-muted-foreground sm:table-cell">
+                {formatDate(order.order_date)}
+              </TD>
               <TD>
                 <div className="flex items-center gap-0.5">
                   <Link
@@ -217,9 +220,6 @@ export default function OrdersPage() {
               </TD>
               <TD>
                 <OrderStatusBadge status={order.status} settled={toNumber(order.balance_due) <= 0} />
-              </TD>
-              <TD className="hidden text-right text-sm whitespace-nowrap text-muted-foreground sm:table-cell">
-                {formatDate(order.order_date)}
               </TD>
             </TR>
           ))}
