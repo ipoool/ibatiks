@@ -119,6 +119,60 @@ func (r *ReportRepo) ExpenseBreakdown(ctx context.Context, q db.Querier, tripID 
 		ORDER BY sum(amount) DESC`, tripID)
 }
 
+// ExpenseBreakdownByTrip memecah biaya perjalanan per trip, lalu per kategori
+// di dalamnya. Hanya trip yang benar-benar punya biaya yang muncul.
+func (r *ReportRepo) ExpenseBreakdownByTrip(ctx context.Context, q db.Querier) ([]domain.TripExpenseBreakdown, error) {
+	type baris struct {
+		TripID   uuid.UUID       `db:"trip_id"`
+		TripCode string          `db:"trip_code"`
+		Title    string          `db:"title"`
+		Category string          `db:"category"`
+		Amount   decimal.Decimal `db:"amount"`
+	}
+
+	// Diurutkan dari trip berbiaya terbesar, lalu kategori terbesar di dalamnya
+	// — sama seperti urutan rincian satu trip, supaya keduanya terbaca sama.
+	rows, err := collectRows[baris](ctx, q, `
+		SELECT
+			t.id    AS trip_id,
+			t.code  AS trip_code,
+			t.title AS title,
+			e.category,
+			sum(e.amount) AS amount
+		FROM trip_expenses e
+		JOIN trips t ON t.id = e.trip_id
+		GROUP BY t.id, t.code, t.title, e.category
+		ORDER BY sum(sum(e.amount)) OVER (PARTITION BY t.id) DESC, t.code, sum(e.amount) DESC`)
+	if err != nil {
+		return nil, err
+	}
+
+	// Dikelompokkan di Go, bukan lewat agregat JSON di SQL: bentuknya jadi
+	// terbaca sebagai struct biasa, dan urutan yang sudah ditentukan kueri
+	// tinggal diikuti.
+	hasil := make([]domain.TripExpenseBreakdown, 0)
+	posisi := make(map[uuid.UUID]int, len(rows))
+	for _, b := range rows {
+		i, ada := posisi[b.TripID]
+		if !ada {
+			hasil = append(hasil, domain.TripExpenseBreakdown{
+				TripID:   b.TripID,
+				TripCode: b.TripCode,
+				Title:    b.Title,
+				Items:    []domain.ExpenseBreakdown{},
+			})
+			i = len(hasil) - 1
+			posisi[b.TripID] = i
+		}
+		hasil[i].Items = append(hasil[i].Items, domain.ExpenseBreakdown{
+			Category: b.Category,
+			Amount:   b.Amount,
+		})
+		hasil[i].Total = hasil[i].Total.Add(b.Amount)
+	}
+	return hasil, nil
+}
+
 // OrderProfits menghitung margin tiap order. Order yang HPP-nya belum tercatat
 // akan tampil dengan cogs 0, yang justru berguna sebagai penanda bahwa
 // pembelian untuk order itu belum diinput.

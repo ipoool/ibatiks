@@ -145,21 +145,57 @@ export function ProfitLossReport({ tripId }: { tripId?: string }) {
         </Card>
       )}
 
-      {report.expense_breakdown.length > 0 && (
+      {/* Lintas trip, biayanya dipecah per trip dulu. Disatukan per kategori,
+          "Tiket pesawat Rp18.500.000" tidak memberi tahu itu tiket trip yang
+          mana — padahal perbandingan antar tripnya yang dicari saat membuka
+          laporan gabungan. */}
+      {report.expense_by_trip.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Rincian biaya perjalanan</CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-border">
-            {report.expense_breakdown.map((expense) => (
-              <DetailRow
-                key={expense.category}
-                label={CATEGORY_LABEL[expense.category] ?? expense.category}
-                value={formatIDR(expense.amount)}
-              />
+            {report.expense_by_trip.map((trip) => (
+              <div key={trip.trip_id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 text-sm font-medium">
+                    {trip.trip_code}
+                    <span className="ml-1.5 font-normal text-muted-foreground">{trip.title}</span>
+                  </p>
+                  <p className="tabular shrink-0 text-sm font-semibold">{formatIDR(trip.total)}</p>
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {trip.items.map((expense) => (
+                    <div
+                      key={expense.category}
+                      className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground"
+                    >
+                      <span>{CATEGORY_LABEL[expense.category] ?? expense.category}</span>
+                      <span className="tabular shrink-0">{formatIDR(expense.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ))}
           </CardContent>
         </Card>
+      ) : (
+        report.expense_breakdown.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Rincian biaya perjalanan</CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y divide-border">
+              {report.expense_breakdown.map((expense) => (
+                <DetailRow
+                  key={expense.category}
+                  label={CATEGORY_LABEL[expense.category] ?? expense.category}
+                  value={formatIDR(expense.amount)}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )
       )}
     </>
   );

@@ -61,6 +61,16 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*dom
 		breakdown = []domain.ExpenseBreakdown{}
 	}
 
+	// Pengelompokan per trip hanya berarti kalau laporannya memang mencakup
+	// lebih dari satu trip.
+	byTrip := []domain.TripExpenseBreakdown{}
+	if tripID == nil {
+		byTrip, err = s.reports.ExpenseBreakdownByTrip(ctx, s.pool)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	grossProfit := fin.Revenue.Sub(fin.COGS)
 	netProfit := grossProfit.Sub(fin.TripExpenses)
 
@@ -98,6 +108,7 @@ func (s *ReportService) TripProfit(ctx context.Context, tripID *uuid.UUID) (*dom
 		ItemQty:       fin.ItemQty,
 
 		ExpenseBreakdown: breakdown,
+		ExpenseByTrip:    byTrip,
 	}
 
 	if trip != nil {

@@ -676,6 +676,14 @@ export interface ShippingProviderInfo {
 
 // --- Laporan ---------------------------------------------------------------
 
+export interface TripExpenseBreakdown {
+  trip_id: string;
+  trip_code: string;
+  title: string;
+  total: Money;
+  items: ExpenseBreakdown[];
+}
+
 export interface ExpenseBreakdown {
   category: ExpenseCategory;
   amount: Money;
@@ -705,6 +713,8 @@ export interface TripProfitReport {
   customer_count: number;
   item_qty: number;
   expense_breakdown: ExpenseBreakdown[];
+  /** Hanya terisi saat laporannya mencakup semua trip. */
+  expense_by_trip: TripExpenseBreakdown[];
 }
 
 export interface OrderProfit {

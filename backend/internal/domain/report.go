@@ -53,11 +53,30 @@ type TripProfitReport struct {
 	ItemQty       int `json:"item_qty"`
 
 	ExpenseBreakdown []ExpenseBreakdown `json:"expense_breakdown"`
+
+	// Hanya terisi saat laporannya mencakup semua trip; kosong untuk satu trip,
+	// yang rinciannya sudah cukup diwakili ExpenseBreakdown di atas.
+	ExpenseByTrip []TripExpenseBreakdown `json:"expense_by_trip"`
 }
 
 type ExpenseBreakdown struct {
 	Category string          `db:"category" json:"category"`
 	Amount   decimal.Decimal `db:"amount"   json:"amount"`
+}
+
+// TripExpenseBreakdown adalah biaya perjalanan sebuah trip, dipakai saat
+// laporannya mencakup semua trip.
+//
+// Tanpa pengelompokan ini, biaya seluruh trip menyatu jadi satu baris per
+// kategori: "Tiket pesawat Rp18.500.000" tanpa petunjuk itu tiket trip yang
+// mana — padahal justru perbandingan antar tripnya yang dicari saat membuka
+// laporan gabungan.
+type TripExpenseBreakdown struct {
+	TripID   uuid.UUID          `db:"trip_id"   json:"trip_id"`
+	TripCode string             `db:"trip_code" json:"trip_code"`
+	Title    string             `db:"title"     json:"title"`
+	Total    decimal.Decimal    `db:"total"     json:"total"`
+	Items    []ExpenseBreakdown `json:"items"`
 }
 
 // OrderProfit adalah margin per order, dipakai untuk menemukan order yang
