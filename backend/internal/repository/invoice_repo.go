@@ -139,7 +139,8 @@ func (r *InvoiceRepo) MarkSent(ctx context.Context, q db.Querier, id uuid.UUID, 
 		UPDATE invoices
 		SET status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
 		    sent_channel = $2,
-		    sent_at = now()
+		    sent_at = now(),
+		    pdf_path = CASE WHEN status = 'draft' THEN NULL ELSE pdf_path END
 		WHERE id = $1 AND status <> 'void'
 		RETURNING `+invoiceColumns, id, channel)
 }
@@ -150,14 +151,15 @@ func (r *InvoiceRepo) MarkPaid(ctx context.Context, q db.Querier, id uuid.UUID) 
 		SET status = 'paid',
 		    amount_paid = CASE WHEN type = 'dp' THEN dp_amount ELSE total END,
 		    amount_due = 0,
-		    paid_at = now()
+		    paid_at = now(),
+		    pdf_path = NULL
 		WHERE id = $1 AND status <> 'void'
 		RETURNING `+invoiceColumns, id)
 }
 
 func (r *InvoiceRepo) Void(ctx context.Context, q db.Querier, id uuid.UUID) (*domain.Invoice, error) {
 	return collectOne[domain.Invoice](ctx, q, "invoice", `
-		UPDATE invoices SET status = 'void' WHERE id = $1 AND status <> 'paid'
+		UPDATE invoices SET status = 'void', pdf_path = NULL WHERE id = $1 AND status <> 'paid'
 		RETURNING `+invoiceColumns, id)
 }
 
@@ -175,6 +177,12 @@ func (r *InvoiceRepo) SyncAmountsFromOrder(ctx context.Context, q db.Querier, or
 		    amount_due  = GREATEST((CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END) - o.paid_amount, 0),
 		    status      = CASE WHEN o.paid_amount >= (CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END)
 		                       THEN 'paid' ELSE i.status END,
+		    -- Berkas PDF yang sudah tersimpan dibuang begitu statusnya berubah.
+		    -- Watermarknya mengikuti keadaan invoice, jadi berkas lama akan
+		    -- terus menampilkan keadaan yang sudah tidak berlaku — persis pada
+		    -- lembar yang paling perlu terbaca benar.
+		    pdf_path    = CASE WHEN o.paid_amount >= (CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END)
+		                       THEN NULL ELSE i.pdf_path END,
 		    paid_at     = CASE WHEN o.paid_amount >= (CASE WHEN i.type = 'dp' THEN i.dp_amount ELSE i.total END)
 		                            AND i.paid_at IS NULL THEN now() ELSE i.paid_at END
 		FROM orders o

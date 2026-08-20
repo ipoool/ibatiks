@@ -31,6 +31,10 @@ const (
 	// Lebar logo pada kop invoice; tingginya mengikuti rasio berkas aslinya.
 	logoWidth  = 20.0
 	logoHeight = logoWidth * 1027.0 / 900.0
+
+	// Margin atas halaman, dipakai juga sebagai batas atas saat menghitung
+	// titik tengah isi untuk watermark.
+	marginAtas = 15.0
 )
 
 type InvoiceData struct {
@@ -71,15 +75,51 @@ func (r *Renderer) Render(data InvoiceData) (string, error) {
 	return path, nil
 }
 
+/*
+ * build merender invoice dua kali.
+ *
+ * Watermark harus berada di tengah isi invoice, bukan di tengah kertas — isi
+ * satu halaman A4 biasanya berhenti jauh di atas batas bawahnya, dan watermark
+ * yang dipatok ke tengah kertas mendarat di area kosong di bawah tabel.
+ *
+ * Tapi ia juga harus digambar lebih dulu supaya angka invoice berada di atasnya;
+ * digambar belakangan, ia menutupi yang justru harus terbaca. Dua tuntutan itu
+ * berlawanan, jadi jalan pintasnya: render sekali tanpa watermark hanya untuk
+ * mengukur di mana isinya berhenti, lalu render ulang dengan watermark yang
+ * sudah tahu titik tengahnya. Satu halaman A4 hitungannya milidetik.
+ */
 func (r *Renderer) build(data InvoiceData) (*fpdf.Fpdf, error) {
+	ukur, err := r.render(data, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	_, tinggiHalaman := ukur.GetPageSize()
+	tengah := tinggiHalaman / 2
+	// Isi yang tumpah ke halaman kedua sudah memenuhi halaman pertama, jadi
+	// tengah kertas justru tepat.
+	if ukur.PageNo() == 1 {
+		if bawah := ukur.GetY(); bawah > marginAtas {
+			tengah = (marginAtas + bawah) / 2
+		}
+	}
+
+	return r.render(data, tengah)
+}
+
+func (r *Renderer) render(data InvoiceData, watermarkY float64) (*fpdf.Fpdf, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
-	pdf.SetMargins(marginLeft, 15, marginRight)
+	pdf.SetMargins(marginLeft, marginAtas, marginRight)
 	pdf.SetAutoPageBreak(true, 20)
 	pdf.AddPage()
 
 	// fpdf memakai encoding CP1252; teks Indonesia aman karena tidak memakai
 	// karakter di luar Latin-1, tapi tetap ditranslasikan agar aman.
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
+
+	if watermarkY > 0 {
+		watermark(pdf, tr, data.Invoice.Status, watermarkY)
+	}
 
 	r.header(pdf, tr, data)
 	r.parties(pdf, tr, data)
@@ -92,6 +132,58 @@ func (r *Renderer) build(data InvoiceData) (*fpdf.Fpdf, error) {
 		return nil, fmt.Errorf("render PDF: %w", pdf.Error())
 	}
 	return pdf, nil
+}
+
+/*
+ * watermark menuliskan keadaan invoice melintang di tengah halaman.
+ *
+ * Dua keadaan yang perlu terbaca sekilas dari kertasnya sendiri:
+ *
+ *   LUNAS  — supaya lembar yang sudah dibayar tidak ikut ditagihkan lagi.
+ *            Nomor dan nominalnya sama persis dengan invoice yang dulu dikirim,
+ *            jadi tanpa penanda ini keduanya tidak bisa dibedakan.
+ *   DRAFT  — supaya lembar yang belum pernah dikirim ke customer tidak dikira
+ *            tagihan resmi kalau terlanjur tercetak atau diteruskan.
+ *   BATAL  — supaya tagihan yang sudah dicabut tidak terbayar oleh customer
+ *            yang terlanjur memegang cetakannya.
+ *
+ * Hanya "terkirim" yang tanpa watermark: itu keadaan normal sebuah tagihan yang
+ * memang sedang menunggu dibayar.
+ */
+func watermark(pdf *fpdf.Fpdf, tr func(string) string, status string, tengahY float64) {
+	var teks string
+	switch status {
+	case domain.InvoicePaid:
+		teks = "LUNAS"
+	case domain.InvoiceDraft:
+		teks = "DRAFT"
+	case domain.InvoiceVoid:
+		teks = "BATAL"
+	default:
+		return
+	}
+
+	lebar, _ := pdf.GetPageSize()
+
+	// Abu-abu muda, bukan transparansi: SetAlpha menuntut PDF versi 1.4 ke atas
+	// dan tidak semua pembaca struk menampilkannya. Warna terang menghasilkan
+	// tampilan yang sama di mana pun tanpa syarat itu.
+	pdf.SetTextColor(232, 232, 232)
+	pdf.SetFont("Helvetica", "B", 90)
+
+	lebarTeks := pdf.GetStringWidth(teks)
+
+	// Diputar 45 derajat pada titik tengah halaman. TransformBegin/End dipakai
+	// berpasangan; tanpa End, seluruh gambar sesudahnya ikut miring.
+	pdf.TransformBegin()
+	pdf.TransformRotate(45, lebar/2, tengahY)
+	pdf.SetXY(lebar/2-lebarTeks/2, tengahY-16)
+	pdf.CellFormat(lebarTeks, 32, tr(teks), "", 0, "C", false, 0, "")
+	pdf.TransformEnd()
+
+	// Warna dikembalikan supaya isi invoice tidak ikut pucat.
+	pdf.SetTextColor(0, 0, 0)
+	pdf.SetXY(marginLeft, marginAtas)
 }
 
 func (r *Renderer) header(pdf *fpdf.Fpdf, tr func(string) string, data InvoiceData) {
