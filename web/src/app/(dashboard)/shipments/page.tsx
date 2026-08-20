@@ -10,7 +10,6 @@ import { ApiError } from "@/lib/api";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { FilterSelect } from "@/components/filter-select";
 import { OrderStatusBadge } from "@/components/status-badge";
-import { ShippingInfoButton } from "@/components/shipping-info";
 import { Button } from "@/components/ui/button";
 import { ErrorState, PageHeader, SearchInput } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
@@ -115,7 +114,6 @@ export default function ShipmentsPage() {
           options={tripOptions}
           className="sm:w-56"
         />
-        <ShippingInfoButton className="self-center" />
       </div>
 
       <div>
