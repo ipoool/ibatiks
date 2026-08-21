@@ -41,7 +41,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Role:        req.Role,
 		Phone:       req.Phone,
 		Permissions: req.Permissions,
-	})
+	}, pemintaRole(r))
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -52,7 +52,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	p := pagination.FromRequest(r)
 
-	users, total, err := h.users.List(r.Context(), p)
+	users, total, err := h.users.List(r.Context(), p, pemintaRole(r))
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -67,7 +67,7 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.users.Get(r.Context(), id)
+	user, err := h.users.Get(r.Context(), id, pemintaRole(r))
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -102,7 +102,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Phone:       req.Phone,
 		IsActive:    req.IsActive,
 		Permissions: req.Permissions,
-	})
+	}, pemintaRole(r))
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -127,7 +127,7 @@ func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.users.ResetPassword(r.Context(), id, req.NewPassword); err != nil {
+	if err := h.users.ResetPassword(r.Context(), id, req.NewPassword, pemintaRole(r)); err != nil {
 		response.Error(w, r, err)
 		return
 	}
@@ -141,7 +141,7 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.users.Delete(r.Context(), id, middleware.UserIDFrom(r.Context())); err != nil {
+	if err := h.users.Delete(r.Context(), id, middleware.UserIDFrom(r.Context()), pemintaRole(r)); err != nil {
 		response.Error(w, r, err)
 		return
 	}

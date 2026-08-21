@@ -26,9 +26,12 @@ const roleListQuery = `
 // List mengurutkan role bawaan lebih dulu, lalu role bikinan toko menurut
 // namanya. Urutan ini yang dilihat orang saat memilih role sebuah akun, dan
 // role bawaan adalah yang paling sering dipakai.
-func (r *RoleRepo) List(ctx context.Context, q db.Querier) ([]domain.Role, error) {
+//
+// sertakanRoot hanya benar untuk pemakai root sendiri; lihat domain.IsRootRole.
+func (r *RoleRepo) List(ctx context.Context, q db.Querier, sertakanRoot bool) ([]domain.Role, error) {
 	return collectRows[domain.Role](ctx, q,
-		roleListQuery+` ORDER BY r.is_system DESC, r.label ASC`)
+		roleListQuery+` WHERE ($1 OR r.name <> $2) ORDER BY r.is_system DESC, r.label ASC`,
+		sertakanRoot, domain.RoleRoot)
 }
 
 func (r *RoleRepo) Get(ctx context.Context, q db.Querier, name string) (*domain.Role, error) {

@@ -48,9 +48,19 @@ func (r *UserRepo) GetByEmail(ctx context.Context, q db.Querier, email string) (
 		`SELECT `+userColumns+` FROM users WHERE email = $1`, email)
 }
 
-func (r *UserRepo) List(ctx context.Context, q db.Querier, p pagination.Params) ([]domain.User, int64, error) {
+// List menyembunyikan akun root dari siapa pun selain root sendiri.
+//
+// Penyaringannya dikerjakan di SQL, bukan dibuang dari hasil, supaya hitungan
+// total halamannya ikut benar — daftar yang menyebut "3 pengguna" lalu
+// menampilkan dua baris terbaca seperti data yang hilang.
+func (r *UserRepo) List(ctx context.Context, q db.Querier, p pagination.Params, sertakanRoot bool) ([]domain.User, int64, error) {
 	conditions := []string{}
 	args := []any{}
+
+	if !sertakanRoot {
+		args = append(args, domain.RoleRoot)
+		conditions = append(conditions, fmt.Sprintf("role <> $%d", len(args)))
+	}
 
 	if p.Search != "" {
 		args = append(args, "%"+p.Search+"%")

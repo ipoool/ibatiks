@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/ipoool/jastipin/backend/internal/domain"
+	"github.com/ipoool/jastipin/backend/internal/http/middleware"
 	"github.com/ipoool/jastipin/backend/internal/http/request"
 	"github.com/ipoool/jastipin/backend/internal/http/response"
 	"github.com/ipoool/jastipin/backend/internal/service"
@@ -13,6 +14,13 @@ import (
 
 type RoleHandler struct {
 	roles *service.RoleService
+}
+
+// pemintaRole adalah role pengguna yang mengirim permintaan. Dipakai untuk
+// menyembunyikan role dan akun root dari siapa pun selain root sendiri.
+func pemintaRole(r *http.Request) string {
+	user, _ := middleware.UserFrom(r.Context())
+	return user.Role
 }
 
 func NewRoleHandler(roles *service.RoleService) *RoleHandler {
@@ -32,7 +40,7 @@ type roleOptions struct {
 }
 
 func (h *RoleHandler) List(w http.ResponseWriter, r *http.Request) {
-	roles, err := h.roles.List(r.Context())
+	roles, err := h.roles.List(r.Context(), pemintaRole(r))
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -48,7 +56,7 @@ func (h *RoleHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RoleHandler) Get(w http.ResponseWriter, r *http.Request) {
-	role, err := h.roles.Get(r.Context(), chi.URLParam(r, "name"))
+	role, err := h.roles.Get(r.Context(), chi.URLParam(r, "name"), pemintaRole(r))
 	if err != nil {
 		response.Error(w, r, err)
 		return
@@ -90,7 +98,7 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.roles.Update(r.Context(), chi.URLParam(r, "name"), service.SaveRoleInput{
+	role, err := h.roles.Update(r.Context(), chi.URLParam(r, "name"), pemintaRole(r), service.SaveRoleInput{
 		Label:       req.Label,
 		Description: req.Description,
 		Scope:       req.Scope,
@@ -104,7 +112,7 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	if err := h.roles.Delete(r.Context(), chi.URLParam(r, "name")); err != nil {
+	if err := h.roles.Delete(r.Context(), chi.URLParam(r, "name"), pemintaRole(r)); err != nil {
 		response.Error(w, r, err)
 		return
 	}

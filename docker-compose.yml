@@ -71,9 +71,6 @@ services:
       SEED_OWNER_NAME: ${SEED_OWNER_NAME:-Owner}
       SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL:-owner@jastipin.id}
       SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD:-rahasia123}
-      SEED_ROOT_NAME: ${SEED_ROOT_NAME:-Root}
-      SEED_ROOT_EMAIL: ${SEED_ROOT_EMAIL:-}
-      SEED_ROOT_PASSWORD: ${SEED_ROOT_PASSWORD:-}
     ports:
       - "8080:8080"
     volumes:

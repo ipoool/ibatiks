@@ -64,8 +64,10 @@ Buka:
 | http://localhost:8081 | Adminer (GUI database) |
 
 Login dengan `SEED_OWNER_EMAIL` dan `SEED_OWNER_PASSWORD` dari `.env` (bawaannya `owner@ibatiks.id` / `rahasia123`).
-Kalau `SEED_ROOT_EMAIL` diisi, seed ikut membuat akun ber-role `root` — akses penuh yang tidak bisa
-dipersempit, dipakai kalau hak akses owner terlanjur salah disetel.
+Akun **root** `hi@loomwarestudio.com` / `rahasia123!` lahir dari migrasi, jadi ia sudah ada begitu
+skemanya dipasang — termasuk di production, di mana ia jadi akun pertama yang bisa masuk sebelum
+ada pengguna lain. Password-nya tersimpan sebagai hash bcrypt di dalam repositori ini, jadi
+**gantilah lewat Pengaturan → Pengguna → Reset Password segera setelah login pertama.**
 
 Backend dan frontend berjalan dengan **hot reload**: ubah kode di editor, hasilnya langsung terlihat tanpa build ulang container.
 
@@ -384,7 +386,7 @@ lalu centang menu apa saja yang dibukanya.
 
 | Role bawaan | Bisa apa |
 |---|---|
-| **root** | Seluruh menu tanpa kecuali, dan tidak bisa dipersempit — jalan pulih kalau hak akses akun lain terlanjur salah disetel |
+| **root** | Seluruh menu tanpa kecuali, dan tidak bisa dipersempit — jalan pulih kalau hak akses akun lain terlanjur salah disetel. Tidak tampil di daftar role, dan akunnya hanya bisa disentuh root sendiri |
 | **owner** | Semuanya, termasuk laporan laba, pengaturan toko, dan manajemen pengguna |
 | **admin** | Seluruh operasional harian: trip, order, invoice, pengiriman, stok, piutang, rekap customer dan channel |
 | **tripper** | Trip dan katalog (baca), daftar belanja, dan input pembelian di lapangan |

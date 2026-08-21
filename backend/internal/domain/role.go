@@ -77,6 +77,17 @@ func IsValidScope(scope string) bool {
 // SystemRoles adalah role bawaan yang selalu ada.
 var SystemRoles = []string{RoleRoot, RoleOwner, RoleAdmin, RoleTripper}
 
+// IsRootRole menandai role jalan pulih.
+//
+// Root sengaja tidak tampil di daftar role dan akunnya tidak bisa disentuh
+// siapa pun selain root sendiri. Kalau ia terlihat dan bisa disunting, ia
+// berhenti jadi jalan pulih: siapa pun yang memegang menu Pengguna bisa
+// menurunkan rolenya atau menghapus akunnya, dan setelah itu hak akses yang
+// terlanjur salah disetel tidak punya jalan kembali selain menyunting database.
+func IsRootRole(name string) bool {
+	return name == RoleRoot
+}
+
 func IsSystemRole(name string) bool {
 	for _, r := range SystemRoles {
 		if r == name {

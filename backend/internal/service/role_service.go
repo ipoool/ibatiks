@@ -27,11 +27,15 @@ func NewRoleService(pool *pgxpool.Pool, roles *repository.RoleRepo) *RoleService
 	return &RoleService{pool: pool, roles: roles}
 }
 
-func (s *RoleService) List(ctx context.Context) ([]domain.Role, error) {
-	return s.roles.List(ctx, s.pool)
+// List menyembunyikan role root dari siapa pun selain root sendiri.
+func (s *RoleService) List(ctx context.Context, pemintaRole string) ([]domain.Role, error) {
+	return s.roles.List(ctx, s.pool, domain.IsRootRole(pemintaRole))
 }
 
-func (s *RoleService) Get(ctx context.Context, name string) (*domain.Role, error) {
+func (s *RoleService) Get(ctx context.Context, name, pemintaRole string) (*domain.Role, error) {
+	if domain.IsRootRole(name) && !domain.IsRootRole(pemintaRole) {
+		return nil, domain.NotFound("role")
+	}
 	return s.roles.Get(ctx, s.pool, name)
 }
 
@@ -59,8 +63,12 @@ func (s *RoleService) Create(ctx context.Context, in SaveRoleInput) (*domain.Rol
 			"label": "pakai huruf dan angka, misalnya \"Kasir\" atau \"Admin Gudang\"",
 		})
 	}
+	// Root tidak boleh dilahirkan dari sini. Ia jalan pulih yang jumlahnya
+	// harus tetap satu dan lahir dari migrasi; membiarkan siapa pun yang
+	// memegang menu Pengguna membuat role bernama root berarti membuat jalan
+	// pulih kedua yang tidak diketahui pemilik toko.
 	if domain.IsSystemRole(name) {
-		return nil, domain.Conflict("role %s sudah ada sebagai role bawaan", label)
+		return nil, domain.Conflict("nama role %s sudah dipakai, pilih nama lain", label)
 	}
 
 	scope, err := validScope(in.Scope)
@@ -81,7 +89,11 @@ func (s *RoleService) Create(ctx context.Context, in SaveRoleInput) (*domain.Rol
 	})
 }
 
-func (s *RoleService) Update(ctx context.Context, name string, in SaveRoleInput) (*domain.Role, error) {
+func (s *RoleService) Update(ctx context.Context, name, pemintaRole string, in SaveRoleInput) (*domain.Role, error) {
+	if domain.IsRootRole(name) && !domain.IsRootRole(pemintaRole) {
+		return nil, domain.NotFound("role")
+	}
+
 	current, err := s.roles.Get(ctx, s.pool, name)
 	if err != nil {
 		return nil, err
@@ -141,7 +153,11 @@ func (s *RoleService) Update(ctx context.Context, name string, in SaveRoleInput)
 	return updated, nil
 }
 
-func (s *RoleService) Delete(ctx context.Context, name string) error {
+func (s *RoleService) Delete(ctx context.Context, name, pemintaRole string) error {
+	if domain.IsRootRole(name) && !domain.IsRootRole(pemintaRole) {
+		return domain.NotFound("role")
+	}
+
 	role, err := s.roles.Get(ctx, s.pool, name)
 	if err != nil {
 		return err

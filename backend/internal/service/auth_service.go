@@ -332,8 +332,8 @@ type CreateUserInput struct {
 	Permissions []string
 }
 
-func (s *UserService) Create(ctx context.Context, in CreateUserInput) (*domain.User, error) {
-	role, err := s.requireRole(ctx, in.Role)
+func (s *UserService) Create(ctx context.Context, in CreateUserInput, pemintaRole string) (*domain.User, error) {
+	role, err := s.requireRole(ctx, in.Role, pemintaRole)
 	if err != nil {
 		return nil, err
 	}
@@ -362,12 +362,35 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (*domain.U
 	return withRole(user, *role), nil
 }
 
+// jagaAkunRoot menolak sentuhan pada akun root dari siapa pun selain root.
+//
+// Dijawab "tidak ditemukan", bukan "tidak boleh": akun root memang tidak
+// tampil di daftar, dan penolakan yang berbeda bunyinya justru memberi tahu
+// bahwa ia ada.
+func jagaAkunRoot(targetRole, pemintaRole string) error {
+	if domain.IsRootRole(targetRole) && !domain.IsRootRole(pemintaRole) {
+		return domain.NotFound("pengguna")
+	}
+	return nil
+}
+
 // requireRole memastikan role yang diminta benar-benar ada.
 //
 // Dulu daftarnya tertutup di kode dan cukup dicocokkan dengan tiga nama; kini
 // role adalah data, jadi yang menentukan sah atau tidaknya adalah isi tabelnya.
-func (s *UserService) requireRole(ctx context.Context, name string) (*domain.Role, error) {
-	role, err := s.roles.Get(ctx, s.pool, strings.TrimSpace(name))
+func (s *UserService) requireRole(ctx context.Context, name, pemintaRole string) (*domain.Role, error) {
+	name = strings.TrimSpace(name)
+
+	// Role root tidak tampil di daftar pilihan, jadi permintaan yang menyebutnya
+	// datang dari luar antarmuka. Melolosinya berarti siapa pun yang memegang
+	// menu Pengguna bisa mengangkat dirinya sendiri jadi root.
+	if domain.IsRootRole(name) && !domain.IsRootRole(pemintaRole) {
+		return nil, domain.Validation("role tidak dikenal", map[string]string{
+			"role": "pilih role yang tersedia di daftar",
+		})
+	}
+
+	role, err := s.roles.Get(ctx, s.pool, name)
 	if err != nil {
 		if domainErr, ok := domain.AsError(err); ok && domainErr.Code == domain.CodeNotFound {
 			return nil, domain.Validation("role tidak dikenal", map[string]string{
@@ -379,8 +402,9 @@ func (s *UserService) requireRole(ctx context.Context, name string) (*domain.Rol
 	return role, nil
 }
 
-func (s *UserService) List(ctx context.Context, p pagination.Params) ([]domain.User, int64, error) {
-	users, total, err := s.users.List(ctx, s.pool, p)
+// List menyembunyikan akun root dari siapa pun selain root sendiri.
+func (s *UserService) List(ctx context.Context, p pagination.Params, pemintaRole string) ([]domain.User, int64, error) {
+	users, total, err := s.users.List(ctx, s.pool, p, domain.IsRootRole(pemintaRole))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -397,9 +421,12 @@ func (s *UserService) List(ctx context.Context, p pagination.Params) ([]domain.U
 	return users, total, nil
 }
 
-func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (s *UserService) Get(ctx context.Context, id uuid.UUID, pemintaRole string) (*domain.User, error) {
 	user, err := s.users.GetByID(ctx, s.pool, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := jagaAkunRoot(user.Role, pemintaRole); err != nil {
 		return nil, err
 	}
 	role, err := s.roles.Get(ctx, s.pool, user.Role)
@@ -447,14 +474,17 @@ func sanitizePermissions(role domain.Role, requested []string) ([]string, error)
 	return effective, nil
 }
 
-func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInput) (*domain.User, error) {
-	role, err := s.requireRole(ctx, in.Role)
+func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInput, pemintaRole string) (*domain.User, error) {
+	role, err := s.requireRole(ctx, in.Role, pemintaRole)
 	if err != nil {
 		return nil, err
 	}
 
 	current, err := s.users.GetByID(ctx, s.pool, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := jagaAkunRoot(current.Role, pemintaRole); err != nil {
 		return nil, err
 	}
 
@@ -519,7 +549,15 @@ func permissionsChanged(before, after *domain.User) bool {
 }
 
 // ResetPassword dipakai owner untuk mengganti password pengguna lain yang lupa.
-func (s *UserService) ResetPassword(ctx context.Context, id uuid.UUID, newPassword string) error {
+func (s *UserService) ResetPassword(ctx context.Context, id uuid.UUID, newPassword, pemintaRole string) error {
+	target, err := s.users.GetByID(ctx, s.pool, id)
+	if err != nil {
+		return err
+	}
+	if err := jagaAkunRoot(target.Role, pemintaRole); err != nil {
+		return err
+	}
+
 	hashed, err := HashPassword(newPassword)
 	if err != nil {
 		return err
@@ -533,13 +571,16 @@ func (s *UserService) ResetPassword(ctx context.Context, id uuid.UUID, newPasswo
 	})
 }
 
-func (s *UserService) Delete(ctx context.Context, id, actorID uuid.UUID) error {
+func (s *UserService) Delete(ctx context.Context, id, actorID uuid.UUID, pemintaRole string) error {
 	if id == actorID {
 		return domain.Conflict("tidak bisa menghapus akun yang sedang kamu pakai")
 	}
 
 	user, err := s.users.GetByID(ctx, s.pool, id)
 	if err != nil {
+		return err
+	}
+	if err := jagaAkunRoot(user.Role, pemintaRole); err != nil {
 		return err
 	}
 	role, err := s.roles.Get(ctx, s.pool, user.Role)

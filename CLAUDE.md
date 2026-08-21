@@ -18,8 +18,8 @@ make seed-demo && ./scripts/demo-data.sh   # data contoh yang bisa dilihat di UI
 ```
 
 Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`). Akun root
-`hi@loomwarestudio.com` dibuat dari `SEED_ROOT_*`, dipakai kalau hak akses owner terlanjur salah
-disetel — lihat "Hak akses".
+`hi@loomwarestudio.com` / `rahasia123!` lahir dari migrasi 000025, dipakai kalau hak akses owner
+terlanjur salah disetel — lihat "Hak akses".
 
 `scripts/smoke.sh` **merusak data demo** karena membuat trip dan order sendiri. Setelah menjalankannya, pulihkan dengan `make migrate-reset && make migrate-up && make seed-demo && ./scripts/demo-data.sh`.
 
@@ -156,8 +156,12 @@ Nama kurir dan nomor resi juga tidak dicetak. Keduanya sudah ada di label resmi 
 **Empat role bawaan** (`domain.SystemRoles`) tidak bisa dihapus maupun diganti namanya; kode merujuk nama-namanya untuk penjagaan yang tidak bisa dinyatakan lewat daftar menu.
 
 - **Root memegang seluruh menu dan tidak bisa dipersempit.** Ia jalan pulih terakhir ketika hak akses siapa pun terlanjur salah disetel, dan jalan pulih yang bisa dipersempit bukan jalan pulih. `RoleService.Update` menimpa balik apa pun yang dikirim untuk role ini.
+- **Root tidak terlihat siapa pun selain root sendiri.** Role-nya tidak muncul di `GET /roles`, akunnya tidak muncul di `GET /users`, dan menyunting, menghapus, mereset password, atau memberikan role root ditolak — semuanya dijawab "tidak ditemukan", bukan "tidak boleh", karena penolakan yang berbeda bunyinya justru memberi tahu bahwa ia ada. Tanpa ini ia berhenti jadi jalan pulih: siapa pun yang memegang menu Pengguna bisa menurunkan rolenya atau menghapus akunnya. Penyaringannya dikerjakan di SQL, bukan dibuang dari hasil, supaya hitungan halamannya ikut benar.
+- **Akun root lahir dari migrasi 000025, bukan dari seed.** Ia akun pertama yang ada saat aplikasi dipasang di production: sebelum ada pengguna lain, seseorang harus bisa masuk untuk membuat mereka, dan langkah seed terpisah bisa terlewat. Konsekuensinya hash password-nya tersimpan di repositori — passwordnya wajib diganti setelah login pertama.
 - **Owner tidak bisa kehilangan Pengaturan dan Pengguna** (`LockedPermissions`). Dua menu itu satu-satunya jalan mengembalikan hak akses siapa pun. Karena dihitung dan bukan disimpan, baris yang terlanjur rusak ikut pulih sendiri.
 - **Akun terakhir yang bisa membuka menu Pengguna tidak boleh diturunkan atau dihapus.** Yang dihitung daftar menunya (`CountActiveUserManagers`), bukan nama rolenya — menghitung owner saja berarti menahan penurunan owner terakhir padahal root masih memegang menunya, sekaligus meloloskan penurunan akun terakhir yang benar-benar memegangnya karena rolenya kebetulan bukan owner.
+
+**Dashboard punya hak aksesnya sendiri,** `PermDashboard`, walaupun isinya datang dari endpoint laporan yang sama. Tanpa pemisahan itu, memberi seseorang ringkasan harian berarti sekaligus membuka rekap piutang dan penjualan per customer, dan mencabut Dashboard dari orang yang memang perlu membuka Laporan jadi mustahil.
 
 **Laporan laba-rugi punya hak aksesnya sendiri,** `PermReportsFinance`. Dulu dijaga "khusus owner" lewat nama role dan tidak punya centang; akibatnya admin yang punya menu Laporan tetap melihat tab Profit / Loss lalu dibalas 403 — yang terbaca laba nol rupiah, bukan penolakan.
 
@@ -167,7 +171,7 @@ Nama kurir dan nomor resi juga tidak dicetak. Keduanya sudah ada di label resmi 
 
 **Frontend memakai `effective_permissions` yang dihitung backend.** Jangan menyalin daftar menu role ke UI — dialog role membacanya dari `GET /roles`, yang sekaligus mengirim daftar menu aplikasi dan daftar menu lapangan. Sidebar menyaring murni lewat `canOpenPath`; tiap menu dulu membawa daftar role yang boleh melihatnya, dan daftar itu selalu berakhir kembar dengan hak aksesnya — sampai role jadi data, dan sidebarnya kosong melompong untuk role apa pun di luar tiga nama lama.
 
-**Dashboard ikut butuh hak Laporan, dan orang yang tidak punya tidak mendarat di sana.** Seluruh isi Dashboard datang dari satu endpoint laporan; tanpa hak itu halamannya tetap terbuka tapi datanya ditolak, dan yang terbaca adalah deretan angka nol lengkap dengan "Belum ada order" — seolah tokonya kosong. Kena persis pada tripper. Sesudah login dan pada tiap penolakan rute, middleware mengarahkan ke `firstAllowedPath`: halaman pertama yang benar-benar boleh dibuka, mengikuti urutan sidebar. Pengalihannya berhenti sendiri kalau tujuannya halaman itu juga — tanpa itu pengguna tanpa hak apa pun terjebak putaran.
+**Orang yang tidak punya hak Dashboard tidak mendarat di sana.** Tanpa hak itu halamannya tetap terbuka tapi datanya ditolak, dan yang terbaca adalah deretan angka nol lengkap dengan "Belum ada order" — seolah tokonya kosong. Kena persis pada tripper. Sesudah login dan pada tiap penolakan rute, middleware mengarahkan ke `firstAllowedPath`: halaman pertama yang benar-benar boleh dibuka, mengikuti urutan sidebar. Pengalihannya berhenti sendiri kalau tujuannya halaman itu juga — tanpa itu pengguna tanpa hak apa pun terjebak putaran.
 
 Menu yang tidak dimiliki pengguna juga **dijaga di tingkat rute**, bukan cuma disembunyikan dari sidebar. Petanya di `src/lib/route-permissions.ts` — modul biasa supaya bisa dibaca middleware tanpa menyeret ikon menu ke bundel edge — dan dipakai bersama oleh sidebar dan `src/middleware.ts`, jadi menu yang disembunyikan dan halaman yang ditolak tidak pernah berbeda pendapat. Ini bukan lapisan keamanan; backend tetap menolak endpoint-nya sendiri. Yang dijaga adalah supaya orang tidak mendarat di halaman yang datanya gagal dimuat lalu membaca "Belum ada customer" seolah tokonya kosong.
 
