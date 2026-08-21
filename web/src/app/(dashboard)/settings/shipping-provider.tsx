@@ -12,7 +12,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { ErrorState } from "@/components/ui/page";
-import { useHasRole } from "@/components/layout/user-context";
+import { useHasPermission } from "@/components/layout/user-context";
 import { useDebounced } from "@/hooks/use-debounced";
 import {
   useShippingDestinations,
@@ -37,7 +37,7 @@ import type { ShippingDestination } from "@/types/api";
  * siapa pun yang membuka halaman ini.
  */
 export function ShippingProviderCard() {
-  const canEdit = useHasRole("owner");
+  const canEdit = useHasPermission("settings");
   const { data: provider, isLoading, error } = useShippingProvider();
   const update = useUpdateSettings();
 

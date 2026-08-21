@@ -12,6 +12,8 @@ import type {
   OrderProfit,
   ProductSales,
   Receivable,
+  Role,
+  RoleList,
   Setting,
   TripProfitReport,
   User,
@@ -156,6 +158,45 @@ export function useDeleteUser() {
     mutationFn: (id: string) => api.delete(`/users/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+// --- Role ------------------------------------------------------------------
+
+const roleKeys = {
+  all: ["roles"] as const,
+};
+
+export function useRoles() {
+  return useQuery({
+    queryKey: roleKeys.all,
+    queryFn: () => api.get<RoleList>("/roles"),
+  });
+}
+
+export function useSaveRole(name?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      name ? api.put<Role>(`/roles/${name}`, payload) : api.post<Role>("/roles", payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      // Mengubah role menggeser hak akses pemakainya, jadi daftar pengguna ikut
+      // basi — termasuk label role yang tampil di tiap barisnya.
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+export function useDeleteRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (name: string) => api.delete(`/roles/${name}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: roleKeys.all });
     },
   });
 }

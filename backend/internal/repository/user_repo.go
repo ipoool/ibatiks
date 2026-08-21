@@ -127,12 +127,30 @@ func (r *UserRepo) Delete(ctx context.Context, q db.Querier, id uuid.UUID) error
 
 // CountOwners dipakai untuk mencegah owner terakhir dihapus atau diturunkan
 // perannya, yang akan mengunci semua orang dari menu manajemen pengguna.
-func (r *UserRepo) CountActiveOwners(ctx context.Context, q db.Querier, excludeID uuid.UUID) (int, error) {
+// CountActiveUserManagers menghitung akun aktif yang masih bisa membuka menu
+// Pengguna, di luar akun yang sedang disunting.
+//
+// Dulu yang dihitung adalah owner, karena hanya owner yang punya menu itu.
+// Sejak role jadi data, "siapa yang bisa mengelola pengguna" tidak lagi
+// tertebak dari nama role — yang menentukan adalah daftar menunya. Menghitung
+// owner saja berarti dua kesalahan sekaligus: menahan penurunan owner terakhir
+// padahal ada root yang masih memegang menunya, dan meloloskan penurunan akun
+// terakhir yang benar-benar memegangnya karena rolenya kebetulan bukan owner.
+//
+// Centang per pengguna ikut dihitung: daftar kosong berarti mengikuti role.
+func (r *UserRepo) CountActiveUserManagers(ctx context.Context, q db.Querier, excludeID uuid.UUID) (int, error) {
 	var count int
 	err := q.QueryRow(ctx, `
-		SELECT count(*) FROM users
-		WHERE role = $1 AND is_active = TRUE AND id <> $2`,
-		domain.RoleOwner, excludeID).Scan(&count)
+		SELECT count(*)
+		FROM users u
+		JOIN roles r ON r.name = u.role
+		WHERE u.is_active = TRUE
+		  AND u.id <> $1
+		  AND $2 = ANY (r.permissions)
+		  AND (u.permissions IS NULL
+		       OR cardinality(u.permissions) = 0
+		       OR $2 = ANY (u.permissions))`,
+		excludeID, domain.PermUsers).Scan(&count)
 	if err != nil {
 		return 0, wrapPgError(err)
 	}

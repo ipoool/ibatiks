@@ -63,6 +63,10 @@ func run(withDemo bool) error {
 		return err
 	}
 
+	if err := seedRoot(ctx, pool, log); err != nil {
+		return err
+	}
+
 	if withDemo {
 		if err := seedDemo(ctx, pool, log, owner.ID); err != nil {
 			return err
@@ -70,6 +74,53 @@ func run(withDemo bool) error {
 	}
 
 	log.Info("seed selesai")
+	return nil
+}
+
+// seedRoot membuat akun root kalau SEED_ROOT_EMAIL diisi.
+//
+// Role root memegang seluruh menu tanpa kecuali dan daftarnya tidak bisa
+// dipersempit. Gunanya bukan pekerjaan sehari-hari, melainkan jalan pulih:
+// begitu hak akses owner terlanjur salah disetel, menu Pengaturan dan Pengguna
+// bisa saja tidak bisa dibuka siapa pun, dan pemulihannya cuma lewat database.
+//
+// Dibuat di seed, bukan di migrasi, supaya passwordnya tidak ikut tersimpan di
+// riwayat repositori — dan supaya akunnya lahir lagi setiap kali database
+// direset.
+func seedRoot(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) error {
+	email := strings.ToLower(strings.TrimSpace(envOr("SEED_ROOT_EMAIL", "")))
+	if email == "" {
+		return nil
+	}
+
+	users := repository.NewUserRepo()
+	if _, err := users.GetByEmail(ctx, pool, email); err == nil {
+		log.Info("akun root sudah ada, dilewati", "email", email)
+		return nil
+	} else if !isNotFound(err) {
+		return err
+	}
+
+	password := envOr("SEED_ROOT_PASSWORD", "")
+	if password == "" {
+		return errors.New("SEED_ROOT_PASSWORD wajib diisi kalau SEED_ROOT_EMAIL diisi")
+	}
+
+	hashed, err := service.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	if _, err := users.Create(ctx, pool, repository.CreateUserParams{
+		Name:         envOr("SEED_ROOT_NAME", "Root"),
+		Email:        email,
+		PasswordHash: hashed,
+		Role:         domain.RoleRoot,
+	}); err != nil {
+		return err
+	}
+
+	log.Info("akun root dibuat", "email", email)
 	return nil
 }
 

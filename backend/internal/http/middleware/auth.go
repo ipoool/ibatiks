@@ -23,6 +23,7 @@ type AuthUser struct {
 	ID          uuid.UUID
 	Email       string
 	Role        string
+	Scope       string
 	Permissions []string
 }
 
@@ -43,26 +44,45 @@ func Authenticate(tm *token.Manager) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Token membawa hak akses dan wewenangnya sendiri supaya
+			// pengecekan di sini tidak perlu menyentuh database tiap request.
+			//
+			// Token yang terbit sebelum role pindah ke database tidak membawa
+			// keduanya. Selama sisa umurnya — paling lama satu putaran access
+			// token — isinya dijatuhkan ke bawaan role lama, supaya sesi yang
+			// sedang berjalan tidak mendadak kehilangan seluruh menunya.
+			permissions := claims.Permissions
+			if len(permissions) == 0 {
+				permissions = domain.LegacyEffectivePermissions(claims.Role, nil)
+			}
+			scope := claims.Scope
+			if scope == "" {
+				scope = domain.LegacyScope(claims.Role)
+			}
+
 			user := AuthUser{
-				ID:    claims.UserID,
-				Email: claims.Email,
-				Role:  claims.Role,
-				// Token lama (terbit sebelum fitur hak akses ada) tidak membawa
-				// daftar apa pun; supaya sesi yang sedang berjalan tidak
-				// mendadak kehilangan menu, isinya dijatuhkan ke bawaan role.
-				Permissions: domain.EffectivePermissions(claims.Role, claims.Permissions),
+				ID:          claims.UserID,
+				Email:       claims.Email,
+				Role:        claims.Role,
+				Scope:       scope,
+				Permissions: permissions,
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userCtxKey, user)))
 		})
 	}
 }
 
-// RequireRole membatasi akses hanya untuk role tertentu. Dipasang setelah
+// RequireScope membatasi akses ke wewenang tertentu. Dipasang setelah
 // Authenticate.
-func RequireRole(roles ...string) func(http.Handler) http.Handler {
-	allowed := make(map[string]struct{}, len(roles))
-	for _, r := range roles {
-		allowed[r] = struct{}{}
+//
+// Menggantikan penjaga lama yang mencocokkan nama role. Sejak role jadi data,
+// nama role tidak lagi bisa jadi pegangan: role bikinan toko sendiri bukan
+// owner, admin, maupun tripper, dan penjaga berbasis nama akan menolaknya di
+// seluruh endpoint operasional walaupun menunya sudah dicentang.
+func RequireScope(scopes ...string) func(http.Handler) http.Handler {
+	allowed := make(map[string]struct{}, len(scopes))
+	for _, s := range scopes {
+		allowed[s] = struct{}{}
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -72,7 +92,7 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 				response.Error(w, r, domain.Unauthorized("token akses tidak ditemukan"))
 				return
 			}
-			if _, permitted := allowed[user.Role]; !permitted {
+			if _, permitted := allowed[user.Scope]; !permitted {
 				response.Error(w, r, domain.Forbidden("role kamu tidak punya akses ke menu ini"))
 				return
 			}
@@ -82,7 +102,7 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 }
 
 // RequirePermission membatasi akses ke satu menu. Dipasang setelah Authenticate,
-// biasanya bersama RequireRole yang menjaga batas kasarnya.
+// biasanya bersama RequireScope yang menjaga batas kasarnya.
 func RequirePermission(permission string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

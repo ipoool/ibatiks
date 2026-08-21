@@ -21,8 +21,11 @@ import { DataTable, TD, TH, TR } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useAuditLogs,
+  useDeleteRole,
   useDeleteUser,
   useResetUserPassword,
+  useRoles,
+  useSaveRole,
   useSaveUser,
   useSettings,
   useUpdateSettings,
@@ -30,7 +33,8 @@ import {
 } from "@/hooks/use-reports";
 import { ApiError } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
-import type { Permission, User, UserRole } from "@/types/api";
+import { ROLE_OWNER, ROLE_ROOT } from "@/types/api";
+import type { Permission, Role, RoleList, RoleScope, User, UserRole } from "@/types/api";
 
 /*
  * Kunci pengaturan yang punya form khusus, dikelompokkan agar mudah dibaca.
@@ -158,8 +162,8 @@ export default function SettingsPage() {
           <ShippingTestPanel />
         </TabsContent>
 
-        <TabsContent value="pengguna">
-          <UserManagement />
+        <TabsContent value="pengguna" className="space-y-8">
+          <AksesPengguna />
         </TabsContent>
 
         <TabsContent value="audit">
@@ -279,18 +283,6 @@ function SettingsForm({
   );
 }
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  tripper: "Tripper",
-};
-
-const ROLE_HINT: Record<UserRole, string> = {
-  owner: "Akses penuh termasuk laporan laba dan manajemen pengguna",
-  admin: "Seluruh operasional harian: trip, order, invoice, kirim, stok",
-  tripper: "Hanya daftar belanja dan input pembelian di lapangan",
-};
-
 const PERMISSION_LABEL: Record<Permission, string> = {
   trips: "Trip",
   shopping_list: "Daftar Belanja",
@@ -302,48 +294,335 @@ const PERMISSION_LABEL: Record<Permission, string> = {
   products: "Produk",
   stock: "Stok",
   reports: "Laporan",
+  reports_finance: "Laporan Profit / Loss",
   settings: "Pengaturan",
   users: "Manajemen Pengguna",
 };
 
 /**
- * Menu bawaan tiap role — salinan dari `domain.DefaultPermissions` di backend.
+ * Tingkat akses sebuah role — batas kasar yang tidak bisa dinyatakan lewat
+ * centang menu.
  *
- * Dipakai hanya untuk menentukan centang apa yang ditawarkan; keputusan akhir
- * tetap di backend, yang menyaring ulang permintaan supaya centang tidak bisa
- * melebarkan batas role.
+ * Daftar menu menjawab "menu apa yang boleh dibuka", bukan "boleh mengubah
+ * isinya atau cuma melihat". Petugas lapangan perlu membuka menu Produk untuk
+ * membaca daftar belanjanya, tapi tidak boleh menyunting master produk.
  */
-const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
-  owner: [
-    "trips",
-    "shopping_list",
-    "purchases",
-    "orders",
-    "invoices",
-    "shipments",
-    "customers",
-    "products",
-    "stock",
-    "reports",
-    "settings",
-    "users",
-  ],
-  admin: [
-    "trips",
-    "shopping_list",
-    "purchases",
-    "orders",
-    "invoices",
-    "shipments",
-    "customers",
-    "products",
-    "stock",
-    "reports",
-  ],
-  tripper: ["trips", "shopping_list", "purchases", "products"],
+const SCOPE_LABEL: Record<RoleScope, string> = {
+  full: "Staf toko",
+  field: "Petugas lapangan",
 };
 
-function UserManagement() {
+const SCOPE_HINT: Record<RoleScope, string> = {
+  full: "Boleh mengubah data pada menu yang dicentang",
+  field: "Hanya trip, daftar belanja, pembelian, dan produk — produk cuma bisa dibaca",
+};
+
+/**
+ * Tab Pengguna: daftar role beserta menunya, lalu akun-akun yang memakainya.
+ *
+ * Keduanya dibaca dari satu permintaan role yang sama. Form pengguna butuh tahu
+ * menu apa saja yang dipunyai sebuah role untuk menentukan centang yang
+ * ditawarkan, jadi memisahkannya berarti dua permintaan untuk data yang sama.
+ */
+function AksesPengguna() {
+  const { data, isLoading, error } = useRoles();
+
+  return (
+    <>
+      <RoleManagement data={data} isLoading={isLoading} error={error} />
+
+      <UserManagement roles={data?.roles ?? []} rolesLoading={isLoading} />
+    </>
+  );
+}
+
+function RoleManagement({
+  data,
+  isLoading,
+  error,
+}: {
+  data?: RoleList;
+  isLoading: boolean;
+  error: unknown;
+}) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Role | null>(null);
+  const [deleting, setDeleting] = useState<Role | null>(null);
+  const [form, setForm] = useState({
+    label: "",
+    description: "",
+    scope: "full" as RoleScope,
+    permissions: [] as Permission[],
+  });
+
+  const save = useSaveRole(editing?.name);
+  const remove = useDeleteRole();
+
+  const semuaMenu = data?.options.permissions ?? [];
+  const menuLapangan = data?.options.field_permissions ?? [];
+
+  // Menu di luar daftar lapangan menuntut wewenang staf di tingkat rute.
+  // Membiarkannya tercentang berarti menu yang muncul di sidebar tapi
+  // halamannya ditolak — yang terbaca "belum ada data", seolah tokonya kosong.
+  const bisaDicentang = (permission: Permission) =>
+    form.scope === "full" || menuLapangan.includes(permission);
+
+  // Root adalah jalan pulih terakhir ketika hak akses siapa pun terlanjur salah
+  // disetel; daftar menunya tidak bisa dipersempit, jadi centangnya dikunci.
+  const terkunci = editing?.name === ROLE_ROOT;
+
+  function openCreate() {
+    setEditing(null);
+    setForm({ label: "", description: "", scope: "full", permissions: [] });
+    save.reset();
+    setFormOpen(true);
+  }
+
+  function openEdit(role: Role) {
+    setEditing(role);
+    setForm({
+      label: role.label,
+      description: role.description,
+      scope: role.scope,
+      permissions: role.permissions,
+    });
+    save.reset();
+    setFormOpen(true);
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
+    save.mutate(
+      {
+        label: form.label,
+        description: form.description,
+        scope: form.scope,
+        permissions: form.permissions,
+      },
+      {
+        onSuccess: () => {
+          toast.success(editing ? "Role diperbarui" : "Role ditambahkan");
+          setFormOpen(false);
+        },
+      },
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Role</h2>
+          <p className="text-sm text-muted-foreground">
+            Susun pembagian kerja tokomu sendiri: pilih menu apa saja yang dibuka sebuah role.
+          </p>
+        </div>
+        <Button onClick={openCreate} disabled={isLoading}>
+          <Plus />
+          Tambah Role
+        </Button>
+      </div>
+
+      <ErrorState error={error} />
+
+      <DataTable
+        columns={5}
+        isLoading={isLoading}
+        isEmpty={!isLoading && (data?.roles.length ?? 0) === 0}
+        emptyTitle="Belum ada role"
+        head={
+          <TR>
+            <TH>Role</TH>
+            <TH className="hidden sm:table-cell">Tingkat akses</TH>
+            <TH>Menu</TH>
+            <TH className="hidden lg:table-cell">Dipakai</TH>
+            <TH className="text-right">Aksi</TH>
+          </TR>
+        }
+      >
+        {data?.roles.map((role) => (
+          <TR key={role.name}>
+            <TD className="whitespace-normal">
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{role.label}</p>
+                {role.is_system && <Badge variant="neutral">Bawaan</Badge>}
+              </div>
+              {role.description && (
+                <p className="text-xs text-muted-foreground">{role.description}</p>
+              )}
+              {/* Tingkat akses menyusul nama saat kolomnya disembunyikan: itu
+                  yang menentukan boleh mengubah data atau cuma melihat. */}
+              <p className="text-xs text-muted-foreground sm:hidden">
+                {SCOPE_LABEL[role.scope]}
+              </p>
+            </TD>
+            <TD className="hidden text-sm sm:table-cell">{SCOPE_LABEL[role.scope]}</TD>
+            <TD className="whitespace-normal text-sm">
+              {role.permissions.length === semuaMenu.length && semuaMenu.length > 0
+                ? "Seluruh menu"
+                : role.permissions.map((p) => PERMISSION_LABEL[p]).join(", ")}
+            </TD>
+            <TD className="hidden text-sm text-muted-foreground lg:table-cell">
+              {role.user_count === 0 ? "belum dipakai" : `${role.user_count} akun`}
+            </TD>
+            <TD>
+              <div className="flex justify-end gap-1">
+                <Button variant="ghost" size="sm" onClick={() => openEdit(role)}>
+                  Ubah
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-destructive hover:text-destructive"
+                  tooltip={role.is_system ? "Role bawaan tidak bisa dihapus" : "Hapus role"}
+                  disabled={role.is_system}
+                  onClick={() => setDeleting(role)}
+                >
+                  <Trash2 />
+                  <span className="sr-only">Hapus role</span>
+                </Button>
+              </div>
+            </TD>
+          </TR>
+        ))}
+      </DataTable>
+
+      <FormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        title={editing ? `Ubah Role ${editing.label}` : "Tambah Role"}
+        error={save.error}
+        loading={save.isPending}
+        onSubmit={handleSubmit}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Nama role"
+            htmlFor="role_label"
+            required
+            hint={editing ? undefined : "Misalnya Kasir, Admin Gudang, atau Tim CS"}
+          >
+            <Input
+              id="role_label"
+              value={form.label}
+              onChange={(event) => setForm({ ...form, label: event.target.value })}
+              minLength={2}
+              maxLength={40}
+              required
+            />
+          </Field>
+
+          <Field
+            label="Tingkat akses"
+            htmlFor="role_scope"
+            required
+            hint={SCOPE_HINT[form.scope]}
+          >
+            <OptionSelect
+              id="role_scope"
+              value={form.scope}
+              disabled={terkunci}
+              // Turun ke petugas lapangan berarti sebagian menu tidak lagi bisa
+              // dipakai, jadi centangnya ikut disaring saat itu juga.
+              // Membiarkannya tercentang hanya menghasilkan penolakan saat
+              // Simpan ditekan.
+              onChange={(value) =>
+                setForm({
+                  ...form,
+                  scope: value,
+                  permissions:
+                    value === "field"
+                      ? form.permissions.filter((p) => menuLapangan.includes(p))
+                      : form.permissions,
+                })
+              }
+              options={toOptions(SCOPE_LABEL)}
+            />
+          </Field>
+
+          <Field label="Keterangan" htmlFor="role_description" className="sm:col-span-2">
+            <Input
+              id="role_description"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              maxLength={200}
+              placeholder="Satu kalimat tentang siapa yang memakai role ini"
+            />
+          </Field>
+
+          <div className="space-y-2 sm:col-span-2">
+            <p className="text-sm font-medium">Menu yang dibuka role ini</p>
+
+            <div className="grid gap-x-4 gap-y-2 rounded-lg border border-border p-3 sm:grid-cols-2">
+              {semuaMenu.map((permission) => (
+                <CheckboxField
+                  key={permission}
+                  id={`role_perm_${permission}`}
+                  checked={terkunci || form.permissions.includes(permission)}
+                  disabled={terkunci || !bisaDicentang(permission)}
+                  onCheckedChange={(checked) =>
+                    setForm({
+                      ...form,
+                      permissions: checked
+                        ? [...form.permissions, permission]
+                        : form.permissions.filter((item) => item !== permission),
+                    })
+                  }
+                >
+                  {PERMISSION_LABEL[permission]}
+                </CheckboxField>
+              ))}
+            </div>
+
+            {terkunci ? (
+              <p className="text-xs text-muted-foreground">
+                Root memegang seluruh menu dan tidak bisa dipersempit. Ia jalan pulih terakhir
+                kalau hak akses akun lain terlanjur salah disetel.
+              </p>
+            ) : form.scope === "field" ? (
+              <p className="text-xs text-muted-foreground">
+                Menu yang diredupkan menuntut wewenang staf toko. Ganti tingkat aksesnya kalau role
+                ini memang perlu membukanya.
+              </p>
+            ) : null}
+
+            {editing && editing.user_count > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Mengubah menu role ini mengeluarkan {editing.user_count} akun pemakainya dari
+                seluruh perangkatnya, supaya pembatasannya berlaku saat itu juga.
+              </p>
+            )}
+          </div>
+        </div>
+      </FormDialog>
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Hapus role?"
+        description={`Role ${deleting?.label ?? ""} akan dihapus. Akun yang memakainya harus dipindahkan ke role lain terlebih dahulu.`}
+        confirmLabel="Hapus"
+        loading={remove.isPending}
+        onConfirm={() => {
+          if (!deleting) return;
+          remove.mutate(deleting.name, {
+            onSuccess: () => {
+              toast.success("Role dihapus");
+              setDeleting(null);
+            },
+            onError: (err) => {
+              toast.error(err instanceof ApiError ? err.message : "Role gagal dihapus");
+              setDeleting(null);
+            },
+          });
+        }}
+      />
+    </div>
+  );
+}
+
+function UserManagement({ roles, rolesLoading }: { roles: Role[]; rolesLoading: boolean }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [deleting, setDeleting] = useState<User | null>(null);
@@ -361,6 +640,18 @@ function UserManagement() {
 
   const { data, isLoading, error } = useUsers({ per_page: 100 });
   const save = useSaveUser(editing?.id);
+
+  // Daftar menu sebuah role sekarang datang dari database, bukan dari salinan
+  // di sini. Menyalinnya ke frontend berarti dua daftar yang cepat atau lambat
+  // berbeda — dan yang terlihat di layar bukan yang benar-benar berlaku.
+  const menuRole = (name: UserRole): Permission[] =>
+    roles.find((role) => role.name === name)?.permissions ?? [];
+  const roleOptions = roles.map((role) => ({ value: role.name, label: role.label }));
+  const rolePilihan = roles.find((role) => role.name === form.role);
+  // Role bawaan pertama yang bukan root: akun baru hampir selalu staf biasa,
+  // dan menawarkan root sebagai bawaan berarti menyodorkan wewenang penuh
+  // kepada siapa pun yang menekan Simpan tanpa membaca.
+  const roleBawaan = roles.find((role) => role.name !== ROLE_ROOT)?.name ?? roles[0]?.name ?? "";
   const remove = useDeleteUser();
   const resetPassword = useResetUserPassword();
 
@@ -370,13 +661,13 @@ function UserManagement() {
       name: "",
       email: "",
       password: "",
-      role: "admin",
+      role: roleBawaan,
       phone: "",
       is_active: true,
-      // Dicentang penuh sesuai bawaan role: pengguna baru memang memulai
+      // Dicentang penuh sesuai menu rolenya: pengguna baru memang memulai
       // dengan seluruh menu rolenya, dan kotak yang semuanya kosong akan
       // terbaca seolah-olah ia tidak diberi akses apa pun.
-      permissions: DEFAULT_PERMISSIONS.admin,
+      permissions: menuRole(roleBawaan),
     });
     save.reset();
     setFormOpen(true);
@@ -407,9 +698,9 @@ function UserManagement() {
     // Mencentang semua yang boleh dibuka role ini sama saja dengan tidak
     // menyetel apa-apa, jadi dikirim kosong supaya pengguna itu ikut berubah
     // otomatis kalau bawaan role diperluas nanti.
-    const roleDefaults = DEFAULT_PERMISSIONS[form.role];
+    const menuRolenya = menuRole(form.role);
     const permissions =
-      form.permissions.length === roleDefaults.length ? [] : form.permissions;
+      form.permissions.length === menuRolenya.length ? [] : form.permissions;
 
     const payload = editing
       ? {
@@ -437,12 +728,15 @@ function UserManagement() {
   }
 
   return (
-    <>
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Beri tripper akun sendiri agar bisa mencatat belanja langsung dari lapangan.
-        </p>
-        <Button onClick={openCreate}>
+        <div>
+          <h2 className="text-base font-semibold">Pengguna</h2>
+          <p className="text-sm text-muted-foreground">
+            Tiap orang punya akunnya sendiri. Centang di sini hanya bisa mempersempit menu rolenya.
+          </p>
+        </div>
+        <Button onClick={openCreate} disabled={rolesLoading}>
           <Plus />
           Tambah Pengguna
         </Button>
@@ -479,8 +773,10 @@ function UserManagement() {
             </TD>
             <TD className="hidden text-sm sm:table-cell">{user.email}</TD>
             <TD>
-              <Badge variant={user.role === "owner" ? "info" : "neutral"}>
-                {ROLE_LABEL[user.role]}
+              <Badge
+                variant={user.role === ROLE_ROOT || user.role === ROLE_OWNER ? "info" : "neutral"}
+              >
+                {user.role_label}
               </Badge>
             </TD>
             <TD className="hidden text-sm text-muted-foreground lg:table-cell">
@@ -563,17 +859,17 @@ function UserManagement() {
             </Field>
           )}
 
-          <Field label="Role" htmlFor="user_role" required hint={ROLE_HINT[form.role]}>
+          <Field label="Role" htmlFor="user_role" required hint={rolePilihan?.description}>
             <OptionSelect
               id="user_role"
               value={form.role}
               // Ganti role berarti daftar menunya berbeda, jadi centangnya
-              // dikembalikan ke bawaan role yang baru alih-alih menyisakan
-              // pilihan lama yang belum tentu masih berlaku.
+              // dikembalikan ke seluruh menu role yang baru alih-alih
+              // menyisakan pilihan lama yang belum tentu masih berlaku.
               onChange={(value) =>
-                setForm({ ...form, role: value, permissions: DEFAULT_PERMISSIONS[value] })
+                setForm({ ...form, role: value, permissions: menuRole(value) })
               }
-              options={toOptions(ROLE_LABEL)}
+              options={roleOptions}
             />
           </Field>
 
@@ -596,14 +892,14 @@ function UserManagement() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setForm({ ...form, permissions: DEFAULT_PERMISSIONS[form.role] })}
+                onClick={() => setForm({ ...form, permissions: menuRole(form.role) })}
               >
                 Ikuti bawaan role
               </Button>
             </div>
 
             <div className="grid gap-x-4 gap-y-2 rounded-lg border border-border p-3 sm:grid-cols-2">
-              {DEFAULT_PERMISSIONS[form.role].map((permission) => (
+              {menuRole(form.role).map((permission) => (
                 <CheckboxField
                   key={permission}
                   id={`perm_${permission}`}
@@ -696,7 +992,7 @@ function UserManagement() {
           });
         }}
       />
-    </>
+    </div>
   );
 }
 

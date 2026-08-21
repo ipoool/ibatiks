@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { User, UserRole } from "@/types/api";
+import type { Permission, User } from "@/types/api";
 
 const CurrentUserContext = createContext<User | null>(null);
 
@@ -28,8 +28,19 @@ export function useCurrentUser(): User | null {
   return useContext(CurrentUserContext);
 }
 
-/** True kalau pengguna saat ini punya salah satu role yang diizinkan. */
-export function useHasRole(...roles: UserRole[]): boolean {
+/**
+ * True kalau pengguna saat ini boleh membuka menu tersebut.
+ *
+ * Menggantikan pemeriksaan berbasis nama role. Sejak role jadi data, nama role
+ * tidak lagi bisa jadi pegangan: role bikinan toko sendiri bukan owner, admin,
+ * maupun tripper, jadi `role === "owner"` akan menyembunyikan bagian layar dari
+ * orang yang sebenarnya berhak — dan sebaliknya menampilkannya untuk yang
+ * menunya sudah dicabut.
+ *
+ * Dipakai untuk menyembunyikan bagian layar yang backend-nya akan menolak.
+ * Penjagaan yang sesungguhnya tetap di backend.
+ */
+export function useHasPermission(permission: Permission): boolean {
   const user = useContext(CurrentUserContext);
-  return user ? roles.includes(user.role) : false;
+  return user?.effective_permissions?.includes(permission) ?? false;
 }

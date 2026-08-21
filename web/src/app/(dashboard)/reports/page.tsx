@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { FilterSelect } from "@/components/filter-select";
-import { useHasRole } from "@/components/layout/user-context";
+import { useHasPermission } from "@/components/layout/user-context";
 import { OrderSourceBadge, OrderStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, PageHeader } from "@/components/ui/page";
@@ -37,7 +37,11 @@ export default function ReportsPage() {
   // Laporan margin hanya boleh dilihat owner. Tabnya disembunyikan dari admin
   // supaya mereka tidak membuka tab yang pasti dijawab "tidak punya akses" oleh
   // backend. Penjagaan sesungguhnya tetap ada di server.
-  const canSeeMargin = useHasRole("owner");
+  // Angka laba-rugi punya hak aksesnya sendiri, terpisah dari laporan
+  // penjualan biasa. Dulu tabnya tampil untuk siapa pun yang punya menu Laporan
+  // sementara endpoint-nya menolak — yang terbaca laba nol rupiah, bukan
+  // penolakan.
+  const canSeeMargin = useHasPermission("reports_finance");
 
   return (
     <>

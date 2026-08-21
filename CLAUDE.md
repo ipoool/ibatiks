@@ -17,7 +17,9 @@ make migrate-up | migrate-down | migrate-reset | migrate-version
 make seed-demo && ./scripts/demo-data.sh   # data contoh yang bisa dilihat di UI
 ```
 
-Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`).
+Login lokal: `owner@ibatiks.id` / `rahasia123` (dari `SEED_OWNER_*` di `.env`). Akun root
+`hi@loomwarestudio.com` dibuat dari `SEED_ROOT_*`, dipakai kalau hak akses owner terlanjur salah
+disetel — lihat "Hak akses".
 
 `scripts/smoke.sh` **merusak data demo** karena membuat trip dan order sendiri. Setelah menjalankannya, pulihkan dengan `make migrate-reset && make migrate-up && make seed-demo && ./scripts/demo-data.sh`.
 
@@ -144,13 +146,26 @@ Nama kurir dan nomor resi juga tidak dicetak. Keduanya sudah ada di label resmi 
 
 ## Hak akses
 
-Role (`owner`/`admin`/`tripper`) menentukan batas kasar; di dalamnya owner bisa mencentang menu per pengguna lewat **Pengaturan → Pengguna**. Aturannya hanya ditulis sekali, di `internal/domain/permission.go`:
+**Role adalah data, bukan daftar tertutup di kode.** Tabel `roles` menyimpan nama, label, daftar menu, dan scope-nya; toko menyusun rolenya sendiri lewat Pengaturan → Pengguna. `users.role` menunjuk ke sana dengan `ON DELETE RESTRICT`. Aturan penggabungannya hanya ditulis sekali, di `internal/domain/permission.go` dan `role.go`.
 
-- Daftar kosong di kolom `users.permissions` berarti "ikut bawaan role" — bukan "tanpa akses".
-- Centang hanya bisa **mempersempit**; backend menyaring ulang permintaan supaya tripper tidak bisa diberi menu pengaturan.
-- Hak akses ikut dibawa di dalam access token, jadi mengubahnya mencabut sesi pengguna itu supaya pembatasannya berlaku saat itu juga.
-- Frontend memakai `effective_permissions` yang dihitung backend; jangan menyalin tabel bawaan role ke UI selain untuk menampilkan pilihan centang.
-- **Owner tidak bisa mencabut Pengaturan dan Pengguna dari dirinya sendiri** (`OwnerLockedPermissions`). Dua menu itu satu-satunya jalan mengembalikan hak akses siapa pun; sekali hilang, satu-satunya pemulihan adalah `UPDATE users SET permissions = NULL` langsung ke database. Karena dihitung dan bukan disimpan, baris yang terlanjur rusak ikut pulih sendiri.
+**Penjaga rute membaca scope, bukan nama role.** Ini yang paling mudah salah: `RequireRole("owner","admin")` akan menolak role bikinan toko sendiri di seluruh endpoint operasional walaupun menunya sudah dicentang — role bernama "kasir" bukan owner, admin, maupun tripper. Yang dipakai sekarang `middleware.RequireScope(domain.ScopeFull)`. Jangan menambahkan penjaga berbasis nama role di mana pun, backend maupun frontend.
+
+- **Scope adalah batas kasar yang tidak bisa dinyatakan lewat centang menu.** Daftar menu menjawab "menu apa yang boleh dibuka", bukan "boleh mengubah isinya atau cuma melihat". Tripper perlu membuka menu Produk untuk membaca daftar belanjanya, tapi tidak boleh menyunting master produk. Hanya dua nilai: `full` (staf toko) dan `field` (petugas lapangan).
+- **Role ber-scope `field` hanya boleh memegang `domain.FieldPermissions`.** Menu lain menuntut wewenang staf di tingkat rute, jadi mencentangnya menghasilkan menu yang muncul di sidebar tapi halamannya ditolak — dan yang terbaca "belum ada data", seolah tokonya kosong. Service menolaknya, dan dialog role meredupkan centangnya.
+
+**Empat role bawaan** (`domain.SystemRoles`) tidak bisa dihapus maupun diganti namanya; kode merujuk nama-namanya untuk penjagaan yang tidak bisa dinyatakan lewat daftar menu.
+
+- **Root memegang seluruh menu dan tidak bisa dipersempit.** Ia jalan pulih terakhir ketika hak akses siapa pun terlanjur salah disetel, dan jalan pulih yang bisa dipersempit bukan jalan pulih. `RoleService.Update` menimpa balik apa pun yang dikirim untuk role ini.
+- **Owner tidak bisa kehilangan Pengaturan dan Pengguna** (`LockedPermissions`). Dua menu itu satu-satunya jalan mengembalikan hak akses siapa pun. Karena dihitung dan bukan disimpan, baris yang terlanjur rusak ikut pulih sendiri.
+- **Akun terakhir yang bisa membuka menu Pengguna tidak boleh diturunkan atau dihapus.** Yang dihitung daftar menunya (`CountActiveUserManagers`), bukan nama rolenya — menghitung owner saja berarti menahan penurunan owner terakhir padahal root masih memegang menunya, sekaligus meloloskan penurunan akun terakhir yang benar-benar memegangnya karena rolenya kebetulan bukan owner.
+
+**Laporan laba-rugi punya hak aksesnya sendiri,** `PermReportsFinance`. Dulu dijaga "khusus owner" lewat nama role dan tidak punya centang; akibatnya admin yang punya menu Laporan tetap melihat tab Profit / Loss lalu dibalas 403 — yang terbaca laba nol rupiah, bukan penolakan.
+
+**Centang per pengguna hanya bisa mempersempit** daftar menu rolenya. Daftar kosong di `users.permissions` berarti "ikut seluruh menu role" — bukan "tanpa akses". Backend menyaring ulang tiap permintaan supaya batas role tidak bisa dilewati dengan permintaan yang dirakit sendiri.
+
+**Hak akses dan scope ikut dibawa di dalam access token** supaya middleware tidak menyentuh database tiap request. Konsekuensinya perubahan baru terasa saat token berikutnya terbit — karena itu `UserService.Update` mencabut sesi pengguna yang haknya berubah, dan `RoleService.Update` mencabut sesi **seluruh** pemakai role itu. Token yang terbit sebelum role pindah ke database tidak membawa keduanya; `LegacyEffectivePermissions` dan `LegacyScope` menambalnya selama sisa umur token, dan `LegacyScope` sengaja condong ke yang paling sempit.
+
+**Frontend memakai `effective_permissions` yang dihitung backend.** Jangan menyalin daftar menu role ke UI — dialog role membacanya dari `GET /roles`, yang sekaligus mengirim daftar menu aplikasi dan daftar menu lapangan. Sidebar menyaring murni lewat `canOpenPath`; tiap menu dulu membawa daftar role yang boleh melihatnya, dan daftar itu selalu berakhir kembar dengan hak aksesnya — sampai role jadi data, dan sidebarnya kosong melompong untuk role apa pun di luar tiga nama lama.
 
 **Dashboard ikut butuh hak Laporan, dan orang yang tidak punya tidak mendarat di sana.** Seluruh isi Dashboard datang dari satu endpoint laporan; tanpa hak itu halamannya tetap terbuka tapi datanya ditolak, dan yang terbaca adalah deretan angka nol lengkap dengan "Belum ada order" — seolah tokonya kosong. Kena persis pada tripper. Sesudah login dan pada tiap penolakan rute, middleware mengarahkan ke `firstAllowedPath`: halaman pertama yang benar-benar boleh dibuka, mengikuti urutan sidebar. Pengalihannya berhenti sendiri kalau tujuannya halaman itu juga — tanpa itu pengguna tanpa hak apa pun terjebak putaran.
 

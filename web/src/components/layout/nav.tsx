@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import type { UserRole } from "@/types/api";
 
 import { canOpenPath } from "@/lib/route-permissions";
 
@@ -28,8 +27,6 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Role yang boleh melihat menu ini. */
-  roles: UserRole[];
   /*
    * Hak akses yang dibutuhkan menu ini tidak ditulis di sini, melainkan
    * diturunkan dari href lewat src/lib/route-permissions.ts — modul yang sama
@@ -45,10 +42,6 @@ export interface NavSection {
   items: NavItem[];
 }
 
-const ALL: UserRole[] = ["owner", "admin", "tripper"];
-const STAFF: UserRole[] = ["owner", "admin"];
-const OWNER: UserRole[] = ["owner"];
-
 /**
  * Struktur menu mengikuti urutan kerja sehari-hari, bukan urutan tabel di
  * database: dari merencanakan trip, mencatat order, belanja, sampai mengirim.
@@ -57,66 +50,68 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: "Ringkasan",
     icon: LayoutDashboard,
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard, roles: ALL }],
+    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     title: "Perjalanan",
     icon: Luggage,
     items: [
-      { href: "/trips", label: "Trip", icon: Plane, roles: ALL },
-      { href: "/shopping-list", label: "Daftar Belanja", icon: ClipboardList, roles: ALL },
-      { href: "/purchases", label: "Pembelian", icon: ShoppingCart, roles: ALL },
+      { href: "/trips", label: "Trip", icon: Plane },
+      { href: "/shopping-list", label: "Daftar Belanja", icon: ClipboardList },
+      { href: "/purchases", label: "Pembelian", icon: ShoppingCart },
     ],
   },
   {
     title: "Penjualan",
     icon: Store,
     items: [
-      { href: "/orders", label: "Order", icon: Receipt, roles: STAFF },
+      { href: "/orders", label: "Order", icon: Receipt },
       // Urutannya mengikuti perjalanan satu order: dicatat, dikemas lalu
       // dikirim, baru ditagih pelunasannya. Invoice pelunasan memang terbit
       // paling belakang, jadi menunya duduk paling bawah.
-      { href: "/shipments", label: "Pengiriman", icon: Truck, roles: STAFF },
-      { href: "/invoices", label: "Invoice", icon: FileText, roles: STAFF },
+      { href: "/shipments", label: "Pengiriman", icon: Truck },
+      { href: "/invoices", label: "Invoice", icon: FileText },
     ],
   },
   {
     title: "Data Master",
     icon: Database,
     items: [
-      { href: "/customers", label: "Customer", icon: Users, roles: STAFF },
-      { href: "/products", label: "Produk", icon: Package, roles: ALL },
-      { href: "/stock", label: "Stok", icon: Boxes, roles: STAFF },
+      { href: "/customers", label: "Customer", icon: Users },
+      { href: "/products", label: "Produk", icon: Package },
+      { href: "/stock", label: "Stok", icon: Boxes },
     ],
   },
   {
     title: "Lainnya",
     icon: MoreHorizontal,
     items: [
-      { href: "/reports", label: "Laporan", icon: BarChart3, roles: STAFF },
-      { href: "/settings", label: "Pengaturan", icon: Settings, roles: OWNER },
+      { href: "/reports", label: "Laporan", icon: BarChart3 },
+      { href: "/settings", label: "Pengaturan", icon: Settings },
     ],
   },
 ];
 
 /**
- * Menyaring menu sesuai role dan hak akses, sekaligus membuang seksi yang jadi
- * kosong.
+ * Menyaring menu sesuai hak akses, sekaligus membuang seksi yang jadi kosong.
+ *
+ * Yang menentukan hanya daftar menunya, bukan nama rolenya. Tiap menu dulu
+ * membawa daftar role yang boleh melihatnya, dan daftar itu selalu berakhir
+ * kembar dengan hak aksesnya — sampai role jadi data: role bikinan toko sendiri
+ * bukan owner, admin, maupun tripper, jadi seluruh menu ikut tersaring habis
+ * dan sidebarnya kosong melompong.
  *
  * Hak akses efektif dihitung backend dan ikut di dalam data pengguna, jadi
  * aturan siapa boleh apa hanya ditulis di satu tempat.
  */
 export function visibleSections(user: {
-  role: UserRole;
   effective_permissions?: string[] | null;
 }): NavSection[] {
   const granted = user.effective_permissions ?? [];
 
   return NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter(
-      (item) => item.roles.includes(user.role) && canOpenPath(item.href, granted),
-    ),
+    items: section.items.filter((item) => canOpenPath(item.href, granted)),
   })).filter((section) => section.items.length > 0);
 }
 

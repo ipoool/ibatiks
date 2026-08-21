@@ -2,10 +2,10 @@ package domain
 
 // Hak akses per menu.
 //
-// Role tetap jadi bawaan, tapi owner bisa menyetel daftar ini per pengguna
-// ketika pembagian kerja di tokonya tidak persis mengikuti tiga role bawaan.
 // Nilainya sengaja mengikuti nama menu di aplikasi, bukan nama tabel, karena
-// yang diatur owner adalah "menu apa yang boleh dipakai", bukan struktur data.
+// yang disusun tim toko adalah "menu apa yang boleh dipakai", bukan struktur
+// data. Daftar menu sebuah role tinggal di tabel roles; centang per pengguna
+// di users.permissions hanya boleh mempersempitnya.
 const (
 	PermTrips        = "trips"
 	PermShoppingList = "shopping_list"
@@ -21,16 +21,27 @@ const (
 	PermProducts  = "products"
 	PermStock     = "stock"
 	PermReports   = "reports"
-	PermSettings  = "settings"
-	PermUsers     = "users"
+	// PermReportsFinance memisahkan angka laba-rugi dari laporan penjualan
+	// biasa. Dulu penjagaannya menempel pada nama role ("khusus owner") dan
+	// tidak punya centang sendiri; begitu role jadi data, penjagaan lewat nama
+	// tidak punya pegangan lagi.
+	//
+	// Pemisahannya juga menutup lubang lama: admin punya PermReports, jadi tab
+	// Profit / Loss ikut tampil untuknya, tapi endpoint-nya menolak — yang
+	// terbaca adalah laba nol rupiah, bukan penolakan.
+	PermReportsFinance = "reports_finance"
+	PermSettings       = "settings"
+	PermUsers          = "users"
 )
 
-// AllPermissions dipakai antarmuka pengaturan untuk menampilkan pilihannya.
+// AllPermissions dipakai antarmuka pengaturan untuk menampilkan pilihannya,
+// dan dipakai role root sebagai isinya.
 var AllPermissions = []string{
 	PermTrips, PermShoppingList, PermPurchases,
 	PermOrders, PermInvoices, PermShipments,
 	PermCustomers, PermProducts, PermStock,
-	PermReports, PermSettings, PermUsers,
+	PermReports, PermReportsFinance,
+	PermSettings, PermUsers,
 }
 
 func IsValidPermission(p string) bool {
@@ -42,10 +53,16 @@ func IsValidPermission(p string) bool {
 	return false
 }
 
-// DefaultPermissions adalah hak akses bawaan sebuah role.
-func DefaultPermissions(role string) []string {
+// legacyRolePermissions adalah bawaan role sebelum role pindah ke database.
+//
+// Satu-satunya pemakainya adalah access token yang terbit sebelum perubahan
+// ini dan belum kedaluwarsa. Token membawa hak aksesnya sendiri supaya
+// middleware tidak perlu menyentuh database tiap request; token lama tidak
+// membawa apa-apa, dan tanpa cadangan ini seluruh sesi yang sedang berjalan
+// mendadak kehilangan seluruh menunya sampai tokennya diperbarui.
+func legacyRolePermissions(role string) []string {
 	switch role {
-	case RoleOwner:
+	case RoleRoot, RoleOwner:
 		return append([]string(nil), AllPermissions...)
 	case RoleAdmin:
 		return []string{
@@ -63,32 +80,44 @@ func DefaultPermissions(role string) []string {
 	}
 }
 
-// OwnerLockedPermissions adalah menu yang tidak bisa dicabut dari owner.
-//
-// Pengaturan dan Pengguna adalah satu-satunya jalan untuk mengembalikan hak
-// akses siapa pun, termasuk hak owner itu sendiri. Tanpa penjagaan ini, satu
-// centang yang terlepas mengunci owner keluar dari tokonya sendiri dan satu-
-// satunya jalan pulih adalah menyunting database langsung.
-var OwnerLockedPermissions = []string{PermSettings, PermUsers}
+// LegacyEffectivePermissions dipakai middleware untuk token lama yang belum
+// membawa daftar hak aksesnya sendiri.
+func LegacyEffectivePermissions(role string, custom []string) []string {
+	return EffectivePermissions(role, legacyRolePermissions(role), custom)
+}
 
-// EffectivePermissions menggabungkan daftar khusus pengguna dengan bawaan role.
+// LegacyScope menebak scope dari nama role, untuk token yang terbit sebelum
+// scope ada.
 //
-// Daftar kosong berarti belum pernah disetel, jadi yang dipakai bawaan role.
-// Pengaturan khusus tidak boleh melampaui role: seorang tripper tetap tidak
-// bisa diberi menu pengaturan lewat centang, sebab batas role adalah keputusan
-// keamanan sedangkan centang hanyalah penyempitan.
+// Tebakannya harus condong ke yang paling sempit: role yang tidak dikenal
+// diperlakukan sebagai petugas lapangan. Menebak ke arah sebaliknya berarti
+// memberi wewenang penuh selama sisa umur token itu.
+func LegacyScope(role string) string {
+	switch role {
+	case RoleRoot, RoleOwner, RoleAdmin:
+		return ScopeFull
+	default:
+		return ScopeField
+	}
+}
+
+// EffectivePermissions menggabungkan centang khusus pengguna dengan daftar menu
+// milik rolenya.
 //
-// Owner adalah pengecualiannya ke arah sebaliknya: penyempitan tidak boleh
-// sampai mencabut OwnerLockedPermissions, supaya tokonya tidak pernah kehilangan
-// pemiliknya.
-func EffectivePermissions(role string, custom []string) []string {
-	defaults := DefaultPermissions(role)
+// Daftar centang kosong berarti belum pernah disetel, jadi yang dipakai daftar
+// rolenya utuh. Centang tidak boleh melampaui role: batas role adalah keputusan
+// keamanan, sedangkan centang hanyalah penyempitan.
+//
+// Menu yang terkunci untuk sebuah role (lihat LockedPermissions) selalu ikut,
+// supaya toko tidak pernah kehilangan pemiliknya dan root tetap jadi jalan
+// pulih ketika hak akses siapa pun terlanjur salah disetel.
+func EffectivePermissions(role string, rolePermissions, custom []string) []string {
 	if len(custom) == 0 {
-		return defaults
+		return withLocked(role, rolePermissions)
 	}
 
-	allowed := make(map[string]struct{}, len(defaults))
-	for _, p := range defaults {
+	allowed := make(map[string]struct{}, len(rolePermissions))
+	for _, p := range rolePermissions {
 		allowed[p] = struct{}{}
 	}
 
@@ -104,13 +133,24 @@ func EffectivePermissions(role string, custom []string) []string {
 		seen[p] = struct{}{}
 		out = append(out, p)
 	}
+	return withLocked(role, out)
+}
 
-	if role == RoleOwner {
-		for _, p := range OwnerLockedPermissions {
-			if _, sudah := seen[p]; !sudah {
-				seen[p] = struct{}{}
-				out = append(out, p)
-			}
+func withLocked(role string, permissions []string) []string {
+	locked := LockedPermissions(role)
+	if len(locked) == 0 {
+		return append([]string(nil), permissions...)
+	}
+
+	out := append([]string(nil), permissions...)
+	seen := make(map[string]struct{}, len(out))
+	for _, p := range out {
+		seen[p] = struct{}{}
+	}
+	for _, p := range locked {
+		if _, sudah := seen[p]; !sudah {
+			seen[p] = struct{}{}
+			out = append(out, p)
 		}
 	}
 	return out

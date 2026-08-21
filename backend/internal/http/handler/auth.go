@@ -38,7 +38,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	withEffectivePermissions(session.User)
 	response.OK(w, session)
 }
 
@@ -58,7 +57,6 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	withEffectivePermissions(session.User)
 	response.OK(w, session)
 }
 
@@ -82,7 +80,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.OK(w, withEffectivePermissions(user))
+	response.OK(w, user)
 }
 
 type changePasswordRequest struct {

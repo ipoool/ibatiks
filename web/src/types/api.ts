@@ -30,7 +30,42 @@ export interface ApiErrorPayload {
 
 // --- Pengguna & sesi -------------------------------------------------------
 
-export type UserRole = "owner" | "admin" | "tripper";
+/**
+ * Nama pengenal role. Bukan gabungan tetap: sejak role jadi data, toko bisa
+ * menyusun rolenya sendiri, jadi nilainya apa saja yang ada di tabel roles.
+ * Nama bawaan tetap dirujuk kode untuk penjagaan khusus.
+ */
+export type UserRole = string;
+
+export const ROLE_ROOT = "root";
+export const ROLE_OWNER = "owner";
+
+/** Batas kasar wewenang sebuah role, dipakai penjaga rute di backend. */
+export type RoleScope = "full" | "field";
+
+export interface Role {
+  name: string;
+  label: string;
+  description: string;
+  scope: RoleScope;
+  permissions: Permission[];
+  /** Role bawaan tidak bisa dihapus maupun diganti namanya. */
+  is_system: boolean;
+  /** Jumlah akun yang memakai role ini. */
+  user_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoleList {
+  roles: Role[];
+  options: {
+    permissions: Permission[];
+    scopes: RoleScope[];
+    /** Bagian dari `permissions` yang masih masuk akal untuk petugas lapangan. */
+    field_permissions: Permission[];
+  };
+}
 
 /** Hak akses per menu; nilainya sama persis dengan yang dipakai backend. */
 export type Permission =
@@ -45,6 +80,8 @@ export type Permission =
   | "products"
   | "stock"
   | "reports"
+  /** Angka laba-rugi, dipisah dari laporan penjualan biasa. */
+  | "reports_finance"
   | "settings"
   | "users";
 
@@ -53,6 +90,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** Nama role yang dibaca orang, dihitung backend dari tabel roles. */
+  role_label: string;
   phone: string | null;
   is_active: boolean;
   /** Hak akses khusus pengguna ini. Kosong berarti mengikuti bawaan role. */

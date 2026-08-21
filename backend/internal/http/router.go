@@ -24,6 +24,7 @@ import (
 type Handlers struct {
 	Auth      *handler.AuthHandler
 	Users     *handler.UserHandler
+	Roles     *handler.RoleHandler
 	Customers *handler.CustomerHandler
 	Products  *handler.ProductHandler
 	Trips     *handler.TripHandler
@@ -81,12 +82,19 @@ func NewRouter(d RouterDeps) http.Handler {
 	r.Handle("/uploads/*", fileServer)
 
 	authenticated := middleware.Authenticate(d.Tokens)
-	staffOnly := middleware.RequireRole(domain.RoleOwner, domain.RoleAdmin)
-	ownerOnly := middleware.RequireRole(domain.RoleOwner)
+	// staffOnly menahan petugas lapangan dari perubahan data. Yang dibaca
+	// adalah scope rolenya, bukan namanya: role bikinan toko sendiri bukan
+	// owner, admin, maupun tripper, dan penjaga berbasis nama akan menolaknya
+	// di seluruh endpoint operasional walaupun menunya sudah dicentang.
+	//
+	// Ini yang tidak bisa dinyatakan lewat centang menu: tripper perlu membuka
+	// menu Produk untuk membaca daftar belanjanya, tapi tidak boleh menyunting
+	// master produk.
+	staffOnly := middleware.RequireScope(domain.ScopeFull)
 
-	// Hak akses per menu memperhalus batas role: owner boleh mempersempit menu
-	// mana saja yang dibuka untuk seorang pengguna. Dipasang berdampingan
-	// dengan penjaga role, bukan menggantikannya — role tetap batas kasarnya.
+	// Hak akses per menu memperhalus batas itu: menu mana saja yang dibuka
+	// untuk sebuah role, lalu dipersempit lagi per pengguna. Dipasang
+	// berdampingan dengan penjaga scope, bukan menggantikannya.
 	canAccess := middleware.RequirePermission
 
 	r.Route("/api/v1", func(api chi.Router) {
@@ -109,9 +117,20 @@ func NewRouter(d RouterDeps) http.Handler {
 
 			private.Post("/uploads", d.Handlers.Uploads.Upload)
 
-			// Manajemen pengguna khusus owner.
+			// Manajemen pengguna dan role. Yang menentukan bukan lagi nama
+			// role, melainkan hak akses menu Pengguna — yang secara bawaan
+			// hanya dipegang root dan owner.
+			private.Route("/roles", func(roles chi.Router) {
+				roles.Use(staffOnly, canAccess(domain.PermUsers))
+				roles.Get("/", d.Handlers.Roles.List)
+				roles.Post("/", d.Handlers.Roles.Create)
+				roles.Get("/{name}", d.Handlers.Roles.Get)
+				roles.Put("/{name}", d.Handlers.Roles.Update)
+				roles.Delete("/{name}", d.Handlers.Roles.Delete)
+			})
+
 			private.Route("/users", func(users chi.Router) {
-				users.Use(ownerOnly, canAccess(domain.PermUsers))
+				users.Use(staffOnly, canAccess(domain.PermUsers))
 				users.Post("/", d.Handlers.Users.Create)
 				users.Get("/", d.Handlers.Users.List)
 				users.Get("/{id}", d.Handlers.Users.Get)
@@ -278,7 +297,7 @@ func NewRouter(d RouterDeps) http.Handler {
 
 				// Pencarian tujuan memakan kuota langganan, jadi hanya dibuka
 				// untuk yang memang sedang menyetel pengiriman.
-				shipping.With(ownerOnly, canAccess(domain.PermSettings)).
+				shipping.With(canAccess(domain.PermSettings)).
 					Get("/destinations", d.Handlers.Shipping.SearchDestinations)
 			})
 
@@ -290,9 +309,13 @@ func NewRouter(d RouterDeps) http.Handler {
 				reports.Get("/customers", d.Handlers.Reports.CustomerSales)
 				reports.Get("/channels", d.Handlers.Reports.ChannelSales)
 
-				// Laporan laba-rugi hanya untuk owner.
+				// Laporan laba-rugi punya hak aksesnya sendiri.
+				//
+				// Dulu dijaga "khusus owner" lewat nama role, dan admin yang
+				// punya menu Laporan tetap melihat tab Profit / Loss lalu
+				// dibalas 403 — yang terbaca laba nol rupiah, bukan penolakan.
 				reports.Group(func(financial chi.Router) {
-					financial.Use(ownerOnly)
+					financial.Use(canAccess(domain.PermReportsFinance))
 					financial.Get("/profit", d.Handlers.Reports.TripProfit)
 					financial.Get("/orders", d.Handlers.Reports.OrderProfits)
 				})
@@ -302,12 +325,12 @@ func NewRouter(d RouterDeps) http.Handler {
 				settings.Get("/", d.Handlers.Settings.List)
 
 				settings.Group(func(write chi.Router) {
-					write.Use(ownerOnly, canAccess(domain.PermSettings))
+					write.Use(canAccess(domain.PermSettings))
 					write.Put("/", d.Handlers.Settings.Update)
 				})
 			})
 
-			private.With(ownerOnly, canAccess(domain.PermSettings)).
+			private.With(canAccess(domain.PermSettings)).
 				Get("/audit-logs", d.Handlers.Settings.AuditLogs)
 		})
 	})

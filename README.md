@@ -64,6 +64,8 @@ Buka:
 | http://localhost:8081 | Adminer (GUI database) |
 
 Login dengan `SEED_OWNER_EMAIL` dan `SEED_OWNER_PASSWORD` dari `.env` (bawaannya `owner@ibatiks.id` / `rahasia123`).
+Kalau `SEED_ROOT_EMAIL` diisi, seed ikut membuat akun ber-role `root` — akses penuh yang tidak bisa
+dipersempit, dipakai kalau hak akses owner terlanjur salah disetel.
 
 Backend dan frontend berjalan dengan **hot reload**: ubah kode di editor, hasilnya langsung terlihat tanpa build ulang container.
 
@@ -376,13 +378,32 @@ Refresh token dirotasi setiap kali dipakai dan disimpan sebagai hash — kalau i
 
 ## Hak akses pengguna
 
-| Role | Bisa apa |
+**Role adalah data, bukan daftar tertutup.** Empat role bawaan selalu ada, dan toko bisa menyusun
+role sendiri lewat **Pengaturan → Pengguna → Tambah Role**: beri namanya, pilih tingkat aksesnya,
+lalu centang menu apa saja yang dibukanya.
+
+| Role bawaan | Bisa apa |
 |---|---|
+| **root** | Seluruh menu tanpa kecuali, dan tidak bisa dipersempit — jalan pulih kalau hak akses akun lain terlanjur salah disetel |
 | **owner** | Semuanya, termasuk laporan laba, pengaturan toko, dan manajemen pengguna |
 | **admin** | Seluruh operasional harian: trip, order, invoice, pengiriman, stok, piutang, rekap customer dan channel |
 | **tripper** | Trip dan katalog (baca), daftar belanja, dan input pembelian di lapangan |
 
+Tiap role punya **tingkat akses**, batas kasar yang tidak bisa dinyatakan lewat centang menu.
+Daftar menu menjawab "menu apa yang boleh dibuka", bukan "boleh mengubah isinya atau cuma
+melihat" — petugas lapangan perlu membuka menu Produk untuk membaca daftar belanjanya, tapi tidak
+boleh menyunting master produk.
+
+| Tingkat akses | Artinya |
+|---|---|
+| **Staf toko** | Boleh mengubah data pada menu yang dicentang |
+| **Petugas lapangan** | Hanya trip, daftar belanja, pembelian, dan produk — dan produk cuma bisa dibaca |
+
 Beri tripper akun sendiri agar bisa mencatat belanja langsung dari ponsel saat di toko.
+
+Di dalam role, tiap pengguna masih bisa dipersempit lagi lewat centang di form pengguna. Centang
+hanya bisa **mengurangi** menu rolenya, tidak pernah menambah — backend menyaring ulang tiap
+permintaan supaya batas rolenya tidak bisa dilewati dengan permintaan yang dirakit sendiri.
 
 **Lima kali gagal login mengunci sebuah email selama lima menit.** Hitungannya berjendela: hanya
 kegagalan dalam lima menit terakhir yang dihitung, jadi satu salah ketik minggu lalu tidak

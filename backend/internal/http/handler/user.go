@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/ipoool/jastipin/backend/internal/domain"
 	"github.com/ipoool/jastipin/backend/internal/http/middleware"
 	"github.com/ipoool/jastipin/backend/internal/http/request"
 	"github.com/ipoool/jastipin/backend/internal/http/response"
@@ -23,7 +22,7 @@ type createUserRequest struct {
 	Name        string   `json:"name"     validate:"required,min=2,max=100"`
 	Email       string   `json:"email"    validate:"required,email"`
 	Password    string   `json:"password" validate:"required,min=8,max=72"`
-	Role        string   `json:"role"        validate:"required,oneof=owner admin tripper"`
+	Role        string   `json:"role"        validate:"required"`
 	Phone       *string  `json:"phone"`
 	Permissions []string `json:"permissions"`
 }
@@ -47,28 +46,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.Created(w, withEffectivePermissions(user))
-}
-
-// withEffectivePermissions mengisi hak akses hasil gabungan sebelum data
-// dikirim ke antarmuka.
-//
-// Aturan penggabungannya tinggal di domain, dan antarmuka cukup membaca
-// hasilnya — kalau tidak, aturan yang sama harus ditulis ulang di frontend dan
-// cepat atau lambat keduanya berbeda.
-func withEffectivePermissions(user *domain.User) *domain.User {
-	if user == nil {
-		return nil
-	}
-	user.EffectivePermissions = domain.EffectivePermissions(user.Role, user.Permissions)
-	return user
-}
-
-func withEffectivePermissionsAll(users []domain.User) []domain.User {
-	for i := range users {
-		users[i].EffectivePermissions = domain.EffectivePermissions(users[i].Role, users[i].Permissions)
-	}
-	return users
+	response.Created(w, user)
 }
 
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +57,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.Paginated(w, withEffectivePermissionsAll(users), p.Page, p.PerPage, total)
+	response.Paginated(w, users, p.Page, p.PerPage, total)
 }
 
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -94,12 +72,12 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.OK(w, withEffectivePermissions(user))
+	response.OK(w, user)
 }
 
 type updateUserRequest struct {
 	Name        string   `json:"name"      validate:"required,min=2,max=100"`
-	Role        string   `json:"role"        validate:"required,oneof=owner admin tripper"`
+	Role        string   `json:"role"        validate:"required"`
 	Phone       *string  `json:"phone"`
 	IsActive    bool     `json:"is_active"`
 	Permissions []string `json:"permissions"`
@@ -129,7 +107,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, err)
 		return
 	}
-	response.OK(w, withEffectivePermissions(user))
+	response.OK(w, user)
 }
 
 type resetPasswordRequest struct {

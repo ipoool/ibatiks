@@ -31,11 +31,12 @@ const bcryptCost = 12
 type AuthService struct {
 	pool   *pgxpool.Pool
 	users  *repository.UserRepo
+	roles  *repository.RoleRepo
 	tokens *token.Manager
 }
 
-func NewAuthService(pool *pgxpool.Pool, users *repository.UserRepo, tokens *token.Manager) *AuthService {
-	return &AuthService{pool: pool, users: users, tokens: tokens}
+func NewAuthService(pool *pgxpool.Pool, users *repository.UserRepo, roles *repository.RoleRepo, tokens *token.Manager) *AuthService {
+	return &AuthService{pool: pool, users: users, roles: roles, tokens: tokens}
 }
 
 type Session struct {
@@ -220,7 +221,15 @@ func (s *AuthService) Me(ctx context.Context, userID uuid.UUID) (*domain.User, e
 	if !user.IsActive {
 		return nil, domain.Unauthorized("akun ini sedang dinonaktifkan")
 	}
-	return user, nil
+
+	// Hak akses efektif ikut dikirim: sidebar dan penjaga rute di frontend
+	// membacanya dari sini. Tanpa itu, seluruh menu tersaring habis dan yang
+	// terlihat adalah sidebar kosong melompong.
+	role, err := s.roles.Get(ctx, s.pool, user.Role)
+	if err != nil {
+		return nil, err
+	}
+	return withRole(user, *role), nil
 }
 
 func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
@@ -253,8 +262,18 @@ func (s *AuthService) issueSession(ctx context.Context, user *domain.User, userA
 }
 
 func (s *AuthService) issueSessionTx(ctx context.Context, q db.Querier, user *domain.User, userAgent, ipAddress string) (*Session, error) {
+	// Wewenang dan daftar menu ikut ditanam di dalam token supaya middleware
+	// tidak perlu menyentuh database tiap request. Konsekuensinya perubahan
+	// role baru terasa saat token berikutnya terbit — karena itu RoleService
+	// dan UserService mencabut sesi begitu haknya berubah.
+	role, err := s.roles.Get(ctx, q, user.Role)
+	if err != nil {
+		return nil, err
+	}
+	withRole(user, *role)
+
 	accessToken, expiresAt, err := s.tokens.IssueAccessToken(
-		user.ID, user.Email, user.Role, domain.EffectivePermissions(user.Role, user.Permissions))
+		user.ID, user.Email, user.Role, role.Scope, user.EffectivePermissions)
 	if err != nil {
 		return nil, domain.Internal(err)
 	}
@@ -282,10 +301,26 @@ func (s *AuthService) issueSessionTx(ctx context.Context, q db.Querier, user *do
 type UserService struct {
 	pool  *pgxpool.Pool
 	users *repository.UserRepo
+	roles *repository.RoleRepo
 }
 
-func NewUserService(pool *pgxpool.Pool, users *repository.UserRepo) *UserService {
-	return &UserService{pool: pool, users: users}
+func NewUserService(pool *pgxpool.Pool, users *repository.UserRepo, roles *repository.RoleRepo) *UserService {
+	return &UserService{pool: pool, users: users, roles: roles}
+}
+
+// withRole mengisi label role dan hak akses efektif sebuah pengguna.
+//
+// Perhitungannya dikerjakan di service, bukan di handler, karena daftar menu
+// sebuah role sekarang tinggal di database — dan handler tidak punya jalan ke
+// sana. Antarmuka cukup membaca hasilnya; kalau tidak, aturan penggabungan yang
+// sama harus ditulis ulang di frontend dan cepat atau lambat keduanya berbeda.
+func withRole(user *domain.User, role domain.Role) *domain.User {
+	if user == nil {
+		return nil
+	}
+	user.RoleLabel = role.Label
+	user.EffectivePermissions = domain.EffectivePermissions(role.Name, role.Permissions, user.Permissions)
+	return user
 }
 
 type CreateUserInput struct {
@@ -298,10 +333,9 @@ type CreateUserInput struct {
 }
 
 func (s *UserService) Create(ctx context.Context, in CreateUserInput) (*domain.User, error) {
-	if !domain.IsValidRole(in.Role) {
-		return nil, domain.Validation("role tidak dikenal", map[string]string{
-			"role": "pilih salah satu: owner, admin, tripper",
-		})
+	role, err := s.requireRole(ctx, in.Role)
+	if err != nil {
+		return nil, err
 	}
 
 	hashed, err := HashPassword(in.Password)
@@ -309,27 +343,70 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (*domain.U
 		return nil, err
 	}
 
-	permissions, err := sanitizePermissions(in.Role, in.Permissions)
+	permissions, err := sanitizePermissions(*role, in.Permissions)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.users.Create(ctx, s.pool, repository.CreateUserParams{
+	user, err := s.users.Create(ctx, s.pool, repository.CreateUserParams{
 		Name:         strings.TrimSpace(in.Name),
 		Email:        strings.ToLower(strings.TrimSpace(in.Email)),
 		PasswordHash: hashed,
-		Role:         in.Role,
+		Role:         role.Name,
 		Phone:        in.Phone,
 		Permissions:  permissions,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return withRole(user, *role), nil
+}
+
+// requireRole memastikan role yang diminta benar-benar ada.
+//
+// Dulu daftarnya tertutup di kode dan cukup dicocokkan dengan tiga nama; kini
+// role adalah data, jadi yang menentukan sah atau tidaknya adalah isi tabelnya.
+func (s *UserService) requireRole(ctx context.Context, name string) (*domain.Role, error) {
+	role, err := s.roles.Get(ctx, s.pool, strings.TrimSpace(name))
+	if err != nil {
+		if domainErr, ok := domain.AsError(err); ok && domainErr.Code == domain.CodeNotFound {
+			return nil, domain.Validation("role tidak dikenal", map[string]string{
+				"role": "pilih role yang tersedia di daftar",
+			})
+		}
+		return nil, err
+	}
+	return role, nil
 }
 
 func (s *UserService) List(ctx context.Context, p pagination.Params) ([]domain.User, int64, error) {
-	return s.users.List(ctx, s.pool, p)
+	users, total, err := s.users.List(ctx, s.pool, p)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Seluruh role diambil sekali, bukan satu query per baris untuk daftar menu
+	// yang itu-itu juga.
+	roles, err := s.roles.Map(ctx, s.pool)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range users {
+		withRole(&users[i], roles[users[i].Role])
+	}
+	return users, total, nil
 }
 
 func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	return s.users.GetByID(ctx, s.pool, id)
+	user, err := s.users.GetByID(ctx, s.pool, id)
+	if err != nil {
+		return nil, err
+	}
+	role, err := s.roles.Get(ctx, s.pool, user.Role)
+	if err != nil {
+		return nil, err
+	}
+	return withRole(user, *role), nil
 }
 
 type UpdateUserInput struct {
@@ -348,7 +425,7 @@ type UpdateUserInput struct {
 // mempersempitnya, tidak pernah melebarkan. Tanpa penyaringan ini, seorang
 // tripper bisa diberi menu pengaturan hanya dengan mengirim permintaan yang
 // dirakit sendiri.
-func sanitizePermissions(role string, requested []string) ([]string, error) {
+func sanitizePermissions(role domain.Role, requested []string) ([]string, error) {
 	if len(requested) == 0 {
 		return nil, nil
 	}
@@ -361,7 +438,7 @@ func sanitizePermissions(role string, requested []string) ([]string, error) {
 		}
 	}
 
-	effective := domain.EffectivePermissions(role, requested)
+	effective := domain.EffectivePermissions(role.Name, role.Permissions, requested)
 	if len(effective) == 0 {
 		return nil, domain.Validation("hak akses tidak sesuai role", map[string]string{
 			"permissions": "tidak ada satu pun menu yang boleh dibuka role ini",
@@ -371,10 +448,9 @@ func sanitizePermissions(role string, requested []string) ([]string, error) {
 }
 
 func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInput) (*domain.User, error) {
-	if !domain.IsValidRole(in.Role) {
-		return nil, domain.Validation("role tidak dikenal", map[string]string{
-			"role": "pilih salah satu: owner, admin, tripper",
-		})
+	role, err := s.requireRole(ctx, in.Role)
+	if err != nil {
+		return nil, err
 	}
 
 	current, err := s.users.GetByID(ctx, s.pool, id)
@@ -382,26 +458,34 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInp
 		return nil, err
 	}
 
-	// Owner terakhir tidak boleh diturunkan perannya atau dinonaktifkan, karena
-	// setelah itu tidak ada lagi yang bisa mengelola pengguna.
-	if current.Role == domain.RoleOwner && (in.Role != domain.RoleOwner || !in.IsActive) {
-		remaining, err := s.users.CountActiveOwners(ctx, s.pool, id)
-		if err != nil {
-			return nil, err
-		}
-		if remaining == 0 {
-			return nil, domain.Conflict("tidak bisa mengubah owner terakhir, angkat owner lain terlebih dahulu")
-		}
-	}
-
-	permissions, err := sanitizePermissions(in.Role, in.Permissions)
+	permissions, err := sanitizePermissions(*role, in.Permissions)
 	if err != nil {
 		return nil, err
 	}
 
+	// Akun terakhir yang masih bisa membuka menu Pengguna tidak boleh
+	// kehilangan menunya atau dinonaktifkan: menu itu satu-satunya jalan
+	// mengembalikan hak akses siapa pun, dan sekali hilang pemulihannya cuma
+	// lewat database.
+	//
+	// Yang diperiksa daftar menunya, bukan nama rolenya. Sejak role jadi data,
+	// "yang bisa mengelola pengguna" tidak lagi berarti "yang bernama owner".
+	tetapMengelola := in.IsActive && domain.HasPermission(
+		domain.EffectivePermissions(role.Name, role.Permissions, permissions), domain.PermUsers)
+	if !tetapMengelola {
+		remaining, err := s.users.CountActiveUserManagers(ctx, s.pool, id)
+		if err != nil {
+			return nil, err
+		}
+		if remaining == 0 {
+			return nil, domain.Conflict(
+				"ini akun terakhir yang bisa mengelola pengguna — beri akses itu ke akun lain terlebih dahulu")
+		}
+	}
+
 	updated, err := s.users.Update(ctx, s.pool, id, repository.UpdateUserParams{
 		Name:        strings.TrimSpace(in.Name),
-		Role:        in.Role,
+		Role:        role.Name,
 		Phone:       in.Phone,
 		IsActive:    in.IsActive,
 		Permissions: permissions,
@@ -419,7 +503,7 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, in UpdateUserInp
 			return nil, err
 		}
 	}
-	return updated, nil
+	return withRole(updated, *role), nil
 }
 
 func permissionsChanged(before, after *domain.User) bool {
@@ -458,13 +542,21 @@ func (s *UserService) Delete(ctx context.Context, id, actorID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	if user.Role == domain.RoleOwner {
-		remaining, err := s.users.CountActiveOwners(ctx, s.pool, id)
+	role, err := s.roles.Get(ctx, s.pool, user.Role)
+	if err != nil {
+		return err
+	}
+
+	// Sama seperti penurunan role: yang dijaga bukan nama rolenya, melainkan
+	// supaya selalu tersisa satu akun yang bisa membuka menu Pengguna.
+	if domain.HasPermission(
+		domain.EffectivePermissions(role.Name, role.Permissions, user.Permissions), domain.PermUsers) {
+		remaining, err := s.users.CountActiveUserManagers(ctx, s.pool, id)
 		if err != nil {
 			return err
 		}
 		if remaining == 0 {
-			return domain.Conflict("tidak bisa menghapus owner terakhir")
+			return domain.Conflict("ini akun terakhir yang bisa mengelola pengguna")
 		}
 	}
 

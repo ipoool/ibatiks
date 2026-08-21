@@ -147,6 +147,7 @@ func run() error {
 // disuntikkan dari satu tempat ini supaya alurnya gampang ditelusuri.
 func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 	userRepo := repository.NewUserRepo()
+	roleRepo := repository.NewRoleRepo()
 	customerRepo := repository.NewCustomerRepo()
 	productRepo := repository.NewProductRepo()
 	tripRepo := repository.NewTripRepo()
@@ -162,8 +163,9 @@ func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 	tokens := token.NewManager(cfg.JWT)
 	renderer := pdf.NewRenderer(cfg.Storage.InvoiceDir)
 
-	authService := service.NewAuthService(pool, userRepo, tokens)
-	userService := service.NewUserService(pool, userRepo)
+	authService := service.NewAuthService(pool, userRepo, roleRepo, tokens)
+	userService := service.NewUserService(pool, userRepo, roleRepo)
+	roleService := service.NewRoleService(pool, roleRepo)
 	customerService := service.NewCustomerService(pool, customerRepo)
 	productService := service.NewProductService(pool, productRepo)
 	fxService := service.NewFXService()
@@ -195,6 +197,7 @@ func buildHandlers(cfg *config.Config, pool *pgxpool.Pool) apihttp.Handlers {
 	return apihttp.Handlers{
 		Auth:      handler.NewAuthHandler(authService),
 		Users:     handler.NewUserHandler(userService),
+		Roles:     handler.NewRoleHandler(roleService),
 		Customers: handler.NewCustomerHandler(customerService),
 		Products:  handler.NewProductHandler(productService),
 		Trips:     handler.NewTripHandler(tripService),

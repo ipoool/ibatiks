@@ -6,37 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
-// Role pengguna back office.
-const (
-	RoleOwner   = "owner"   // akses penuh termasuk laporan keuangan & manajemen user
-	RoleAdmin   = "admin"   // seluruh operasional harian
-	RoleTripper = "tripper" // hanya shopping list dan input realisasi belanja
-)
-
-// AllRoles dipakai middleware untuk endpoint yang boleh diakses siapa saja
-// yang sudah login.
-var AllRoles = []string{RoleOwner, RoleAdmin, RoleTripper}
-
-// StaffRoles adalah role yang boleh mengubah data operasional.
-var StaffRoles = []string{RoleOwner, RoleAdmin}
-
-func IsValidRole(role string) bool {
-	switch role {
-	case RoleOwner, RoleAdmin, RoleTripper:
-		return true
-	default:
-		return false
-	}
-}
-
 type User struct {
 	ID           uuid.UUID `db:"id"            json:"id"`
 	Name         string    `db:"name"          json:"name"`
 	Email        string    `db:"email"         json:"email"`
 	PasswordHash string    `db:"password_hash" json:"-"`
 	Role         string    `db:"role"          json:"role"`
-	Phone        *string   `db:"phone"         json:"phone"`
-	IsActive     bool      `db:"is_active"     json:"is_active"`
+	// RoleLabel adalah nama role yang dibaca orang. Tidak disimpan di baris
+	// pengguna — diisi lapisan service dari tabel roles, supaya daftar
+	// pengguna tidak perlu menerjemahkan sendiri nama pengenal role.
+	RoleLabel string  `db:"-" json:"role_label"`
+	Phone     *string `db:"phone"         json:"phone"`
+	IsActive  bool    `db:"is_active"     json:"is_active"`
 	// Permissions kosong berarti mengikuti bawaan role; lihat permission.go.
 	Permissions []string `db:"permissions" json:"permissions"`
 	// EffectivePermissions adalah hasil gabungan Permissions dengan bawaan
