@@ -148,23 +148,12 @@ step "Barang tiba di Indonesia"
 # Order untuk trip ini ditutup: belanjanya sudah selesai, tinggal dikemas.
 api PATCH "/trips/$TRIP/status" '{"status":"closed"}' >/dev/null
 
-# Diterima sejumlah yang benar-benar dibeli, bukan sejumlah yang dipesan.
-receive_as_purchased() {
-  local order="$1"
-  local items
-  items="$(api GET "/orders/$order" | jq -c '[.data.items[] |
-    {item_id: .id,
-     qty_received: (if .qty_purchased < .qty then .qty_purchased else .qty end),
-     status: (if .qty_purchased == 0 then "unavailable"
-              elif .qty_purchased < .qty then "partial"
-              else "purchased" end)}]')"
-  api POST "/orders/$order/receive" "{\"items\":$items}" >/dev/null
-}
-
-receive_as_purchased "$ORDER_RINA_ID"
-say "Barang order Rina dicocokkan, lengkap"
-receive_as_purchased "$ORDER_BUDI_ID"
-say "Barang order Budi dicocokkan, satu item sebagian"
+# Tidak ada langkah mencocokkan barang lagi. Layar "Cocokkan Barang" dilepas
+# bersama endpoint /orders/{id}/receive: jumlah yang benar-benar dapat sudah
+# tercatat di data pembelian, dan meminta orang mengetiknya ulang berarti satu
+# angka yang sama disimpan dua kali lalu bisa berbeda. Yang ditagih dihitung
+# dari qty_purchased, yang sudah terisi sendiri saat pembelian dicatat.
+say "jumlah yang benar-benar dapat sudah terbaca dari data pembelian"
 
 # --- Order Rina diselesaikan sampai dikirim ---------------------------------
 step "Menyelesaikan order Rina sampai dikirim"
