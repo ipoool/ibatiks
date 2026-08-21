@@ -79,8 +79,13 @@ func NewAuditService(pool *pgxpool.Pool, audit *repository.AuditRepo) *AuditServ
 	return &AuditService{pool: pool, audit: audit}
 }
 
-func (s *AuditService) List(ctx context.Context, p pagination.Params, entity string, entityID *uuid.UUID) ([]domain.AuditLogDetail, int64, error) {
-	return s.audit.List(ctx, s.pool, p, entity, entityID)
+func (s *AuditService) List(ctx context.Context, p pagination.Params, entity string, entityID, userID *uuid.UUID) ([]domain.AuditLogDetail, int64, error) {
+	return s.audit.List(ctx, s.pool, p, entity, entityID, userID)
+}
+
+// Actors mengisi penyaring "akun" pada jejak perubahan.
+func (s *AuditService) Actors(ctx context.Context) ([]domain.AuditActor, error) {
+	return s.audit.Actors(ctx, s.pool)
 }
 
 func mapKeys(m map[string]string) []string {

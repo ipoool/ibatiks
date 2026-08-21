@@ -339,8 +339,11 @@ func NewRouter(d RouterDeps) http.Handler {
 				})
 			})
 
-			private.With(canAccess(domain.PermSettings)).
-				Get("/audit-logs", d.Handlers.Settings.AuditLogs)
+			private.Route("/audit-logs", func(audit chi.Router) {
+				audit.Use(canAccess(domain.PermSettings))
+				audit.Get("/", d.Handlers.Settings.AuditLogs)
+				audit.Get("/actors", d.Handlers.Settings.AuditActors)
+			})
 		})
 	})
 

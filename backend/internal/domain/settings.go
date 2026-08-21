@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,17 +53,27 @@ const (
 )
 
 type AuditLog struct {
-	ID        int64      `db:"id"         json:"id"`
-	UserID    *uuid.UUID `db:"user_id"    json:"user_id"`
-	Entity    string     `db:"entity"     json:"entity"`
-	EntityID  *uuid.UUID `db:"entity_id"  json:"entity_id"`
-	Action    string     `db:"action"     json:"action"`
-	Changes   []byte     `db:"changes"    json:"changes"`
-	IPAddress *string    `db:"ip_address" json:"ip_address"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	ID       int64      `db:"id"         json:"id"`
+	UserID   *uuid.UUID `db:"user_id"    json:"user_id"`
+	Entity   string     `db:"entity"     json:"entity"`
+	EntityID *uuid.UUID `db:"entity_id"  json:"entity_id"`
+	Action   string     `db:"action"     json:"action"`
+	// Changes wajib json.RawMessage, bukan []byte. encoding/json meng-encode
+	// []byte jadi base64, jadi seluruh detail jejak perubahan sampai ke layar
+	// sebagai deretan huruf yang tidak berarti apa-apa bagi siapa pun.
+	Changes   json.RawMessage `db:"changes"    json:"changes"`
+	IPAddress *string         `db:"ip_address" json:"ip_address"`
+	CreatedAt time.Time       `db:"created_at" json:"created_at"`
 }
 
 type AuditLogDetail struct {
 	AuditLog
 	UserName *string `db:"user_name" json:"user_name"`
+}
+
+// AuditActor adalah satu akun yang pernah muncul di jejak perubahan.
+type AuditActor struct {
+	ID       uuid.UUID `db:"id"        json:"id"`
+	Name     string    `db:"name"      json:"name"`
+	LogCount int       `db:"log_count" json:"log_count"`
 }

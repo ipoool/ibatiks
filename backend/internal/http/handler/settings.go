@@ -58,10 +58,30 @@ func (h *SettingsHandler) AuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logs, total, err := h.audit.List(r.Context(), p, r.URL.Query().Get("entity"), entityID)
+	userID, err := request.UUIDQuery(r, "user_id")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	logs, total, err := h.audit.List(r.Context(), p, r.URL.Query().Get("entity"), entityID, userID)
 	if err != nil {
 		response.Error(w, r, err)
 		return
 	}
 	response.Paginated(w, logs, p.Page, p.PerPage, total)
+}
+
+// AuditActors mengisi penyaring "akun" pada jejak perubahan.
+//
+// Dibuat terpisah dari daftar pengguna karena keduanya menjawab pertanyaan yang
+// berbeda — dan dijaga hak akses yang berbeda pula: Jejak Perubahan ada di menu
+// Pengaturan, sedangkan daftar pengguna menuntut menu Pengguna.
+func (h *SettingsHandler) AuditActors(w http.ResponseWriter, r *http.Request) {
+	actors, err := h.audit.Actors(r.Context())
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	response.OK(w, actors)
 }

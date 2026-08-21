@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ListParams } from "@/hooks/use-master";
 import { api, buildQuery } from "@/lib/api";
 import type {
+  AuditActor,
   AuditLog,
   ChannelSales,
   CustomerSales,
@@ -211,9 +212,25 @@ export function useDeleteRole() {
 
 // --- Audit log -------------------------------------------------------------
 
-export function useAuditLogs(params: ListParams & { entity?: string; entity_id?: string }) {
+export function useAuditLogs(
+  params: ListParams & { entity?: string; entity_id?: string; user_id?: string },
+) {
   return useQuery({
     queryKey: ["audit-logs", params],
     queryFn: () => api.list<AuditLog>(`/audit-logs${buildQuery({ ...params })}`),
+  });
+}
+
+/**
+ * Akun yang pernah muncul di jejak perubahan, untuk mengisi penyaringnya.
+ *
+ * Bukan daftar pengguna: akun yang sudah dihapus tetap punya jejak, dan daftar
+ * pengguna dijaga hak akses Pengguna sementara Jejak Perubahan ada di menu
+ * Pengaturan.
+ */
+export function useAuditActors() {
+  return useQuery({
+    queryKey: ["audit-logs", "actors"],
+    queryFn: () => api.get<AuditActor[]>("/audit-logs/actors"),
   });
 }

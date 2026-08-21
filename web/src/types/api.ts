@@ -869,6 +869,13 @@ export interface AuditLog {
   created_at: string;
 }
 
+/** Akun yang pernah muncul di jejak perubahan. */
+export interface AuditActor {
+  id: string;
+  name: string;
+  log_count: number;
+}
+
 export interface UploadResult {
   url: string;
   path: string;

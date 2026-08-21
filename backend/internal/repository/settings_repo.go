@@ -88,10 +88,14 @@ func (r *AuditRepo) Record(ctx context.Context, q db.Querier, p AuditParams) err
 	return err
 }
 
-func (r *AuditRepo) List(ctx context.Context, q db.Querier, p pagination.Params, entity string, entityID *uuid.UUID) ([]domain.AuditLogDetail, int64, error) {
+func (r *AuditRepo) List(ctx context.Context, q db.Querier, p pagination.Params, entity string, entityID, userID *uuid.UUID) ([]domain.AuditLogDetail, int64, error) {
 	conditions := []string{}
 	args := []any{}
 
+	if userID != nil {
+		args = append(args, *userID)
+		conditions = append(conditions, fmt.Sprintf("a.user_id = $%d", len(args)))
+	}
 	if entity != "" {
 		args = append(args, entity)
 		conditions = append(conditions, fmt.Sprintf("a.entity = $%d", len(args)))
@@ -121,4 +125,22 @@ func (r *AuditRepo) List(ctx context.Context, q db.Querier, p pagination.Params,
 		return nil, 0, err
 	}
 	return logs, total, nil
+}
+
+// Actors mengembalikan akun yang benar-benar pernah tercatat di jejak
+// perubahan, untuk mengisi penyaringnya.
+//
+// Bukan daftar pengguna: akun yang sudah dihapus tetap punya jejak, dan tanpa
+// namanya di daftar penyaring barisnya jadi tidak bisa dicari sama sekali.
+// Sebaliknya, akun yang belum pernah mengubah apa pun hanya jadi pilihan yang
+// selalu berujung daftar kosong.
+func (r *AuditRepo) Actors(ctx context.Context, q db.Querier) ([]domain.AuditActor, error) {
+	return collectRows[domain.AuditActor](ctx, q, `
+		SELECT a.user_id AS id, COALESCE(max(u.name), 'Akun terhapus') AS name,
+		       count(*)::int AS log_count
+		FROM audit_logs a
+		LEFT JOIN users u ON u.id = a.user_id
+		WHERE a.user_id IS NOT NULL
+		GROUP BY a.user_id
+		ORDER BY 2 ASC`)
 }
