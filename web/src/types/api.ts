@@ -844,6 +844,8 @@ export interface DashboardSummary {
   recent_orders: Order[];
   upcoming_trips: Trip[];
   top_products: ProductSales[];
+  /** Customer dengan belanja terbesar pada periode yang dipilih. */
+  top_customers: CustomerSales[];
 }
 
 // --- Pengaturan & audit ----------------------------------------------------

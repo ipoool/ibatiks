@@ -24,6 +24,25 @@ export function rentangBulan(bulan: string): Periode {
   return { from: `${bulan}-01`, to: `${bulan}-${String(akhir).padStart(2, "0")}` };
 }
 
+/** Bulan berjalan dalam bentuk "2026-08", bentuk yang dimengerti input bulan. */
+export function bulanIni(): string {
+  const kini = new Date();
+  return `${kini.getFullYear()}-${String(kini.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Nama bulan yang dibaca orang, misalnya "Agustus 2026".
+ *
+ * Dipakai judul yang ikut berubah mengikuti penyaringnya. Judul tetap seperti
+ * "Omzet bulan ini" akan berbohong begitu orang memilih bulan lain, dan angka
+ * yang salah label lebih berbahaya daripada angka yang tidak dijelaskan.
+ */
+export function labelBulan(bulan: string): string {
+  const { from } = rentangBulan(bulan);
+  if (!from) return "sepanjang waktu";
+  return new Date(from).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+}
+
 /**
  * Penyaring bulan untuk laporan.
  *
@@ -32,9 +51,17 @@ export function rentangBulan(bulan: string): Periode {
  * satu tempat. Bulan disimpan di state pemanggil bersama penyaring lainnya;
  * yang dikembalikan lewat onChange sudah berupa rentang tanggal, sebab itu yang
  * dimengerti API.
+ *
+ * bulanAwal mengisi keadaan awalnya. Laporan memulai tanpa penyaring supaya
+ * seluruh riwayat terlihat; Dashboard memulai dari bulan berjalan, sebab yang
+ * ditanyakan orang saat membukanya adalah "bulan ini bagaimana".
  */
-export function useFilterBulan(): { bulan: string; periode: Periode; kendali: React.ReactNode } {
-  const [bulan, setBulan] = useState("");
+export function useFilterBulan(bulanAwal = ""): {
+  bulan: string;
+  periode: Periode;
+  kendali: React.ReactNode;
+} {
+  const [bulan, setBulan] = useState(bulanAwal);
 
   return {
     bulan,

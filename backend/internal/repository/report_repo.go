@@ -560,13 +560,22 @@ type DashboardCounters struct {
 	CustomerCount    int             `db:"customer_count"`
 }
 
-func (r *ReportRepo) DashboardCounters(ctx context.Context, q db.Querier) (*DashboardCounters, error) {
+// DashboardCounters menghitung angka Dashboard untuk sebuah periode.
+//
+// Hanya sebagian angkanya ikut periode: omzet, laba kotor, dan jumlah order.
+// Sisanya menjawab "sekarang bagaimana" — trip yang masih buka, order yang
+// belum selesai, piutang berjalan, nilai stok — dan menyaringnya per bulan
+// hanya akan menghasilkan angka yang tidak berarti apa-apa.
+//
+// from dan to nil berarti tanpa batas periode.
+func (r *ReportRepo) DashboardCounters(ctx context.Context, q db.Querier, from, to *time.Time) (*DashboardCounters, error) {
 	return collectOne[DashboardCounters](ctx, q, "dashboard", `
 		WITH month_orders AS (
 			SELECT id, total
 			FROM orders
 			WHERE status <> 'cancelled'
-			  AND order_date >= date_trunc('month', CURRENT_DATE)
+			  AND ($1::date IS NULL OR order_date >= $1)
+			  AND ($2::date IS NULL OR order_date <= $2)
 		)
 		SELECT
 			-- Trip aktif = yang masih menerima order. Trip yang sudah ditutup
@@ -585,5 +594,6 @@ func (r *ReportRepo) DashboardCounters(ctx context.Context, q db.Querier) (*Dash
 			(SELECT count(*) FROM month_orders)::int AS orders_this_month,
 			(SELECT COALESCE(sum(qty_on_hand * avg_cost_idr), 0) FROM stock_items) AS stock_value,
 			(SELECT COALESCE(sum(qty_on_hand), 0) FROM stock_items)::int AS stock_qty,
-			(SELECT count(*) FROM customers WHERE deleted_at IS NULL)::int AS customer_count`)
+			(SELECT count(*) FROM customers WHERE deleted_at IS NULL)::int AS customer_count`,
+		from, to)
 }

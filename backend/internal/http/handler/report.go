@@ -21,7 +21,18 @@ func NewReportHandler(reports *service.ReportService) *ReportHandler {
 }
 
 func (h *ReportHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
-	summary, err := h.reports.Dashboard(r.Context())
+	from, err := request.DateQuery(r, "from")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+	to, err := request.DateQuery(r, "to")
+	if err != nil {
+		response.Error(w, r, err)
+		return
+	}
+
+	summary, err := h.reports.Dashboard(r.Context(), from, to)
 	if err != nil {
 		response.Error(w, r, err)
 		return

@@ -197,4 +197,8 @@ type DashboardSummary struct {
 	RecentOrders  []OrderListItem `json:"recent_orders"`
 	UpcomingTrips []Trip          `json:"upcoming_trips"`
 	TopProducts   []ProductSales  `json:"top_products"`
+	// TopCustomers memakai kueri laporan Per Customer yang sama, bukan kueri
+	// tersendiri: dua definisi "belanja seorang customer" cepat atau lambat
+	// berbeda, dan angka di Dashboard tidak akan cocok dengan laporannya.
+	TopCustomers []CustomerSales `json:"top_customers"`
 }

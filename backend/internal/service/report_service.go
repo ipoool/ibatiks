@@ -214,8 +214,8 @@ func (s *ReportService) ProductSales(ctx context.Context, limit int, tripID *uui
 }
 
 // Dashboard merangkum kondisi bisnis saat ini untuk halaman depan.
-func (s *ReportService) Dashboard(ctx context.Context) (*domain.DashboardSummary, error) {
-	counters, err := s.reports.DashboardCounters(ctx, s.pool)
+func (s *ReportService) Dashboard(ctx context.Context, from, to *time.Time) (*domain.DashboardSummary, error) {
+	counters, err := s.reports.DashboardCounters(ctx, s.pool, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -236,12 +236,23 @@ func (s *ReportService) Dashboard(ctx context.Context) (*domain.DashboardSummary
 		trips = append(trips, t.Trip)
 	}
 
-	topProducts, err := s.reports.ProductSales(ctx, s.pool, 5, nil, nil, nil)
+	topProducts, err := s.reports.ProductSales(ctx, s.pool, 5, nil, from, to)
 	if err != nil {
 		return nil, err
 	}
 	if topProducts == nil {
 		topProducts = []domain.ProductSales{}
+	}
+
+	// Customer dengan belanja terbesar, memakai kueri laporan Per Customer yang
+	// sama. Urutan bawaannya sudah omzet terbesar lebih dulu.
+	topCustomers, _, err := s.reports.CustomerSales(ctx, s.pool,
+		pagination.Params{Page: 1, PerPage: 5, Order: "desc"}, nil, from, to)
+	if err != nil {
+		return nil, err
+	}
+	if topCustomers == nil {
+		topCustomers = []domain.CustomerSales{}
 	}
 
 	return &domain.DashboardSummary{
@@ -261,5 +272,6 @@ func (s *ReportService) Dashboard(ctx context.Context) (*domain.DashboardSummary
 		RecentOrders:  recentOrders,
 		UpcomingTrips: trips,
 		TopProducts:   topProducts,
+		TopCustomers:  topCustomers,
 	}, nil
 }

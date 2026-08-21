@@ -34,10 +34,18 @@ export const reportKeys = {
     ["reports", "channels", params] as const,
 };
 
-export function useDashboard() {
+/**
+ * Ringkasan Dashboard untuk sebuah periode.
+ *
+ * Hanya sebagian angkanya ikut periode — omzet, laba kotor, jumlah order,
+ * produk terlaris, dan customer dengan belanja terbesar. Sisanya menjawab
+ * "sekarang bagaimana": trip yang masih buka, order yang belum selesai,
+ * piutang berjalan, dan nilai stok.
+ */
+export function useDashboard(periode: { from?: string; to?: string } = {}) {
   return useQuery({
-    queryKey: reportKeys.dashboard,
-    queryFn: () => api.get<DashboardSummary>("/reports/dashboard"),
+    queryKey: [...reportKeys.dashboard, periode],
+    queryFn: () => api.get<DashboardSummary>(`/reports/dashboard${buildQuery({ ...periode })}`),
   });
 }
 

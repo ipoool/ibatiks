@@ -24,6 +24,7 @@ import { ErrorState, PageHeader } from "@/components/ui/page";
 import { StatCard } from "@/components/ui/stat-card";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable, TD, TH, TR } from "@/components/data-table";
+import { bulanIni, labelBulan, useFilterBulan } from "@/components/filter-bulan";
 import { useDashboard } from "@/hooks/use-reports";
 import {
   formatDate,
@@ -34,9 +35,16 @@ import {
 } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { data, isLoading, error } = useDashboard();
+  // Bawaannya bulan berjalan: yang ditanyakan orang saat membuka Dashboard
+  // adalah "bulan ini bagaimana", bukan sepanjang riwayat toko.
+  const { bulan, periode, kendali: filterBulan } = useFilterBulan(bulanIni());
+  const { data, isLoading, error } = useDashboard(periode);
 
   const profit = toNumber(data?.profit_this_month);
+  // Judul kartu ikut menyebutkan periodenya. "Omzet bulan ini" akan berbohong
+  // begitu orang memilih bulan lain, dan angka yang salah label lebih berbahaya
+  // daripada angka yang tidak dijelaskan.
+  const periodeLabel = labelBulan(bulan);
 
   return (
     <>
@@ -44,12 +52,15 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Ringkasan kondisi bisnis jastip kamu hari ini"
         actions={
-          <Button asChild>
-            <Link href="/orders/new">
-              <Receipt />
-              Catat Order
-            </Link>
-          </Button>
+          <>
+            {filterBulan}
+            <Button asChild>
+              <Link href="/orders/new">
+                <Receipt />
+                Catat Order
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -78,7 +89,7 @@ export default function DashboardPage() {
             <StatCard
               label="Order berjalan"
               value={formatNumber(data?.open_orders)}
-              hint={`${formatNumber(data?.orders_this_month)} order bulan ini`}
+              hint={`${formatNumber(data?.orders_this_month)} order ${periodeLabel}`}
               icon={Receipt}
               isLoading={isLoading}
             />
@@ -102,13 +113,13 @@ export default function DashboardPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StatCard
-              label="Omzet bulan ini"
+              label={`Omzet ${periodeLabel}`}
               value={formatIDR(data?.revenue_this_month)}
               icon={Wallet}
               isLoading={isLoading}
             />
             <StatCard
-              label="Laba kotor bulan ini"
+              label={`Laba kotor ${periodeLabel}`}
               value={formatIDR(data?.profit_this_month)}
               hint="Omzet dikurangi HPP barang yang sudah dibeli"
               icon={TrendingUp}
@@ -233,6 +244,76 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Customer belanja terbanyak</CardTitle>
+              <CardAction>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/reports">Lihat laporan</Link>
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={5}
+                isLoading={isLoading}
+                isEmpty={!isLoading && (data?.top_customers?.length ?? 0) === 0}
+                emptyTitle="Belum ada belanja"
+                emptyDescription={`Belum ada order tercatat ${periodeLabel}.`}
+                head={
+                  <TR>
+                    <TH>Customer</TH>
+                    <TH className="hidden text-right sm:table-cell">Order</TH>
+                    <TH className="hidden text-right lg:table-cell">Rata-rata</TH>
+                    <TH className="text-right">Total belanja</TH>
+                    <TH className="hidden text-right sm:table-cell">Sisa tagihan</TH>
+                  </TR>
+                }
+              >
+                {data?.top_customers?.map((customer) => (
+                  <TR key={customer.customer_id}>
+                    <TD className="whitespace-normal">
+                      {/* Menautkan ke daftar customer dengan kata kuncinya,
+                          sama seperti laporan Per Customer. */}
+                      <Link
+                        href={`/customers?q=${encodeURIComponent(customer.customer_code)}`}
+                        className="font-medium hover:underline"
+                      >
+                        {customer.customer_name}
+                      </Link>
+                      <p className="text-xs text-muted-foreground">
+                        {customer.customer_code}
+                      </p>
+                      {/* Jumlah order menyusul nama saat kolomnya disembunyikan:
+                          tanpa itu, angka belanja berdiri tanpa konteks. */}
+                      <p className="text-xs text-muted-foreground sm:hidden">
+                        {formatNumber(customer.order_count)} order
+                      </p>
+                    </TD>
+                    <TD className="tabular hidden text-right sm:table-cell">
+                      {formatNumber(customer.order_count)}
+                    </TD>
+                    <TD className="tabular hidden text-right text-muted-foreground lg:table-cell">
+                      {formatIDR(customer.avg_order_value)}
+                    </TD>
+                    <TD className="tabular text-right font-medium">
+                      {formatIDR(customer.revenue)}
+                    </TD>
+                    <TD
+                      className={`tabular hidden text-right sm:table-cell ${
+                        toNumber(customer.outstanding) > 0
+                          ? "text-amber-600"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {formatIDR(customer.outstanding)}
+                    </TD>
+                  </TR>
+                ))}
+              </DataTable>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Produk terlaris</CardTitle>
             </CardHeader>
             <CardContent>
@@ -241,7 +322,7 @@ export default function DashboardPage() {
                 isLoading={isLoading}
                 isEmpty={!isLoading && (data?.top_products?.length ?? 0) === 0}
                 emptyTitle="Belum ada penjualan"
-                emptyDescription="Angka akan muncul setelah ada order yang tercatat."
+                emptyDescription={`Belum ada penjualan tercatat ${periodeLabel}.`}
                 head={
                   <TR>
                     <TH>Produk</TH>
