@@ -7,6 +7,12 @@ package domain
 // data. Daftar menu sebuah role tinggal di tabel roles; centang per pengguna
 // di users.permissions hanya boleh mempersempitnya.
 const (
+	// PermDashboard dipisah dari PermReports walaupun isinya datang dari
+	// endpoint laporan yang sama. Tanpa pemisahan itu, memberi seseorang
+	// ringkasan harian berarti sekaligus membuka rekap piutang, penjualan per
+	// customer, dan performa produk — dan mencabut Dashboard dari orang yang
+	// memang perlu membuka Laporan jadi mustahil.
+	PermDashboard    = "dashboard"
 	PermTrips        = "trips"
 	PermShoppingList = "shopping_list"
 	PermPurchases    = "purchases"
@@ -37,6 +43,7 @@ const (
 // AllPermissions dipakai antarmuka pengaturan untuk menampilkan pilihannya,
 // dan dipakai role root sebagai isinya.
 var AllPermissions = []string{
+	PermDashboard,
 	PermTrips, PermShoppingList, PermPurchases,
 	PermOrders, PermInvoices, PermShipments,
 	PermCustomers, PermProducts, PermStock,
@@ -66,6 +73,7 @@ func legacyRolePermissions(role string) []string {
 		return append([]string(nil), AllPermissions...)
 	case RoleAdmin:
 		return []string{
+			PermDashboard,
 			PermTrips, PermShoppingList, PermPurchases,
 			PermOrders, PermInvoices, PermShipments,
 			PermCustomers, PermProducts, PermStock, PermReports,

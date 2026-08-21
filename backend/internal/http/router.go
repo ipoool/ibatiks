@@ -302,12 +302,21 @@ func NewRouter(d RouterDeps) http.Handler {
 			})
 
 			private.Route("/reports", func(reports chi.Router) {
-				reports.Use(staffOnly, canAccess(domain.PermReports))
-				reports.Get("/dashboard", d.Handlers.Reports.Dashboard)
-				reports.Get("/receivables", d.Handlers.Reports.Receivables)
-				reports.Get("/products", d.Handlers.Reports.ProductSales)
-				reports.Get("/customers", d.Handlers.Reports.CustomerSales)
-				reports.Get("/channels", d.Handlers.Reports.ChannelSales)
+				reports.Use(staffOnly)
+
+				// Dashboard menumpang endpoint laporan, tapi hak aksesnya
+				// sendiri: ringkasan harian bisa diberikan tanpa sekaligus
+				// membuka rekap piutang dan penjualan per customer.
+				reports.With(canAccess(domain.PermDashboard)).
+					Get("/dashboard", d.Handlers.Reports.Dashboard)
+
+				reports.Group(func(laporan chi.Router) {
+					laporan.Use(canAccess(domain.PermReports))
+					laporan.Get("/receivables", d.Handlers.Reports.Receivables)
+					laporan.Get("/products", d.Handlers.Reports.ProductSales)
+					laporan.Get("/customers", d.Handlers.Reports.CustomerSales)
+					laporan.Get("/channels", d.Handlers.Reports.ChannelSales)
+				})
 
 				// Laporan laba-rugi punya hak aksesnya sendiri.
 				//
@@ -315,7 +324,7 @@ func NewRouter(d RouterDeps) http.Handler {
 				// punya menu Laporan tetap melihat tab Profit / Loss lalu
 				// dibalas 403 — yang terbaca laba nol rupiah, bukan penolakan.
 				reports.Group(func(financial chi.Router) {
-					financial.Use(canAccess(domain.PermReportsFinance))
+					financial.Use(canAccess(domain.PermReports), canAccess(domain.PermReportsFinance))
 					financial.Get("/profit", d.Handlers.Reports.TripProfit)
 					financial.Get("/orders", d.Handlers.Reports.OrderProfits)
 				})

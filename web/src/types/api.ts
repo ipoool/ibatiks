@@ -69,6 +69,8 @@ export interface RoleList {
 
 /** Hak akses per menu; nilainya sama persis dengan yang dipakai backend. */
 export type Permission =
+  /** Ringkasan harian; terpisah dari "reports" walau datanya dari sana. */
+  | "dashboard"
   | "trips"
   | "shopping_list"
   | "purchases"

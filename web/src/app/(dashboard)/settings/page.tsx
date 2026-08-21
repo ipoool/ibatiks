@@ -284,6 +284,7 @@ function SettingsForm({
 }
 
 const PERMISSION_LABEL: Record<Permission, string> = {
+  dashboard: "Dashboard",
   trips: "Trip",
   shopping_list: "Daftar Belanja",
   purchases: "Pembelian",
@@ -360,6 +361,13 @@ function RoleManagement({
 
   const semuaMenu = data?.options.permissions ?? [];
   const menuLapangan = data?.options.field_permissions ?? [];
+
+  // Urutan yang ditampilkan mengikuti daftar menu aplikasi, bukan urutan
+  // tersimpan di kolomnya. Menu yang ditambahkan lewat migrasi menempel di
+  // ekor array, dan tanpa ini urutan yang terbaca ikut bergantung pada cara
+  // baris itu kebetulan terbentuk.
+  const urutMenu = (permissions: Permission[]) =>
+    semuaMenu.filter((menu) => permissions.includes(menu));
 
   // Menu di luar daftar lapangan menuntut wewenang staf di tingkat rute.
   // Membiarkannya tercentang berarti menu yang muncul di sidebar tapi
@@ -461,7 +469,9 @@ function RoleManagement({
             <TD className="whitespace-normal text-sm">
               {role.permissions.length === semuaMenu.length && semuaMenu.length > 0
                 ? "Seluruh menu"
-                : role.permissions.map((p) => PERMISSION_LABEL[p]).join(", ")}
+                : urutMenu(role.permissions)
+                    .map((p) => PERMISSION_LABEL[p])
+                    .join(", ")}
             </TD>
             <TD className="hidden text-sm text-muted-foreground lg:table-cell">
               {role.user_count === 0 ? "belum dipakai" : `${role.user_count} akun`}

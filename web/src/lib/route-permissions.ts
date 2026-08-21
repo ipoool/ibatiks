@@ -13,14 +13,12 @@ import type { Permission } from "@/types/api";
  */
 export const ROUTE_PERMISSIONS: ReadonlyArray<{ prefix: string; permission: Permission }> = [
   /*
-   * Dashboard butuh hak Laporan karena seluruh isinya datang dari satu endpoint
+   * Dashboard punya hak aksesnya sendiri walaupun isinya datang dari endpoint
    * laporan. Tanpa hak itu, halamannya tetap terbuka tapi datanya ditolak, dan
    * yang terbaca adalah deretan angka nol lengkap dengan "Belum ada order" —
    * seolah tokonya kosong, padahal orangnya cuma tidak berhak melihat.
-   *
-   * Kena persis pada tripper, yang hak bawaannya memang tanpa Laporan.
    */
-  { prefix: "/", permission: "reports" },
+  { prefix: "/", permission: "dashboard" },
   { prefix: "/trips", permission: "trips" },
   { prefix: "/shopping-list", permission: "shopping_list" },
   { prefix: "/purchases", permission: "purchases" },
